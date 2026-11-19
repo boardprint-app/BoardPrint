@@ -354,16 +354,18 @@ def probe(pyenv_dir, cache_dir, worker_dir, engine_dir, pack_dirs, run_kind, uv=
             m["run_worker_baseline_seconds"] = time.perf_counter() - t0
             if not r.get("ok") or r["outcome"][0] != "ok":
                 raise RuntimeError(f"ejecutar {baseline_kind}: {r.get('error')}")
-            m["run_today_seconds"] = _run_today(baseline_kind, cache_dir)
+            m["run_today_seconds"] = _run_today(baseline_kind, cache_dir, dirs)
     m["env_mb"] = sum(f.stat().st_size for f in Path(env_dir).rglob("*") if f.is_file()) / 1e6
     return m
 
 
-def _run_today(kind, cache_dir):
-    """Una ejecución de `kind` como hoy: `execution.ProcessWorker` con los paquetes de la app."""
+def _run_today(kind, cache_dir, dirs):
+    """Una ejecución de `kind` como hoy: `execution.ProcessWorker` con los paquetes de `dirs`,
+    los mismos que el trabajador, para que la resta compare el mismo bloque. Antes usaba los
+    paquetes instalados en la app, y en el repo público (sin paquetes que instalar, O20) el
+    bloque no existía."""
     import asyncio
     from pizarra import execution, packs
-    dirs = packs.default_dirs()
     reg = packs.load(dirs, log=lambda _m: None)
     workdir = Path(cache_dir) / "probe-today"
     workdir.mkdir(parents=True, exist_ok=True)
