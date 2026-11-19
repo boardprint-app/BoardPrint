@@ -1,0 +1,10 @@
+id = "numpy_demo"
+name = "Numpy (prueba)"
+version = "0.1.0"
+author = "BoardPrint"
+sdk = ">=1.0,<2"
+module = "blocks"
+description = "Paquete de prueba del entorno de paquetes (PLAN_PAQUETES FF 10.1 paso 1): un bloque que importa numpy al registrarse. No va en packs/: no sale en la paleta."
+
+[python]
+dependencies = ["numpy>=2,<3"]

@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest an idea or an improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What would you like BoardPrint to do?
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it belong?
+      description: Domain features usually fit better in a pack than in the core (see CONTRIBUTING.md).
+      options:
+        - Core (board, SDK, agent, execution, installer)
+        - An official pack
+        - A new pack
+        - Not sure
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Sketches, references, standards or examples.

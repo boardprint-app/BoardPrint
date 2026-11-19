@@ -1,0 +1,10 @@
+id = "ui_prueba"
+name = "Interfaz (prueba)"
+version = "0.1.0"
+author = "BoardPrint"
+sdk = ">=1.1,<2"
+module = "blocks"
+description = "Paquete de prueba de la interfaz propia (PLAN_PAQUETES FF 10.5): un bloque con su página en la tarjeta y en el panel, y una acción. No va en packs/: no sale en la paleta."
+
+[ui]
+entry = "ui/index.html"

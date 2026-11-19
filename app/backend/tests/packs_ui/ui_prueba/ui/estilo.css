@@ -1,0 +1,5 @@
+body { padding: 2px 0; }
+#botones { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+#botones label { width: 100%; }
+#botones input { width: 70px; }
+#log { margin: 4px 0 0; white-space: pre-wrap; font-size: 11px; }

@@ -1,0 +1,33 @@
+{
+  "name": "pizarra-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/copy-fonts.mjs && node scripts/copy-occt.mjs && node scripts/build-packs.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-fonts.mjs && node scripts/copy-occt.mjs && node scripts/build-packs.mjs",
+    "build": "tsc -b && node scripts/tsc-packs.mjs && vite build && node scripts/check-no-cdn.mjs",
+    "typecheck": "tsc -b --noEmit && node scripts/tsc-packs.mjs",
+    "build:packs": "node scripts/build-packs.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.0",
+    "occt-import-js": "0.0.23",
+    "perfect-freehand": "1.2.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/three": "0.186.0",
+    "@vitejs/plugin-react": "4.4.1",
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vitest": "3.1.4"
+  }
+}

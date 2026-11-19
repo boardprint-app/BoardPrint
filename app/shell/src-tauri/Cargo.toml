@@ -1,0 +1,20 @@
+[package]
+name = "pizarra-shell"
+version = "0.1.0"
+description = "Shell de escritorio de la pizarra (docs/PLAN_PIZARRA.md §1)"
+edition = "2021"
+license = "Apache-2.0"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-single-instance = "2"
+serde_json = "1"
+toml = "0.8"   # [ventana] de settings.toml (D183); ya lo trae Tauri
+
+[profile.release]
+strip = true
+lto = true

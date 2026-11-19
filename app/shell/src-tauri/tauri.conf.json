@@ -1,0 +1,60 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "BoardPrint",
+  "version": "0.1.0",
+  "identifier": "dev.boardprint.desktop",
+  "build": {
+    "frontendDist": "../loading"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg"],
+    "category": "DeveloperTool",
+    "shortDescription": "Pizarra de ingeniería con agentes",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/pizarra-backend"],
+    "fileAssociations": [
+      {
+        "ext": ["bppack"],
+        "name": "Paquete de BoardPrint",
+        "description": "Paquete de bloques de BoardPrint",
+        "role": "Viewer"
+      }
+    ],
+    "resources": {
+      "../../../engine/pizarra_engine/__init__.py": "engine/pizarra_engine/__init__.py",
+      "../../../engine/pizarra_engine/core/*.py": "engine/pizarra_engine/core/",
+      "pyenv/": "pyenv/",
+      "../../backend/boardprint_worker/*.py": "worker/boardprint_worker/",
+      "../../backend/boardprint_sdk/*.py": "worker/boardprint_sdk/",
+      "../../backend/pizarra/__init__.py": "worker/pizarra/__init__.py",
+      "../../backend/pizarra/packs.py": "worker/pizarra/packs.py",
+      "../../backend/pizarra/pack_data.py": "worker/pizarra/pack_data.py",
+      "../../backend/pizarra/pack_versions.py": "worker/pizarra/pack_versions.py",
+      "../../backend/pizarra/pack_validate.py": "worker/pizarra/pack_validate.py",
+      "../../backend/pizarra/files.py": "worker/pizarra/files.py",
+      "../../backend/pizarra/pack_locales.py": "worker/pizarra/pack_locales.py"
+    },
+    "macOS": {
+      "signingIdentity": "-"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Spanish", "English"]
+      }
+    }
+  }
+}

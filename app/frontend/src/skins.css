@@ -1,0 +1,134 @@
+/* Variables de cada skin (plan D58, D79), con `data-skin` en <html> (src/skins.ts). Valores del
+   prototipo de FF 3.4 (docs/prototipos/pizarra.html). Escuela es la de referencia; las otras
+   cuatro existen desde ya y se pulen antes de publicar.
+
+   Pizarra:   --board-bg (fondo, puede ser un degradado), --board-solid (liso), --board-frame
+              (marco), --ink / --ink-soft / --ink-line (texto y líneas sobre la pizarra).
+   Papel:     --paper, --paper-fg, --paper-muted, --paper-shadow, --postit, --postit-warn,
+              --tape, --pin, --thumb-frame, --folder, --folder-edge,
+              --b-err (error de un bloque), --pc-ok / --pc-no (aceptar y descartar).
+   Controles: --ui-bg, --ui-fg, --ui-muted, --ui-line, --ui-hover, --accent, --accent-fg,
+              --focus (lo que flota encima de la pizarra: píldora, menús, barra).
+   Post-it:   --pi-<tipo> (papel), --pi-<tipo>-b (borde), --t-<tipo> (etiqueta), --pi-fg,
+              --pi-bw, --pi-radius, --pi-shadow, --pi-tilt (giro en grados, 0 = recto). */
+
+:root {
+  --f-board: Excalifont, "Segoe Print", "Comic Sans MS", cursive;
+  --f-ui: system-ui, "Segoe UI", Roboto, sans-serif;
+  /* El chat del agente y las cifras (D184): por defecto, la del sistema. Root pone en <html> las
+     de *Ajustes → Avanzados* (fonts.ts), que tapan estas; «sistema» las deja. */
+  --f-chat: system-ui, "Segoe UI", Roboto, sans-serif;
+  --f-num: system-ui, "Segoe UI", Roboto, sans-serif;
+  --tape: rgba(255,255,255,.55);
+  --pin: radial-gradient(circle at 35% 35%, #ff8787, #c92a2a 70%);
+  --folder: #e6ae43;
+  --folder-edge: #c58a2a;
+  --b-err: #c92a2a;           /* error de un bloque sobre el papel */
+  --pc-ok: #2f6b3f; --pc-no: #8a3a2a;   /* aceptar y descartar en el papel, y su sello */
+  /* Post-its: valores de papel en calma; los demás skins los redefinen */
+  --pi-fg: #1e1e1e; --pi-bw: 1px; --pi-radius: 6px; --pi-shadow: none; --pi-tilt: 0;
+  --pi-nota: #ffffff; --pi-sugerencia: #ffffff; --pi-riesgo: #ffffff; --pi-pregunta: #ffffff;
+  --pi-nota-b: #e3cf7a; --pi-sugerencia-b: #9cc3e6; --pi-riesgo-b: #efb98a; --pi-pregunta-b: #c3b2ef;
+  --t-nota: #9a7a00; --t-sugerencia: #1c5d99; --t-riesgo: #b4500b; --t-pregunta: #5f3dc4;
+}
+
+/* Post-its de color: borde del mismo tono */
+[data-skin="escuela"], [data-skin="corcho"], [data-skin="laboratorio"] {
+  --pi-nota-b: #c9a900; --pi-sugerencia-b: #4a8cc7; --pi-riesgo-b: #d9822b; --pi-pregunta-b: #8a6fd6;
+}
+
+/* Controles claros por defecto; los skins oscuros los oscurecen como las islas de Excalidraw. */
+:root {
+  --ui-bg: #ffffff; --ui-fg: #1e1e1e; --ui-muted: #55556a; --ui-line: #dcdce6; --ui-hover: #f1f1f6;
+  --accent: #4a47b8; --accent-fg: #ffffff;
+}
+
+[data-skin="escuela"] {
+  --board-bg: radial-gradient(ellipse at 22% 28%, rgba(255,255,255,.08), transparent 42%),
+    radial-gradient(ellipse at 72% 62%, rgba(255,255,255,.06), transparent 46%),
+    radial-gradient(ellipse at 45% 85%, rgba(255,255,255,.05), transparent 36%), #2e4a3b;
+  --board-solid: #2e4a3b;
+  --board-frame: inset 0 0 0 14px #7a5230, inset 0 0 0 17px #5c3d22, inset 0 0 30px 18px rgba(0,0,0,.35);
+  --ink: #f2efe4; --ink-soft: #c9d3c9; --ink-line: rgba(242,239,228,.55);
+  --paper: #efe6cf; --paper-fg: #2a2116; --paper-muted: #5a4a2e; --paper-shadow: 0 6px 14px rgba(0,0,0,.45);
+  --postit: #fff1a8; --postit-warn: #ffd2a6;
+  --thumb-frame: inset 0 0 0 5px #7a5230;
+  --chalk-btn-bg: #f2efe4; --chalk-btn-fg: #2a2116;
+  --focus: #ffd43b;
+  --ui-bg: #232329; --ui-fg: #e3e3e8; --ui-muted: #a8a8b3; --ui-line: #3d3d45; --ui-hover: #31303b;
+  --accent: #ffd43b; --accent-fg: #1e1e1e;
+  --pi-bw: 0px; --pi-radius: 1px; --pi-shadow: 0 5px 12px rgba(0,0,0,.45); --pi-tilt: -1.2;
+  --pi-nota: #fff1a8; --pi-sugerencia: #cfe6fb; --pi-riesgo: #ffd2a6; --pi-pregunta: #e3d8fb;
+}
+
+[data-skin="corcho"] {
+  --board-bg: radial-gradient(#8a5f36 1px, transparent 1.6px) 0 0/7px 7px,
+    radial-gradient(#d6a978 1px, transparent 1.6px) 3px 4px/9px 9px,
+    radial-gradient(#94653b 1.3px, transparent 1.9px) 5px 2px/13px 13px, #b98a5a;
+  --board-solid: #b98a5a;
+  --board-frame: inset 0 0 0 12px #8b6a43, inset 0 0 0 14px #6b4f2f, inset 0 0 24px 14px rgba(60,35,10,.35);
+  --ink: #2b1d10; --ink-soft: #4a3520; --ink-line: rgba(43,29,16,.5);
+  --paper: #fdfcf8; --paper-fg: #1e1e1e; --paper-muted: #5b5b5b; --paper-shadow: 0 4px 9px rgba(50,25,5,.4);
+  --postit: #fff3a6; --postit-warn: #ffd3a8;
+  --tape: rgba(255,255,255,.6);
+  --thumb-frame: inset 0 0 0 5px #8b6a43;
+  --chalk-btn-bg: #2b1d10; --chalk-btn-fg: #fdfcf8;
+  --focus: #ffffff;
+  --pi-bw: 0px; --pi-radius: 1px; --pi-shadow: 0 5px 10px rgba(50,25,5,.4); --pi-tilt: -1.2;
+  --pi-nota: #fff3a6; --pi-sugerencia: #cfe7fb; --pi-riesgo: #ffd3a8; --pi-pregunta: #e6dafc;
+}
+
+[data-skin="laboratorio"] {
+  --board-bg: linear-gradient(90deg, transparent 63px, #e3a3a3 63px, #e3a3a3 65px, transparent 65px),
+    radial-gradient(#c9b994 1.2px, transparent 1.5px) 0 0/20px 20px, #f6f0e1;
+  --board-solid: #f6f0e1;
+  --board-frame: none;
+  --ink: #233a6b; --ink-soft: #4a5a7a; --ink-line: rgba(35,58,107,.45);
+  --paper: #ffffff; --paper-fg: #1e1e1e; --paper-muted: #5b5b5b; --paper-shadow: 0 2px 7px rgba(80,60,20,.22);
+  --postit: #fbefb7; --postit-warn: #f8dcc2;
+  --tape: rgba(200,190,160,.5);
+  --thumb-frame: inset 0 0 0 1px rgba(35,58,107,.35);
+  --chalk-btn-bg: #233a6b; --chalk-btn-fg: #ffffff;
+  --focus: #c92a2a;
+  --accent: #233a6b;
+  --pi-bw: 0px; --pi-radius: 0px; --pi-shadow: 0 2px 6px rgba(80,60,20,.2); --pi-tilt: -.9;
+  --pi-nota: #fbefb7; --pi-sugerencia: #d6e8f5; --pi-riesgo: #f8dcc2; --pi-pregunta: #e6def5;
+}
+
+[data-skin="cad"] {
+  --board-bg: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px) 0 0/24px 24px,
+    radial-gradient(ellipse at 50% 0%, #3a3e45, #24272c 70%);
+  --board-solid: #2b2e33;
+  --board-frame: none;
+  --ink: #d6dae0; --ink-soft: #9aa3ad; --ink-line: rgba(214,218,224,.4);
+  --paper: #2f3338; --paper-fg: #e6e8eb; --paper-muted: #9aa3ad; --paper-shadow: 0 4px 14px rgba(0,0,0,.35);
+  --postit: #4a4632; --postit-warn: #4d3b2a;
+  --tape: rgba(255,255,255,.12);
+  --pin: radial-gradient(circle at 35% 35%, #b4c0ff, #5a57d6 70%);
+  --thumb-frame: inset 0 0 0 1px #4b525b;
+  --chalk-btn-bg: #5a57d6; --chalk-btn-fg: #ffffff;
+  --focus: #8ea2ff;
+  --ui-bg: #232329; --ui-fg: #e3e3e8; --ui-muted: #a8a8b3; --ui-line: #3d3d45; --ui-hover: #31303b;
+  --accent: #8ea2ff; --accent-fg: #1e1e1e;
+  --pi-fg: #e6e8eb;
+  --b-err: #ff8787;
+  --pc-ok: #8ce99a; --pc-no: #ffa8a8;
+  --pi-nota: #3a3627; --pi-sugerencia: #26333f; --pi-riesgo: #3d3024; --pi-pregunta: #2f2a40;
+  --pi-nota-b: #ffd43b; --pi-sugerencia-b: #4dabf7; --pi-riesgo-b: #ff922b; --pi-pregunta-b: #9775fa;
+  --t-nota: #ffd43b; --t-sugerencia: #74c0fc; --t-riesgo: #ffa94d; --t-pregunta: #b197fc;
+}
+
+[data-skin="calma"] {
+  --board-bg: #f5f4f0;
+  --board-solid: #f5f4f0;
+  --board-frame: none;
+  --ink: #2b2b2b; --ink-soft: #6b6a66; --ink-line: rgba(43,43,43,.35);
+  --paper: #ffffff; --paper-fg: #1e1e1e; --paper-muted: #6b6a66; --paper-shadow: 0 1px 4px rgba(0,0,0,.14);
+  --postit: #fff9db; --postit-warn: #fff4e6;
+  --tape: rgba(0,0,0,.07);
+  --pin: radial-gradient(circle at 35% 35%, #9b98f0, #4a47b8 70%);
+  --thumb-frame: inset 0 0 0 1px #d9d6cf;
+  --chalk-btn-bg: #4a47b8; --chalk-btn-fg: #ffffff;
+  --focus: #4a47b8;
+}

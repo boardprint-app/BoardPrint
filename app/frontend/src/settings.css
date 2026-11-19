@@ -1,0 +1,137 @@
+/* La ventana Ajustes (PLAN_PAQUETES P78): la interfaz de la app (`--ui-*` del skin), como el
+   panel de Traer, por encima de todo lo de la pizarra. */
+.st-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px;
+  background: rgba(20, 20, 24, .55); }
+.st { width: min(980px, 100%); height: min(86vh, 820px); display: flex; flex-direction: column;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .35); font: 13px/1.45 var(--f-ui); box-sizing: border-box; }
+.st-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px 12px; border-bottom: 1px solid var(--ui-line); }
+.st-head h2 { margin: 0; flex: 1; font-size: 17px; }
+.st-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 170px 1fr; }
+.st-nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; border-right: 1px solid var(--ui-line); }
+.st-tab { text-align: left; padding: 8px 12px; border: 0; border-radius: 6px; background: transparent;
+  color: inherit; font: 600 13px var(--f-ui); cursor: pointer; }
+.st-tab:hover { background: var(--ui-hover); }
+.st-tab.on { background: var(--ui-hover); box-shadow: inset 3px 0 0 var(--accent); }
+.st-content { min-height: 0; overflow-y: auto; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+.st-bar { display: flex; align-items: center; gap: 12px; }
+.st-bar h3 { margin: 0; flex: 1; font-size: 15px; }
+.st-busy { margin: 0; color: var(--ui-muted); }
+.st-info { margin: 0; padding: 6px 10px; border-radius: 6px; background: var(--ui-hover); overflow-wrap: anywhere; }
+.st-content .pull-error { margin: 0; }
+
+.st-packs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.st-pack, .st-item { border: 1px solid var(--ui-line); border-radius: 8px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 4px; }
+.st-broken { border-color: var(--b-err); }
+.st-pack-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 28px; }
+.st-pack-head b { font-size: 14px; }
+.st-ver { color: var(--ui-muted); font-variant-numeric: tabular-nums; }
+.st-file { color: var(--ui-muted); overflow-wrap: anywhere; }
+.st-badge { padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; border: 1px solid var(--ui-line); }
+.st-o-workspace { border-color: var(--accent); }
+.st-o-desarrollo { border-style: dashed; }
+.st-actions { margin-left: auto; display: flex; gap: 6px; }
+.st-meta { color: var(--ui-muted); font-size: 12px; overflow-wrap: anywhere; }
+.st-desc { margin: 0; }
+.st-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.st-chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--ui-hover); font-size: 12px; }
+.st-chip-warn, .st-r-no { box-shadow: inset 0 0 0 1px var(--b-err); }
+.st-note { margin: 0; color: var(--ui-muted); }
+.st-pack .pull-error, .st-item .pull-error { margin: 2px 0 0; }
+.st-confirm { margin-top: 6px; padding: 10px 12px; border-radius: 6px; background: var(--ui-hover); }
+.st-confirm p { margin: 0 0 8px; }
+.st-row-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.st-danger { background: var(--b-err); color: #ffffff; border-color: transparent; }
+.st-danger:hover:not(:disabled) { background: var(--b-err); filter: brightness(1.1); }
+.st-empty { padding: 18px; border: 1px dashed var(--ui-line); border-radius: 8px; }
+.st-empty p { margin: 0 0 6px; }
+
+.st-summary { display: flex; flex-direction: column; gap: 10px; }
+.st-summary h4 { margin: 0; font-size: 14px; }
+.st-warn { padding: 10px 12px; border-radius: 8px; border-left: 4px solid #e8590c; background: var(--ui-hover); }
+.st-target { margin: 0; padding: 8px 12px 10px; border: 1px solid var(--ui-line); border-radius: 8px;
+  display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.st-target legend { padding: 0 6px; color: var(--ui-muted); }
+.st-target label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; min-width: 0; }
+.st-target input { margin-top: 3px; }
+.st-target small { display: block; color: var(--ui-muted); overflow-wrap: anywhere; }
+.st-line { margin: 0; display: grid; grid-template-columns: 76px 1fr; align-items: baseline; gap: 6px; }
+.st-line > span:first-child { color: var(--ui-muted); }
+.st-val { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.st-problems { margin: 4px 0 0; padding-left: 18px; color: var(--b-err); }
+.st-breaks { padding: 10px 12px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--b-err); }
+.st-breaks ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* Las pestañas de FF 4.7 (D179): una fila por ajuste, el título y su nota a la izquierda, el
+   control a la derecha y el error debajo, a todo lo ancho. Todas montadas; se ve una. */
+.st-content[hidden] { display: none; }
+.st-intro { margin: 0; color: var(--ui-muted); }
+.st-row { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(0, 3fr); gap: 6px 20px;
+  align-items: start; padding: 12px 8px; margin: 0 -6px; border-bottom: 1px solid var(--ui-line); border-radius: 6px; }
+/* (el margen negativo deja el texto donde estaba y aire dentro del marco del parpadeo) */
+.st-row:last-child { border-bottom: 0; }
+.st-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 4px; }
+.st-row-title { font-weight: 600; }
+.st-row-hint { color: var(--ui-muted); font-size: 12px; overflow-wrap: anywhere; }
+.st-row-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.st-row-error { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; }
+/* La fila pedida con `openSettings(pestaña, fila)`: parpadea una vez, medio segundo (D144,
+   D187; `BLINK_MS` de settings.ts la pone en `--st-hl-ms`). */
+.st-row.st-hl { animation: st-hl var(--st-hl-ms, 500ms) ease-in-out 1; }
+@keyframes st-hl {
+  0%, 100% { background: transparent; box-shadow: none; }
+  35%, 65% { background: color-mix(in srgb, var(--accent) 22%, transparent); box-shadow: inset 0 0 0 2px var(--accent); }
+}
+.st select, .st input[type="number"], .st input[type="password"], .st-capture { font: 13px var(--f-ui); color: var(--ui-fg); background: var(--ui-bg);
+  border: 1px solid var(--ui-line); border-radius: 6px; padding: 5px 8px; min-height: 30px; box-sizing: border-box; }
+.st select:focus-visible, .st input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.st option { background: var(--ui-bg); color: var(--ui-fg); }
+.st-muted { color: var(--ui-muted); }
+.st-path { font: 12px/1.4 ui-monospace, Consolas, monospace; padding: 4px 8px; border-radius: 6px;
+  background: var(--ui-hover); overflow-wrap: anywhere; max-width: 100%; }
+.st-cloud { margin: 0; width: 100%; box-sizing: border-box; }
+.st-units { display: flex; flex-wrap: wrap; gap: 8px 12px; width: 100%; }
+.st-unit { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--ui-muted); }
+.st-unit select { min-width: 74px; }
+.st-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-presets [aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+.st-skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; width: 100%; }
+.st-skin { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px; text-align: left;
+  border: 1px solid var(--ui-line); border-radius: 8px; background: transparent; color: inherit;
+  font: 600 12.5px var(--f-ui); cursor: pointer; }
+.st-skin:hover { background: var(--ui-hover); }
+.st-skin.on { box-shadow: inset 0 0 0 2px var(--accent); }
+.st-skin small { font-weight: 400; color: var(--ui-muted); }
+.st-skin-sample { width: 100%; height: 44px; border-radius: 5px; }
+.st-switch, .st-money { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; min-height: 30px; }
+.st-switch input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.st-money input { width: 110px; font-variant-numeric: tabular-nums; }
+.st-font-sample { padding: 4px 10px; border: 1px dashed var(--ui-line); border-radius: 6px; white-space: nowrap; }
+.st-kbd { display: inline-block; min-width: 90px; padding: 4px 10px; border: 1px solid var(--ui-line);
+  border-bottom-width: 2px; border-radius: 6px; font: 600 12.5px var(--f-ui); background: var(--ui-hover); text-align: center; }
+.st-kbd.st-none { font-weight: 400; color: var(--ui-muted); background: transparent; border-style: dashed; }
+.st-capture { width: 200px; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+  cursor: default; caret-color: transparent; }
+.st-shortcut + .st-shortcut { border-top: 1px solid var(--ui-line); }
+.st-shortcut .st-row-btns { margin-left: auto; }
+.st-shortcut .st-confirm { margin: 0 0 8px; }
+
+/* El botón de Ajustes en la píldora y en la pantalla de inicio */
+.home-settings { margin-left: 4px; }
+/* Instalar desde el aviso de un paquete que falta (P82), en la caja naranja de los problemas */
+.problems-btn { margin-top: 6px; padding: 3px 10px; border: 1px solid #f08c00; border-radius: 6px;
+  background: #ffffff; color: #7a3d00; font: 600 12px var(--f-ui); cursor: pointer; }
+.problems-btn:hover { background: #ffe8cc; }
+
+@media (max-width: 700px) {
+  .st-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .st-nav { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--ui-line); }
+  .st-actions { margin-left: 0; width: 100%; }
+  .st-nav { overflow-x: auto; }
+  .st-row { grid-template-columns: 1fr; }
+}
+/* El acceso del agente y su clave (PLAN_PUBLICACION O9) */
+.st-access { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.st-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.st-key input { width: 220px; max-width: 100%; font-family: var(--font-numbers, ui-monospace, monospace); }

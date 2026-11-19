@@ -1,0 +1,56 @@
+/* Controles genéricos Gráfica y Vista 2D (GenericControls.tsx, PLAN_PAQUETES §5). Sobre el
+   papel de la tarjeta (`--paper*` del skin) y, en el panel, sobre su fondo (PackPanel le
+   cambia el papel por el de la interfaz). Colores de las curvas de tono medio: se leen sobre
+   papel claro y sobre el oscuro del skin CAD. */
+.gc {
+  --gc-ink: var(--paper-fg); --gc-muted: var(--paper-muted);
+  --gc-line: color-mix(in srgb, var(--paper-fg) 14%, transparent);
+  --gc-1: #1c7ed6; --gc-2: #e8590c; --gc-3: #2f9e44; --gc-4: #ae3ec9; --gc-warn: #c27a00;
+  margin: 2px 0 8px; position: relative;
+}
+.gc figcaption { font-weight: 600; margin: 0 0 2px; color: var(--gc-ink); }
+.gc.stale svg, .gc.stale .gc-legend { opacity: .55; }
+.gc-box-wrap { position: relative; width: 100%; }
+.gc svg { display: block; overflow: visible; font: 10px var(--f-ui); }
+.gc-empty, .gc-bad { color: var(--paper-muted); margin: 4px 0 8px; }
+.gc-bad { color: var(--b-err); }
+
+/* Gráfica */
+.gc-grid { stroke: var(--gc-line); stroke-width: 1; }
+.gc-frame { fill: none; stroke: color-mix(in srgb, var(--gc-ink) 35%, transparent); stroke-width: 1; }
+.gc-tick { fill: var(--gc-muted); }
+.gc-axis { fill: var(--gc-muted); font-weight: 600; }
+.gc-curve { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.gc-c0 { --c: var(--gc-1); } .gc-c1 { --c: var(--gc-2); } .gc-c2 { --c: var(--gc-3); } .gc-c3 { --c: var(--gc-4); }
+.gc-curve { stroke: var(--c); }
+.gc-hover circle { fill: var(--c); }
+.gc-hover line { stroke: var(--gc-muted); stroke-dasharray: 3 2; }
+.gc-hover circle { stroke: var(--paper); stroke-width: 1.5; }
+.gc-read { position: absolute; top: 18px; display: grid; gap: 1px; justify-items: end; padding: 2px 6px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent); border: 1px solid var(--gc-line); border-radius: 4px;
+  font-size: 11px; pointer-events: none; white-space: nowrap; }
+.gc-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; color: var(--gc-muted); font-size: 11px; }
+.gc-legend i, .gc-read i { background: var(--c); display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+/* Vista 2D */
+.gc-it { fill: color-mix(in srgb, var(--gc-ink) 7%, transparent); stroke: color-mix(in srgb, var(--gc-ink) 70%, transparent); stroke-width: 1.2; }
+.gc-it.t-accent { fill: color-mix(in srgb, var(--gc-1) 16%, transparent); stroke: var(--gc-1); }
+.gc-it.t-muted { fill: var(--paper); stroke: color-mix(in srgb, var(--gc-ink) 35%, transparent); stroke-dasharray: 3 2; }
+.gc-it.t-warn { fill: color-mix(in srgb, var(--gc-warn) 18%, transparent); stroke: var(--gc-warn); }
+.gc-line { fill: none; stroke-width: 1.8; }
+.gc-pt { stroke-width: 1.5; fill: var(--gc-ink); }
+.gc-pt.t-accent { fill: var(--gc-1); } .gc-pt.t-warn { fill: var(--gc-warn); } .gc-pt.t-muted { fill: var(--gc-muted); }
+.gc-label { fill: var(--gc-ink); font-size: 10px; }
+.gc-unit { color: var(--gc-muted); font-size: 11px; text-align: right; margin-top: 1px; }
+
+/* Panel genérico (PackPanel): el papel de los controles es el de la interfaz. */
+.pg { --paper: var(--ui-bg); --paper-fg: var(--ui-fg); --paper-muted: var(--ui-muted); --b-field: var(--ui-hover);
+  --b-line: var(--ui-line);
+  flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 18px; padding: 12px 18px 16px; user-select: text; }
+.pg.one { grid-template-columns: minmax(0, 1fr); }
+.pg-col { min-width: 0; }
+.pg-col h3 { margin: 0 0 6px; font-size: 13px; }
+.pg-note { color: var(--ui-muted); margin: 0 0 8px; font-size: 12px; }
+.pg-note.err { color: var(--b-err); }
+@media (max-width: 720px) { .pg { grid-template-columns: 1fr; } }

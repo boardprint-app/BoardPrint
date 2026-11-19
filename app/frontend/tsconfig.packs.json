@@ -1,0 +1,17 @@
+{
+  // Tipos de la interfaz propia de los paquetes del repo (packs/*/ui-src, PLAN_PAQUETES P40):
+  // los paquetes no tienen node_modules, y React y vitest salen de los de este frontend
+  // (scripts/pack-ui.mjs hace lo mismo para Vite).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "react": ["node_modules/@types/react"],
+      "react/*": ["node_modules/@types/react/*"],
+      "react-dom": ["node_modules/@types/react-dom"],
+      "react-dom/*": ["node_modules/@types/react-dom/*"],
+      "vitest": ["node_modules/vitest"]
+    }
+  },
+  "include": ["../../packs/*/ui-src"]
+}

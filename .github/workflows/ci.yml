@@ -1,0 +1,95 @@
+# CI del proyecto.
+#
+# Solo corre lo que no necesita Fusion: el calculo y el generador de brazos son Python puro y
+# tienen sus tests (regla 3 del README). Lo que importa `adsk` se valida a mano en Fusion.
+# El motor no tiene dependencias: todo es biblioteca estandar (tomllib necesita 3.11+). El
+# backend solo instala app/backend/requirements-base.txt.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    # Un push que solo toca documentación no corre nada: los minutos de Actions son limitados
+    # y ningún job lee esos ficheros.
+    paths-ignore: ["docs/**", "**/*.md"]
+  pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    # Solo 3.13: el Python de la app (sidecar y entorno de paquetes). Un segundo Python
+    # duplicaba los minutos sin proteger nada (el de Fusion no es otro de los probados).
+    name: Tests (Python 3.13)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      # Las piezas y los paquetes no van en el repo público: sus pasos solo corren si están.
+      - name: Calculo de piezas
+        if: hashFiles('engine/pizarra_engine/parts/**/*.py') != ''
+        working-directory: engine
+        run: python -m unittest discover -s pizarra_engine/parts -t . -v
+
+      # La carga valida cada paquete (PLAN_PAQUETES P30) y un `[ui] entry` que no está no
+      # pasa: la interfaz de los paquetes (`packs/*/ui/`, no versionada) se compila antes, o
+      # `fusion` no carga y robótica tampoco (P61).
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+
+      - name: Interfaz de los paquetes
+        if: hashFiles('packs/*/pack.toml') != ''
+        working-directory: app/frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:packs
+
+      # Reglas de la pizarra (docs/PLAN_PIZARRA.md §10): sin FastAPI ni el agente, solo las
+      # dependencias ligeras de la lógica (TOML y papelera del almacenamiento).
+      - name: Backend de la pizarra
+        working-directory: app/backend
+        run: |
+          # uv: la prueba del entorno de paquetes de verdad, con numpy (PLAN_PAQUETES P96,
+          # tests/test_entorno_real.py); sin él se salta.
+          python -m pip install -r requirements-base.txt uv
+          python -m unittest discover -s tests -t . -v
+          # Los tests de cada paquete (plan D94), desde su carpeta: pueden abrir una pizarra
+          # con el backend (P65). El generador de brazos va con los de robótica
+          # (packs/robotica/tests, P64) y el árbol de módulos con los de terminales.
+          for t in ../../packs/*/tests; do
+            [ -d "$t" ] || continue
+            python -m unittest discover -s "$t" -t "$t" -v || exit 1
+          done
+
+  frontend:
+    name: Frontend (tipos)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc -p .
+      # la interfaz propia de los paquetes del repo (packs/*/ui-src, PLAN_PAQUETES P40), si hay
+      - run: node scripts/tsc-packs.mjs
+      - run: npm test           # lógica pura de la interfaz y la de los paquetes (vitest, plan §10)

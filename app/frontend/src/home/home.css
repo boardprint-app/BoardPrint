@@ -1,0 +1,172 @@
+/* Pantalla de inicio: una pizarra (plan D63, propuesta A). Todo lo visual sale de las variables
+   del skin elegido (src/skins.css, D58, D79). */
+
+/* Excalifont latina, servida en local (scripts/copy-fonts.mjs, D44). Excalidraw la registra al
+   montarse, pero la pantalla de inicio no monta Excalidraw. Si cambia el nombre del fichero
+   con otra versión de Excalidraw, se cae a las fuentes de detrás. */
+@font-face {
+  font-family: "Excalifont";
+  src: url("/fonts/Excalifont/Excalifont-Regular-a88b72a24fb54c9f94e3b5fdaa7481c9.woff2") format("woff2");
+  unicode-range: U+20-7E, U+A0-FF, U+131, U+152-153, U+2013-2014, U+2018-201E, U+2022, U+2026, U+20AC;
+  font-display: swap;
+}
+
+.home {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 40px 52px 52px;
+  background: var(--board-bg);
+  box-shadow: var(--board-frame);
+  color: var(--ink);
+  font: 15px/1.4 var(--f-ui);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  overflow: auto;
+}
+.home :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.home h1, .home h2, .home .chalk { font-family: var(--f-board); font-weight: 400; margin: 0; }
+.home h1 { font-size: 36px; }
+.home h2 { font-size: 27px; }
+.home .soft { color: var(--ink-soft); font-size: 14px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.home-head { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; }
+.ws-chip { border: 1.5px dashed var(--ink-line); border-radius: 10px; padding: 8px 14px; font-weight: 700; }
+.home-search {
+  margin-left: auto; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
+  border-radius: 10px; background: var(--paper); color: var(--paper-fg); width: 340px; max-width: 100%;
+  box-sizing: border-box; box-shadow: var(--paper-shadow);
+}
+.home-search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: inherit; outline: none; }
+.home-search:focus-within { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+.notice {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; background: var(--postit-warn);
+  color: var(--paper-fg); padding: 14px 18px; box-shadow: var(--paper-shadow); transform: rotate(-.4deg);
+  max-width: 860px;
+}
+.notice p { margin: 0; flex: 1 1 320px; }
+
+.home-cols { display: flex; flex-wrap: wrap; gap: 44px 56px; align-items: flex-start; }
+.home-col { flex: 1 1 500px; min-width: 0; display: flex; flex-direction: column; gap: 22px; }
+
+/* Botones */
+.btn-chalk, .btn-outline, .btn-paper {
+  min-height: 44px; padding: 0 18px; border-radius: 8px; font: 700 15px var(--f-ui); cursor: pointer;
+}
+.btn-chalk { border: 0; background: var(--chalk-btn-bg); color: var(--chalk-btn-fg); }
+.btn-outline { border: 1.5px solid var(--ink-line); background: transparent; color: var(--ink); }
+.btn-paper { border: 0; background: var(--board-solid); color: var(--ink); }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.icon-btn {
+  width: 36px; height: 36px; border-radius: 8px; border: 0; background: transparent; color: inherit;
+  display: grid; place-items: center; cursor: pointer;
+}
+
+/* Tarjeta grande: seguir donde lo dejaste */
+.big-card {
+  position: relative; background: var(--paper); color: var(--paper-fg); border-radius: 2px;
+  box-shadow: var(--paper-shadow); padding: 18px 18px 20px; transform: rotate(-.8deg); max-width: 560px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.tape {
+  position: absolute; top: -12px; left: 50%; width: 110px; height: 24px; margin-left: -55px;
+  background: var(--tape); transform: rotate(2deg); box-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+.big-card .thumb { height: 230px; }
+.big-card-foot { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.big-card h3 { margin: 0; font: 400 26px var(--f-board); }
+.big-card p { margin: 2px 0 0; color: var(--paper-muted); font-size: 14px; }
+.big-card .btn-paper { margin-left: auto; padding: 0 26px; font-size: 16px; }
+
+/* Miniatura de una pizarra (o su dibujo, si aún no tiene) */
+.thumb {
+  position: relative; overflow: hidden; border-radius: 2px; background: var(--board-solid);
+  box-shadow: var(--thumb-frame);
+}
+.thumb img { width: 100%; height: 100%; object-fit: contain; background: var(--board-solid); display: block; }
+.thumb i { position: absolute; display: block; }
+.thumb .b1 { left: 10%; top: 24%; width: 26%; height: 42%; background: var(--paper); }
+.thumb .ar { left: 36%; top: 44%; width: 14%; border-top: 2px solid var(--ink); }
+.thumb .b2 { left: 50%; top: 28%; width: 26%; height: 44%; background: var(--paper); }
+.thumb .pi { left: 80%; top: 16%; width: 13%; height: 24%; background: var(--postit); }
+
+/* Recientes: post-its con chincheta */
+.postits { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 24px 22px; }
+.postit-card {
+  position: relative; background: var(--postit); color: var(--paper-fg); box-shadow: var(--paper-shadow);
+  padding: 18px 14px 14px; min-height: 92px; display: flex; flex-direction: column; gap: 2px;
+}
+.postit-card.gone { background: #d9d4c4; }
+.pin { position: absolute; top: -7px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--pin); box-shadow: 0 2px 3px rgba(0,0,0,.4); }
+.postit-card button.title {
+  all: unset; cursor: pointer; font: 400 19px var(--f-board); color: var(--paper-fg); overflow-wrap: anywhere;
+}
+.postit-card button.title:focus-visible { outline: 3px solid var(--paper-fg); outline-offset: 2px; }
+.postit-card span { color: var(--paper-muted); font-size: 13px; }
+.postit-card .forget { all: unset; cursor: pointer; margin-top: 6px; font-size: 13px; text-decoration: underline; color: var(--paper-fg); }
+
+/* Carpeta en la que se está */
+.crumbs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.crumbs button { all: unset; cursor: pointer; font: 400 27px var(--f-board); color: var(--ink-soft); border-radius: 6px; padding: 0 4px; }
+.crumbs button[aria-current="page"] { color: var(--ink); cursor: default; }
+.crumbs button.drop, .tile.drop .tile-art { outline: 3px dashed var(--focus); outline-offset: 4px; }
+.crumbs .sep { color: var(--ink-soft); font-family: var(--f-board); font-size: 22px; }
+.folder-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.folder-head .btn-row { margin-left: auto; }
+
+.tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 28px 22px; }
+.tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tile-open { all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; border-radius: 8px; }
+.tile-open:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+.tile-art { position: relative; width: 132px; height: 100px; }
+.tile-name { font: 400 19px var(--f-board); text-align: center; overflow-wrap: anywhere; max-width: 150px; }
+.tile-meta { color: var(--ink-soft); font-size: 13px; text-align: center; }
+.tile .more { position: absolute; top: -6px; right: 0; color: var(--ink); opacity: 0; }
+.tile:hover .more, .tile .more:focus-visible, .tile:focus-within .more { opacity: 1; }
+
+.folder-art .tab { position: absolute; left: 0; top: 0; width: 52px; height: 18px; background: var(--folder-edge); border-radius: 4px 8px 0 0; }
+.folder-art .sheet1 { position: absolute; left: 18px; top: 8px; width: 70px; height: 62px; background: #ffffff; transform: rotate(-7deg); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.folder-art .sheet2 { position: absolute; left: 50px; top: 4px; width: 64px; height: 62px; background: var(--paper); transform: rotate(6deg); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.folder-art .front {
+  position: absolute; left: 0; top: 14px; right: 0; bottom: 0; background: var(--folder); border: 1px solid var(--folder-edge);
+  border-radius: 3px 6px 6px 6px; transform: perspective(300px) rotateX(-14deg); transform-origin: bottom; box-shadow: 0 5px 10px rgba(0,0,0,.4);
+}
+.project-art { background: var(--paper); box-shadow: var(--paper-shadow); padding: 7px; box-sizing: border-box; }
+.project-art .thumb { width: 100%; height: 100%; box-shadow: none; }
+.project-art.broken { opacity: .6; }
+
+.empty { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+.hint { margin: 4px 0 0; color: var(--ink-soft); font: 400 17px var(--f-board); }
+
+/* Menú contextual y diálogos: papel sobre la pizarra */
+.ctx-menu {
+  position: fixed; z-index: 50; min-width: 220px; background: var(--paper); color: var(--paper-fg);
+  box-shadow: 0 10px 24px rgba(0,0,0,.45); border-radius: 6px; padding: 6px; display: flex; flex-direction: column;
+}
+.ctx-menu button { all: unset; cursor: pointer; padding: 10px 12px; border-radius: 4px; font: 15px var(--f-ui); }
+.ctx-menu button:hover, .ctx-menu button:focus-visible { background: rgba(0,0,0,.08); }
+.ctx-menu button.danger { color: #9b1c1c; }
+
+.dialog-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 16px; }
+.dialog {
+  background: var(--paper); color: var(--paper-fg); box-shadow: 0 14px 30px rgba(0,0,0,.5); border-radius: 4px;
+  padding: 24px; width: 440px; max-width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px;
+  font: 15px/1.4 var(--f-ui);
+}
+.dialog h2 { margin: 0; font: 400 26px var(--f-board); }
+.dialog p { margin: 0; }
+.dialog label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; }
+.dialog input, .dialog select {
+  min-height: 44px; padding: 0 12px; border: 1.5px solid var(--paper-fg); border-radius: 6px; background: #fbf7ec; font: 15px var(--f-ui); color: var(--paper-fg);
+}
+.dialog .error { color: #9b1c1c; font-weight: 700; }
+.dialog .btn-row { justify-content: flex-end; }
+.dialog .btn-outline { color: var(--paper-fg); border-color: var(--paper-fg); }
+.dialog .btn-danger { background: #9b1c1c; color: #ffffff; border: 0; }
+
+@media (max-width: 700px) {
+  .home { padding: 28px 22px 36px; }
+  .home-search { margin-left: 0; width: 100%; }
+}

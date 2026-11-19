@@ -1,0 +1,7 @@
+id = "ui_otro"
+name = "Otro (prueba)"
+version = "0.1.0"
+author = "BoardPrint"
+sdk = ">=1.1,<2"
+module = "blocks"
+description = "Paquete de prueba: otro paquete con una acción, para comprobar que la interfaz de uno nunca llama a la de otro (PLAN_PAQUETES §10)."

@@ -1,0 +1,54 @@
+# ========================
+# Secretos
+# ========================
+.env
+*.pem
+
+# ========================
+# Salidas generadas (informes y estado de cada ejecucion: se regeneran con el runner)
+# ========================
+out/
+
+# Datasheets de fabricante (PDF): copyright y tamano; la ficha en library/ guarda URL y SHA-256
+/datasheets/
+
+# ========================
+# Python
+# ========================
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# ========================
+# IDE y SO (Fusion crea un .vscode/ de depuracion en cada script)
+# ========================
+.vscode/
+.idea/
+Thumbs.db
+
+# ========================
+# App (FF 3+): dependencias y artefactos del frontend
+# ========================
+node_modules/
+app/frontend/dist/
+# Fuentes de Excalidraw copiadas de node_modules (scripts/copy-fonts.mjs)
+app/frontend/public/fonts/
+app/frontend/public/vendor/
+# Shell de Tauri: compilación de Rust y sidecar (lo genera app/shell/build_sidecar.py)
+app/shell/src-tauri/target/
+app/shell/src-tauri/gen/
+app/shell/src-tauri/binaries/
+*.tsbuildinfo
+app/shell/src-tauri/claude-cli/
+# Python standalone y uv de los paquetes (lo genera app/shell/fetch_pyenv.py)
+app/shell/src-tauri/pyenv/
+# Cache de dependencias de Vite
+app/frontend/.vite/
+
+# La interfaz propia de los paquetes del repo, compilada de ui-src/ (PLAN_PAQUETES P40):
+# la regeneran `npm run dev` y `npm run build` del frontend (scripts/build-packs.mjs)
+packs/*/ui/
+# Los .bppack oficiales que genera app/shell/build_packs.py (PLAN_PAQUETES P77)
+app/shell/dist-packs/

@@ -1,0 +1,616 @@
+html, body, #root, .app { height: 100%; margin: 0; }
+.app { position: relative; overflow: hidden; background: var(--board-bg); box-shadow: var(--board-frame); }   /* lo que pintan las capas fuera de la vista no desborda la página */
+/* El lienzo de Excalidraw va transparente: el fondo del skin se ve detrás (src/skins.ts). */
+.app .excalidraw, .app .excalidraw .excalidraw-container { background: transparent; }
+/* Filtro de tinta de los skins claros con fondo de color (skins.ts, inkFilter). En los oscuros
+   manda el tema oscuro de Excalidraw. */
+.app .excalidraw:not(.theme--dark) canvas.static { filter: var(--ink-filter, none); }
+
+/* Con el panel derecho abierto (D174) la pizarra puede quedar estrecha: la barra pasa a dos
+   filas, alineada a la derecha, antes que pisar la píldora del proyecto. */
+.toolbar { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: none; width: max-content;
+  max-width: max(330px, calc(100vw - var(--rp-w, 0px) - 420px)); }
+.toolbar button {
+  font: 500 13px system-ui, sans-serif; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--ui-line); background: var(--ui-bg); color: var(--ui-fg); cursor: pointer;
+  white-space: nowrap; display: inline-flex; align-items: center;
+}
+.toolbar button:hover { background: var(--ui-hover); }
+.toolbar .tb-label { margin-left: 5px; }
+/* Con poca pizarra (toolbar.ts), los botones se quedan en su icono (el texto, en `title` y
+   `aria-label`): en el nivel 1 los de herramienta, en el 2 todos y la cuenta de propuestas. */
+.bar-1 .toolbar :is(.tb-ink, .tb-file, .tb-new) .tb-label, .bar-2 .toolbar .tb-label { display: none; }
+.bar-2 .toolbar .tb-postit { padding: 6px 6px; }
+.bar-1 { --bar-reserve: 860px; }
+.bar-2 { --bar-reserve: 610px; }
+
+.problems {
+  position: absolute; left: 16px; bottom: 64px; z-index: 10; max-width: 420px;
+  background: #fff4e6; border: 1px solid #f08c00; border-radius: 8px; padding: 8px 12px;
+  font: 13px system-ui, sans-serif;
+}
+
+/* Tarjetas (bloques y post-its): Excalidraw recorta el contenido de un `embeddable` a su caja;
+   sin recorte se ven la sombra del papel y la cinta del post-it. */
+.app .excalidraw__embeddable-container__inner { overflow: visible; }
+
+/* Bloque como tarjeta (D77): la cabecera deja pasar el ratón al lienzo (se selecciona y se
+   arrastra por ella), el cuerpo lo recibe. Papel y tinta del skin. */
+.block {
+  --b-line: color-mix(in srgb, var(--paper-fg) 18%, transparent);
+  --b-field: color-mix(in srgb, var(--paper-fg) 6%, var(--paper));
+  position: relative; box-sizing: border-box; width: 100%; height: 100%; pointer-events: none;
+  background: var(--paper); color: var(--paper-fg); border: 1px solid var(--b-line);
+  border-radius: 6px; box-shadow: var(--paper-shadow); font: 13px/1.35 var(--f-ui);
+}
+.block-inner { display: flex; flex-direction: column; }
+.block-head {
+  position: relative; box-sizing: border-box; flex: none;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 14px;   /* sitio para los enchufes del borde */
+  border-bottom: 1px solid var(--b-line); background: color-mix(in srgb, var(--paper-fg) 4%, transparent);
+  border-radius: 6px 6px 0 0;
+}
+.block-title { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.block-body { pointer-events: auto; user-select: text; -webkit-user-select: text; cursor: auto; padding: 6px 10px 10px; }
+.app.tool-other .block-body { pointer-events: none; }   /* flecha, mano, formas: al lienzo */
+.badge { flex: none; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: color-mix(in srgb, var(--paper-fg) 10%, transparent); }
+/* Mientras corre (2A): mensaje y Cancelar en la cabecera, barra fina en su borde. */
+.block-running { pointer-events: auto; display: flex; gap: 8px; align-items: center; min-width: 0;
+  font-size: 12px; color: var(--paper-muted); white-space: nowrap; overflow: hidden; }
+.block-bar { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; overflow: hidden;
+  background: color-mix(in srgb, var(--paper-fg) 10%, transparent); }
+.block-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #4a8cc7; transition: width .3s; }
+.block-bar.indet i { width: 35%; animation: block-slide 1.4s ease-in-out infinite; }
+@keyframes block-slide { 0% { left: -35%; } 100% { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .block-bar.indet i { animation: none; left: 0; width: 100%; opacity: .5; } }
+/* Enchufes (D96 revisada): círculos del color de su tipo sobre el borde, en una capa encima de
+   la tarjeta; su sitio lo da ports.ts. El nombre va en la línea y, al pasar el ratón, aquí. */
+.block-socks { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.sock { position: absolute; width: 0; }
+.sock-in { left: 0; }
+.sock-out { right: 0; }
+.sock .dot { position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%;
+  background: var(--c); border: 2px solid var(--paper); box-sizing: border-box;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--paper-fg) 55%, transparent); }
+.sock-in .dot { left: -7px; }
+.sock-out .dot { right: -7px; }
+.sock.free .dot { background: var(--paper); box-shadow: 0 0 0 1.5px var(--c); }
+/* Entrada opcional libre (D122): hueca y con el borde a trazos; el bloque se ejecuta sin ella. */
+.sock.opt.free .dot { box-shadow: none; border: 2px dashed var(--c); }
+.sock .dot { pointer-events: auto; cursor: crosshair; }
+.sock .dot:hover { transform: scale(1.25); }
+/* Qué es cada enchufe, al pasar el ratón. */
+.sock .tip { display: none; position: absolute; bottom: calc(50% + 10px); z-index: 5; pointer-events: none;
+  padding: 3px 8px; border-radius: 6px; white-space: nowrap; font: 12px var(--f-ui);
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--c); box-shadow: 0 4px 12px rgba(0,0,0,.35); }
+.sock-in .tip { left: -8px; }
+.sock-out .tip { right: -8px; }
+.sock:hover .tip { display: block; }
+/* Conexión en curso, nombre del puerto en la línea, menú de puerto y motivo de una flecha no
+   válida (D88, ConnectLayer). */
+.connect-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: visible; }
+.connect-live { fill: none; stroke: var(--c); stroke-width: 2.5; stroke-dasharray: 6 5; stroke-linecap: round; }
+.connect-live.on { stroke-dasharray: none; }
+.wire-label { position: absolute; z-index: 3; transform: translate(-50%, -50%); pointer-events: none;
+  padding: 1px 8px; border-radius: 9px; white-space: nowrap; font: 600 11px var(--f-ui);
+  background: var(--c); color: #1e1e1e; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.connect-problem { position: absolute; z-index: 3; transform: translate(-50%, 8px); pointer-events: none; max-width: 280px;
+  font: 12px var(--f-ui); background: #ff8787; color: #2a0d0d; padding: 2px 8px; border-radius: 10px; }
+.port-menu { position: absolute; z-index: 30; min-width: 220px; padding: 6px; display: grid; gap: 2px;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.4); font: 13px var(--f-ui); }
+.port-menu .q { color: var(--ui-muted); font-size: 12px; padding: 2px 6px 6px; }
+.port-menu button { display: flex; gap: 8px; align-items: center; padding: 5px 8px; border: 0; border-radius: 5px;
+  background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.port-menu button:hover, .port-menu button:focus-visible { background: var(--ui-hover); }
+.port-menu i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.port-menu em { margin-left: auto; color: var(--ui-muted); font-style: normal; font-size: 12px; }
+/* Sello al pie (2A) */
+.block { --s-ok: #2f8a46; --s-warn: #c27a00; }
+.block-foot { display: flex; justify-content: flex-end; padding: 2px 12px 10px; pointer-events: none; }
+.stamp { transform: rotate(-6deg); font: 700 11px/1 ui-monospace, Consolas, monospace; letter-spacing: .08em;
+  text-transform: uppercase; padding: 4px 7px; border: 2px solid currentColor; border-radius: 3px; opacity: .85;
+  color: var(--paper-muted); border-style: dashed; }
+.bs-al_dia .stamp { color: var(--s-ok); border-style: solid; }
+.bs-desactualizado .stamp { color: var(--s-warn); border-style: solid; }
+.bs-error .stamp { color: var(--b-err); border-style: solid; }
+/* Atenuada entera salvo el aviso del conector: «Abrir Fusion» es lo único que se puede hacer. */
+.bs-no_disponible .block-inner > :not(.block-body), .bs-no_disponible .block-body > :not(.block-connector),
+.bs-no_disponible .block-socks { filter: saturate(.2); opacity: .62; }
+.block-note { color: var(--paper-muted); font-size: 12px; margin-top: 6px; }
+/* Paquete no instalado (PLAN_PAQUETES P13): la cabecera atenuada, el aviso legible. */
+.bs-no_instalado .block-head { filter: saturate(.2); opacity: .62; }
+.block-missing { color: var(--paper-muted); font-size: 12px; margin: 6px 0 0; }
+.block-connector { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* El botón no se atenúa con la tarjeta no disponible: es lo único que se puede hacer en ella. */
+.block-open-connector { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px;
+                     border: 1px solid transparent; background: var(--accent);
+                     color: var(--accent-fg); cursor: pointer; }
+.block-open-connector:hover { filter: brightness(1.1); }
+.block-params { display: grid; gap: 4px; margin: 4px 0 8px; }
+.block-params label { display: grid; grid-template-columns: 1fr 90px 36px; gap: 6px; align-items: center; }
+.block-params input, .block-params select {
+  width: 100%; box-sizing: border-box; padding: 2px 4px; font: inherit; color: inherit;
+  background: var(--b-field); border: 1px solid var(--b-line); border-radius: 4px;
+}
+.block-params input:focus, .block-params select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.block-params select option { background: var(--paper); color: var(--paper-fg); }
+.block-params em { color: var(--paper-muted); font-style: normal; }
+/* Texto y destino en Fusion (D113, D115): la etiqueta arriba y el campo a todo lo ancho. */
+.block-params label.wide { grid-template-columns: 1fr; gap: 2px; }
+.block-params label.wide em { display: none; }
+/* Excalidraw pinta `input[type=text]` a su manera (oscuro y alto): aquí manda la tarjeta. */
+.excalidraw .block-params input[type="text"], .excalidraw .bo-row input[type="text"] {
+  height: auto; padding: 2px 4px; font: inherit; color: inherit; border-radius: 4px;
+  background: var(--b-field); border: 1px solid var(--b-line); box-shadow: none;
+}
+.excalidraw .block-params input[type="text"]::placeholder { color: var(--paper-muted); }
+/* STEP de referencia (D129): el archivo con su botón. */
+.cad-file { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.cad-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cad-file-from { color: var(--paper-muted); font-size: 12px; }
+.block-confirm { display: block; margin-top: 6px; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+  font: 600 12px var(--f-ui); background: var(--b-err); color: #fff; border: 1px solid transparent; }
+.block-confirm:disabled { opacity: .4; cursor: default; }
+/* Miniatura de la captura (D114): a todo lo ancho, un clic la amplía. */
+.bo-thumb { display: block; width: 100%; padding: 4px; margin: 0 0 6px; border: 1px solid var(--b-line);
+  border-radius: 6px; background: color-mix(in srgb, var(--paper-fg) 4%, transparent); cursor: zoom-in; }
+.bo-thumb img { display: block; width: 100%; max-height: 220px; object-fit: contain; }
+.thumb-big { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 32px;
+  background: rgba(20, 20, 24, .72); cursor: zoom-out; }
+.thumb-big img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; border-radius: 8px; padding: 16px; }
+.block-run {
+  padding: 4px 14px; border-radius: 6px; cursor: pointer; font: 600 13px var(--f-ui);
+  background: var(--accent); color: var(--accent-fg); border: 1px solid transparent;
+}
+.block-run:hover:not(:disabled) { filter: brightness(1.08); }
+.block-run:disabled { cursor: default; opacity: .4; }
+.block-cancel {
+  padding: 1px 8px; border-radius: 5px; cursor: pointer; font: 600 12px var(--f-ui);
+  background: transparent; color: var(--paper-fg); border: 1px solid currentColor;
+}
+.block-error { color: var(--b-err); margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Salidas (3B): filas, grupos plegables, tablas, candados y pestañas. */
+.bo { margin-top: 8px; border-top: 1px solid var(--b-line); padding-top: 4px; }
+.bo.stale .bo-row b, .bo.stale .bo-table { opacity: .55; }
+.bo-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; gap: 6px; align-items: center;
+  padding: 2px 4px; margin: 0 -4px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+/* La etiqueta entera en dos líneas como mucho (el texto completo, en su `title`): con puntos
+   suspensivos en una sola se perdía justo lo que distingue a dos filas parecidas. */
+.bo-row > span:first-child { color: var(--paper-muted); overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.bo-row b { font-weight: 600; text-align: right; white-space: nowrap; font-family: var(--f-num); }
+.bo-row b em { font-style: normal; font-weight: 400; color: var(--paper-muted); }
+.bo-row.locked { background: rgba(255, 212, 59, .28); }
+/* Un texto largo (qué falla, notas) va debajo de su etiqueta, entero: nunca se la come. */
+.bo-row.long { grid-template-columns: minmax(0, 1fr) 20px; }
+.bo-row.long b { grid-column: 1; text-align: left; white-space: normal; overflow-wrap: anywhere; font-weight: 500; }
+.bo-chip { margin-left: 6px; font-size: 10px; font-weight: 600; background: #ffd43b; color: #1e1e1e; padding: 0 5px; border-radius: 8px; }
+.bo-lock { width: 20px; height: 20px; padding: 0; border: 0; background: none; cursor: pointer;
+  color: color-mix(in srgb, var(--paper-fg) 45%, transparent); display: grid; place-items: center; }
+.bo-lock:hover, .bo-row.locked .bo-lock { color: var(--paper-fg); }
+.bo-grp { border-top: 1px solid var(--b-line); padding: 2px 0; }
+.bo-grp summary { cursor: pointer; font-weight: 700; font-size: 12px; color: var(--paper-muted); list-style: none; padding: 3px 0; }
+.bo-grp summary::-webkit-details-marker { display: none; }
+.bo-grp summary::before { content: "▸ "; }
+.bo-grp[open] summary::before { content: "▾ "; }
+.bo-bad { color: var(--b-err); }
+/* La tabla cabe en la tarjeta: los textos parten línea (por palabras y, si no hay más remedio,
+   dentro de una) y los números no. Si aun así no cabe, se desplaza de lado el hueco entero
+   (.bo-pane): la caja de la tabla no puede hacer scroll, o la cabecera fija dejaría de pegarse
+   arriba del hueco al bajar. */
+.bo-tw { max-width: 100%; }
+.bo-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+.bo-table td:not(.n) { hyphens: auto; }
+.bo-table td { overflow-wrap: break-word; }
+.bo-table tr.bo-sub td { border-top: 0; padding-top: 0; font-size: 11.5px; color: var(--paper-muted); }
+.bo-table tr.bo-sub span { display: block; }
+.bo-table tr.bo-sub b { font-weight: 600; }
+.bo-more { margin: 4px 0 2px; padding: 2px 8px; font: inherit; font-size: 11.5px; cursor: pointer;
+           background: transparent; color: var(--paper-muted); border: 1px solid var(--b-line); border-radius: 6px; }
+.bo-more:hover { color: inherit; }
+.bo-table th { text-align: left; font-weight: 600; color: var(--paper-muted); padding: 2px 3px; vertical-align: bottom;
+  position: sticky; top: 0; z-index: 1; background: var(--paper); border-bottom: 1px solid var(--b-line); }
+.bo-table th.n { text-align: right; }
+.bo-table td { border-top: 1px solid var(--b-line); padding: 2px 3px; vertical-align: top; }
+.bo-table tbody tr:first-child td { border-top: 0; }
+/* Una cifra nunca parte línea (no lleva espacios); «≥ 163,5 mm» puede dejar la unidad abajo. */
+.bo-table td.n { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: normal; hyphens: none; font-family: var(--f-num); }
+.bo-table tr.bad td { color: var(--b-err); }
+.bo-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--b-line); margin: -4px -10px 4px; padding: 4px 10px 0; }
+.bo-tabs button { padding: 4px 10px; border: 0; background: none; cursor: pointer; font: 600 12px var(--f-ui);
+  color: var(--paper-muted); border-radius: 5px 5px 0 0; }
+.bo-tabs button.on { background: color-mix(in srgb, var(--paper-fg) 8%, transparent); color: var(--paper-fg); }
+.bo-pane { max-height: 300px; overflow: auto; overscroll-behavior: contain; padding: 0 4px; margin: 0 -4px; }
+.bo-pane.fixed { height: 300px; }   /* con candados (el Dimensionado): no crece al cambiar de pestaña */
+.bo-note { color: var(--paper-muted); font-size: 12px; margin: 6px 0; }
+.bo-row input { width: 80px; box-sizing: border-box; padding: 2px 4px; font: inherit; color: inherit; text-align: right;
+  background: var(--b-field); border: 1px solid var(--b-line); border-radius: 4px; }
+.bo-quitar, .bo-open { padding: 1px 8px; border-radius: 5px; cursor: pointer; font: 600 12px var(--f-ui);
+  background: transparent; color: var(--paper-fg); border: 1px solid var(--b-line); }
+.bo-row:has(.bo-quitar), .bo-file { grid-template-columns: minmax(0, 1fr) auto auto; }
+.bo-file .mono { font: 12px ui-monospace, Consolas, monospace; font-weight: 400; }
+.block-out.stale { opacity: 0.55; }
+
+/* El panel derecho (agente, hilos, versiones) está en agent.css (D174). */
+/* Píldora del proyecto, arriba a la izquierda junto al menú de Excalidraw (plan D63). */
+.project-pill {
+  position: absolute; top: 16px; left: 68px; z-index: 4; display: flex; align-items: center; gap: 10px;
+  /* no tapa la barra de arriba a la derecha ni con el panel derecho abierto (D174): lo que
+     ocupan la barra, la biblioteca y los márgenes, según lo compactada que esté (toolbar.ts) */
+  max-width: min(420px, max(200px, calc(100vw - var(--rp-w, 0px) - var(--bar-reserve, 1100px)))); min-height: 40px; box-sizing: border-box; padding: 0 2px;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(20, 20, 40, .12); font: 14px system-ui, "Segoe UI", Roboto, sans-serif;
+}
+.project-pill .pill-home {
+  width: 36px; height: 36px; flex: none; border: 0; border-radius: 10px; background: transparent; color: inherit;
+  display: grid; place-items: center; cursor: pointer;
+}
+.project-pill .pill-home:hover { background: var(--ui-hover); }
+.project-pill .pill-home:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* El nombre nunca desaparece: encoge antes la carpeta y lo guardado (`pill-meta`). */
+.project-pill .pill-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 5em; }
+.project-pill .pill-meta { color: var(--ui-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1000 auto; }
+
+/* Menú del skin en la píldora (D79) */
+.pill-menu { position: relative; margin-left: auto; }
+.pill-pop {
+  position: absolute; top: 44px; right: 0; z-index: 30; min-width: 240px; padding: 6px;
+  display: flex; flex-direction: column; background: var(--ui-bg); color: var(--ui-fg);
+  border: 1px solid var(--ui-line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+.pill-pop-title { padding: 6px 10px 8px; font-size: 12px; color: var(--ui-muted); }
+.pill-pop button {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 6px;
+  background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.pill-pop button:hover, .pill-pop button:focus-visible { background: var(--ui-hover); outline: none; }
+.pill-check { margin-left: auto; color: var(--accent); font-weight: 700; }
+.skin-swatch { width: 22px; height: 16px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgba(128,128,128,.6); }
+.swatch-escuela { background: #2e4a3b; box-shadow: inset 0 0 0 2px #7a5230; }
+.swatch-corcho { background: radial-gradient(#8a5f36 1px, transparent 1.6px) 0 0/5px 5px, #b98a5a; }
+.swatch-laboratorio { background: linear-gradient(90deg, transparent 5px, #e3a3a3 5px, #e3a3a3 6px, transparent 6px), #f6f0e1; }
+.swatch-cad { background: #2b2e33; }
+.swatch-calma { background: #f5f4f0; }
+
+/* Post-it como tarjeta (D71). El ratón pasa al lienzo salvo en el cuadro de texto. */
+.postit {
+  --pi: var(--pi-nota); --pi-b: var(--pi-nota-b); --pi-t: var(--t-nota);
+  position: relative; box-sizing: border-box; width: 100%; height: 100%; pointer-events: none;
+  background: var(--pi); color: var(--pi-fg); border: var(--pi-bw) solid var(--pi-b);
+  border-radius: var(--pi-radius); box-shadow: var(--pi-shadow);
+  transform: rotate(calc(var(--pi-tilt) * 1deg)); transform-origin: 50% 0;
+  font: 15px/1.35 var(--f-board);
+}
+.postit.pk-sugerencia { --pi: var(--pi-sugerencia); --pi-b: var(--pi-sugerencia-b); --pi-t: var(--t-sugerencia); }
+.postit.pk-riesgo { --pi: var(--pi-riesgo); --pi-b: var(--pi-riesgo-b); --pi-t: var(--t-riesgo); }
+.postit.pk-pregunta { --pi: var(--pi-pregunta); --pi-b: var(--pi-pregunta-b); --pi-t: var(--t-pregunta); }
+.postit.unverified { border: 1.5px dashed var(--pi-b); }
+.postit.ps-descartado { opacity: .5; }
+.postit-inner { position: relative; padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.postit-tape {
+  position: absolute; top: -9px; left: 50%; width: 76px; height: 18px; margin-left: -38px;
+  background: var(--tape); transform: rotate(-2deg); box-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+.postit-tag { font: 700 11px/1.2 var(--f-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--pi-t); }
+.postit-who { font-weight: 400; text-transform: none; letter-spacing: 0; opacity: .85; }
+.postit-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 17px; }
+.postit-text.empty { opacity: .45; }
+.postit-src { margin: 0; font: 12px/1.35 var(--f-ui); opacity: .8; overflow-wrap: anywhere; }
+.postit-edit {
+  pointer-events: auto; box-sizing: border-box; width: 100%; resize: none; border: 0; outline: 2px solid var(--pi-t);
+  border-radius: 2px; background: rgba(255,255,255,.35); color: inherit; font: 17px/1.35 var(--f-board); padding: 2px 4px;
+}
+/* El sello va abajo a la derecha, en la franja de los controles: no tapa el texto. */
+.postit-stamp {
+  position: absolute; right: 10px; bottom: 8px; font: 700 14px var(--f-ui); letter-spacing: .08em; text-transform: uppercase;
+  border: 3px solid currentColor; padding: 1px 8px; border-radius: 4px; transform: rotate(-12deg); opacity: .75;
+}
+/* Controles en el papel (D80, 1B): solo con el post-it seleccionado; su sitio está siempre. */
+.postit-ctl { display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px; visibility: hidden; font: 11px var(--f-ui); }
+.postit.selected .postit-ctl { visibility: visible; }
+.postit.selected .postit-stamp { opacity: .2; }   /* que no tape los controles */
+.postit.selected .postit-ctl button, .postit.selected .postit-kind { pointer-events: auto; }
+.postit.selected .postit-tape { pointer-events: auto; cursor: grab; outline: 1.5px dashed var(--pi-t); outline-offset: 2px; }
+.postit-ctl button { font: 700 11px var(--f-ui); letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px;
+  background: transparent; border: 1.5px solid currentColor; border-radius: 3px; cursor: pointer; }
+.postit-ctl .pc-ok { color: var(--pc-ok); transform: rotate(-2deg); }
+.postit-ctl .pc-no { color: var(--pc-no); transform: rotate(1.5deg); }
+.postit-ctl .pc-re { border: 0; text-transform: none; letter-spacing: 0; font-weight: 400; color: inherit; opacity: .75; }
+.postit-ctl button:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.postit-kind { all: unset; cursor: pointer; border-radius: 2px; }
+.postit-kind:hover, .postit-kind:focus-visible { background: color-mix(in srgb, var(--pi-t) 18%, transparent); }
+.postit.filtered { display: none; }
+/* Animación del agente (D143, D175): encima del texto, con su proporción. El marco recibe el
+   ratón solo con el post-it seleccionado y la herramienta de selección; si no, el clic y la
+   rueda van al lienzo (PostitAnimation.tsx). */
+.postit-anim { position: relative; width: 100%; border-radius: 2px; overflow: hidden; line-height: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25); background: color-mix(in srgb, var(--pi-fg) 6%, transparent); }
+.postit-anim iframe { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; pointer-events: none; background: transparent; }
+.postit.selected .postit-anim iframe { pointer-events: auto; }
+.app.tool-other .postit.selected .postit-anim iframe { pointer-events: none; }
+.postit-anim-off { position: absolute; inset: 0; display: grid; place-items: center; font: 11px/1.2 var(--f-ui);
+  color: var(--pi-fg); opacity: .5; }
+
+/* Propuestas (D75, 2A): lo quitado tachado, lo nuevo resaltado y la pestaña colgando. */
+.old { text-decoration: line-through; text-decoration-color: #c0392b; text-decoration-thickness: 2px; color: #9a3a2a; }
+.new { background: rgba(255, 212, 59, .55); border-radius: 2px; padding: 0 2px; color: inherit; }
+[data-skin="cad"] .old { color: #ff8787; }
+[data-skin="cad"] .new { background: rgba(255, 212, 59, .3); }
+.prop-delete .postit-inner, .block.prop-delete .block-inner { text-decoration: line-through; text-decoration-color: #c0392b; opacity: .6; }
+.postit.prop, .block.prop { outline: 2px dashed #e8590c; outline-offset: 3px; }
+.ask {
+  position: absolute; left: -4px; top: calc(100% + 12px); width: 260px; z-index: 2; pointer-events: auto;
+  display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; box-sizing: border-box;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25); font: 12px/1.35 var(--f-ui); text-decoration: none; transform: none;
+  user-select: text; -webkit-user-select: text; cursor: auto;
+}
+.ask::before { content: ""; position: absolute; top: -7px; left: 22px; width: 12px; height: 12px; background: inherit;
+  border-left: 1px solid var(--ui-line); border-top: 1px solid var(--ui-line); transform: rotate(45deg); }
+.ask.above::before { top: auto; bottom: -7px; transform: rotate(225deg); }
+/* Con tope de alto (tabFit), el contenido se desplaza y los botones quedan a la vista. */
+.ask-body { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }
+.ask-row { flex: none; }
+.ask-why { display: flex; flex-direction: column; gap: 3px; }
+.ask-why b { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ui-muted); }
+.ask-stale { color: #e8590c; font-weight: 600; }
+.ask-src { color: var(--ui-muted); font-size: 11px; }
+.ask-what { font: 13px/1.35 var(--f-board); }
+.ask-row { display: flex; gap: 6px; }
+.ask-row button { font: 700 12px var(--f-ui); padding: 4px 10px; border-radius: 5px; cursor: pointer; }
+.ask-ok { background: var(--accent); color: var(--accent-fg); border: 1px solid transparent; }
+.ask-no { background: transparent; color: inherit; border: 1px solid var(--ui-line); }
+.ask-row button:hover { filter: brightness(1.1); }
+.badge-prop { background: rgba(255, 212, 59, .55); }
+.prop-param { grid-column: 1 / -1; justify-self: end; font-size: 12px; }
+/* Capa de propuestas sobre textos y formas sueltos (lo que Excalidraw pinta en su lienzo). */
+.prop-layer { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
+.prop-box { position: absolute; border: 2px dashed #e8590c; border-radius: 6px; pointer-events: none; }
+.prop-box.del { border-color: #e03131; background: rgba(224, 49, 49, .08); }
+.prop-layer .ask { top: auto; }
+/* Un parámetro lista de nodos, por nodo (D177, ProposalList.tsx). */
+.ask:has(.ask-list) { width: 320px; }
+.ask-list { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--ui-line); padding-top: 6px; }
+.al-head { color: var(--ui-muted); font-size: 11px; }
+.al-head b { color: var(--ui-fg); }
+.ask-list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ask-list > ul { gap: 6px; }
+.ask-list > ul > li { border-left: 3px solid var(--ui-line); padding-left: 7px; overflow-wrap: anywhere; }
+.ask-list > ul > li.al-added { border-left-color: #2f9e44; }
+.ask-list > ul > li.al-removed { border-left-color: #e03131; }
+.ask-list > ul > li.al-changed { border-left-color: #e8590c; }
+.al-id { display: flex; align-items: baseline; gap: 6px; font-weight: 700; }
+.al-id i { font-style: normal; width: 10px; text-align: center; }
+.al-tag { margin-left: auto; font: 600 10px var(--f-ui); letter-spacing: .04em; text-transform: uppercase; color: var(--ui-muted); }
+.ask-list li li { padding-left: 16px; }
+.al-f { color: var(--ui-muted); }
+.al-was { padding-left: 16px; color: var(--ui-muted); }
+.ask-list .old { color: color-mix(in srgb, #e03131 55%, var(--ui-fg)); }
+.ask-list .new { background: color-mix(in srgb, #ffd43b 38%, transparent); }
+
+/* Pestaña Versiones del panel derecho (D76, 3B), con el skin (D174). El panel: agent.css */
+.vt { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.vt-new { padding: 8px 10px; }
+.vt-save { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--ui-line); background: var(--ui-bg); color: var(--ui-fg); cursor: pointer; font: inherit; font-weight: 600; }
+.vt-form { display: flex; gap: 6px; flex: 1; }
+.vt-form input { flex: 1; min-width: 0; padding: 5px 6px; border: 1px solid var(--ui-line); border-radius: 6px; font: inherit; background: var(--ui-bg); color: var(--ui-fg); }
+.vt-ok { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; font-weight: 700; }
+.vt-ok:disabled { opacity: .5; cursor: default; }
+.vt-foot button:not(.vt-ok) { border: 1px solid var(--ui-line); background: var(--ui-bg); color: var(--ui-fg); border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+.vt-list { overflow: auto; padding: 0 6px; display: grid; gap: 2px; }
+.vt-row { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+.vt-row:hover { background: var(--ui-hover); }
+.vt-row.on { background: color-mix(in srgb, var(--accent) 14%, var(--ui-bg)); border-color: var(--accent); }
+.vt-row.auto { opacity: .75; }
+.vt-thumb { width: 64px; height: 44px; object-fit: cover; border-radius: 4px; background: var(--ui-hover); flex: none; }
+.vt-meta { display: flex; flex-direction: column; min-width: 0; }
+.vt-meta b, .vt-meta i { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-meta span { color: var(--ui-muted); font-size: 12px; }
+.vt-foot { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--ui-line); margin-top: auto; align-items: center; }
+.vt-hint, .vt-empty { color: var(--ui-muted); font-size: 12px; }
+.vt-empty { padding: 6px 10px; }
+.vt-error { color: var(--ag-err); padding: 0 10px 6px; }
+.vt-menu { position: absolute; z-index: 5; background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 8px; padding: 4px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.15); display: flex; flex-direction: column; min-width: 170px; }
+.vt-menu button { border: 0; background: transparent; text-align: left; padding: 6px 8px; border-radius: 6px; cursor: pointer; font: inherit; }
+.vt-menu button:hover { background: var(--ui-hover); }
+.vt-cmp-head { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--ui-line); }
+.vt-cmp-head span { color: var(--ui-muted); white-space: nowrap; }
+.vt-chg { overflow: auto; padding: 4px 6px; display: grid; gap: 2px; }
+.vt-c { display: flex; gap: 8px; align-items: baseline; text-align: left; border: 0; background: transparent; padding: 5px 6px;
+  border-radius: 6px; cursor: pointer; font: inherit; color: inherit; }
+.vt-c:hover:not(:disabled) { background: var(--ui-hover); }
+.vt-c:disabled { cursor: default; }
+.vt-mark { width: 16px; flex: none; text-align: center; font-weight: 700; }
+.vt-added .vt-mark { color: #2f9e44; }
+.vt-removed .vt-mark { color: #e03131; }
+.vt-modified .vt-mark { color: #e8590c; }
+.vt-minor { color: var(--ui-muted); }
+/* Marcas de Comparar en la pizarra */
+.cmp-layer { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+.cmp-box { position: absolute; border-radius: 8px; border: 2px solid; box-sizing: border-box; }
+.cmp-added { border-color: #2f9e44; }
+.cmp-modified { border-color: #e8590c; }
+.cmp-minor { border: 2px dotted #adb5bd; }
+.cmp-removed { border: 2px dashed #e03131; background: rgba(224, 49, 49, .08); }
+.cmp-ghost { position: absolute; left: 8px; top: 6px; right: 8px; font: 600 12px var(--f-ui); color: #e03131;
+  text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmp-box.focus { box-shadow: 0 0 0 4px rgba(255, 212, 59, .7); }
+
+/* Cuenta de propuestas en la píldora */
+.pill-props { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.pill-props button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; border-radius: 8px; padding: 4px 6px; }
+.pill-props button:hover { background: var(--ui-hover); }
+.pp-go { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pp-n { display: none; font-weight: 600; }
+.bar-2 .pp-text { display: none; }
+.bar-2 .pp-n { display: inline; }
+.pp-dot { width: 8px; height: 8px; border-radius: 50%; background: #e8590c; display: block; }
+.pp-step { font-size: 16px; line-height: 1; }
+
+/* Capa de hilos (D74): encima del lienzo y de las tarjetas, debajo de los controles propios. */
+.anchor-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: visible; }
+.anchor-thread { stroke: var(--ink-line); stroke-width: 1.6; stroke-dasharray: 5 5; fill: none; }
+.anchor-dot { fill: var(--ink-line); }
+.anchor-live .anchor-thread { stroke: var(--accent); stroke-width: 2; }
+.anchor-live .anchor-dot { fill: var(--accent); }
+.anchor-target { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+.anchor-live.bad .anchor-thread, .anchor-live.bad .anchor-target { stroke: #e03131; }
+.anchor-live.bad .anchor-dot { fill: #e03131; }
+
+/* Capa de la tinta (D188-D195): encima de las tarjetas como la de hilos. El SVG del subrayador
+   multiplica con lo de debajo; con la herramienta activa, `.ink-input` recibe el ratón. */
+.ink-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; overflow: visible; }
+.ink-layer.ink-hl { mix-blend-mode: multiply; }
+.ink-layer.ink-sc { mix-blend-mode: screen; }
+.ink-input { position: absolute; inset: 0; z-index: 3; pointer-events: auto; touch-action: none; cursor: crosshair; }
+.ink-input.erasing { cursor: none; }
+.ink-eraser { position: fixed; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid var(--ui-fg); background: color-mix(in srgb, var(--ui-bg) 40%, transparent); box-sizing: border-box; }
+.tb-ink { position: relative; display: inline-flex; }
+.toolbar .tb-ink .tb-ink-main { border-radius: 8px 0 0 8px; gap: 0; }
+.toolbar .tb-ink .tb-ink-more { border-radius: 0 8px 8px 0; border-left-width: 0; padding: 6px 6px; }
+.tb-ink-dot { width: 9px; height: 9px; border-radius: 50%; margin-left: 7px; box-shadow: 0 0 0 1.5px var(--ui-bg), 0 0 0 2.5px var(--ui-line); }
+.card-menu.tb-ink-menu { position: absolute; top: calc(100% + 6px); right: 0; width: 236px; }
+.tb-ink-menu .it.on { background: var(--ui-hover); font-weight: 600; }
+.ink-row { display: flex; gap: 6px; padding: 6px 8px; align-items: center; }
+.toolbar .ink-swatch, .toolbar .ink-size { width: 32px; height: 28px; border-radius: 7px; border: 1px solid transparent; background: transparent;
+  cursor: pointer; display: grid; place-items: center; padding: 0; justify-content: center; }
+.toolbar .ink-swatch:hover, .toolbar .ink-size:hover { background: var(--ui-hover); }
+.toolbar .ink-swatch[aria-pressed="true"], .toolbar .ink-size[aria-pressed="true"] { border-color: var(--accent); background: var(--ui-hover); }
+.ink-swatch i { width: 18px; height: 18px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.ink-size i { width: 20px; border-radius: 4px; display: block; }
+.card-menu .hint.ink-hint { padding: 4px 10px 6px; line-height: 1.4; }
+
+/* Filtro de post-its (D80, 4C): por encima de todo lo de la pizarra y por debajo de la barra
+   lateral de Excalidraw (la biblioteca), que lo tapa al abrirse (R37). */
+.pf { position: absolute; top: 68px; right: calc(16px + var(--rp-w, 0px)); z-index: 3; font: 13px var(--f-ui); }
+.pf-btn {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--ui-line); background: var(--ui-bg); color: var(--ui-fg); font: 500 13px var(--f-ui);
+}
+.pf-btn:hover { background: var(--ui-hover); }
+.pf-count { font-size: 11px; background: #e8590c; color: #fff; border-radius: 999px; padding: 0 7px; }
+.pf-pop {
+  position: absolute; right: 0; top: 40px; width: 230px; padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+.pf-pop h4 { margin: 2px 0 0; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--ui-muted); }
+.pf-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.pf-chip {
+  display: flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--ui-line); background: transparent; color: inherit; font: 12px var(--f-ui);
+}
+.pf-chip i { width: 10px; height: 10px; border-radius: 2px; display: block; }
+.pf-chip[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
+.pf-chip:hover { background: var(--ui-hover); }
+.postit.ps-aceptado .postit-stamp { color: var(--pc-ok); }
+.postit.ps-descartado .postit-stamp { color: var(--pc-no); }
+.toolbar .tb-sep { width: 1px; align-self: stretch; background: var(--ui-line); margin: 0 2px; }
+.toolbar .tb-postit { padding: 6px 8px; }
+.toolbar .tb-postit i { display: block; width: 18px; height: 16px; border-radius: 2px; }
+/* Con solo tarjetas seleccionadas no salen la barra de su enlace interno ni el panel de trazo y
+   relleno de Excalidraw, que no les aplican (D77). */
+.app.cards-selected .excalidraw-hyperlinkContainer, .app.cards-selected .App-menu__left { display: none; }
+/* Del menú de clic derecho quedan copiar, ordenar (atrás, delante, fondo, frente), duplicar,
+   bloquear y borrar. Pegar estilos estropearía el relleno invisible del post-it. */
+.app.cards-selected .context-menu li:is([data-testid="copyStyles"], [data-testid="pasteStyles"],
+  [data-testid="flipHorizontal"], [data-testid="flipVertical"], [data-testid="hyperlink"],
+  [data-testid="copyElementLink"], [data-testid="wrapSelectionInFrame"], [data-testid="addToLibrary"]) { display: none; }
+.toolbar button.tb-on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.toolbar button:disabled { opacity: .45; cursor: default; }
+/* Bandeja de bloques (D96 4B) y buscador de Ctrl+B (4C). */
+.bk-tray { position: absolute; z-index: 20; top: 70px; left: 16px; bottom: 76px; width: 250px; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px; font: 13px var(--f-ui);
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.bk-head { display: flex; justify-content: space-between; align-items: center; }
+.bk-head button { border: 0; background: none; color: var(--ui-muted); font-size: 18px; cursor: pointer; line-height: 1; }
+.bk-search { box-sizing: border-box; width: 100%; padding: 6px 9px; font: inherit; color: inherit;
+  background: var(--ui-hover); border: 1px solid var(--ui-line); border-radius: 6px; }
+.bk-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.bk-list { flex: 1; min-height: 0; overflow: auto; display: grid; align-content: start; gap: 2px; }
+.bk-group { font-size: 11px; color: var(--ui-muted); letter-spacing: .06em; text-transform: uppercase; padding: 6px 4px 2px; }
+.bk-item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center;
+  padding: 5px 6px; border-radius: 6px; cursor: grab; user-select: none; }
+.bk-item:hover, .bk-item.on { background: var(--ui-hover); }
+.bk-item.off { opacity: .6; }
+.bk-txt { min-width: 0; }
+.bk-txt small { display: block; color: var(--ui-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-item em { font-style: normal; font-size: 11px; color: var(--ui-muted); white-space: nowrap; }
+.bk-ico { position: relative; width: 22px; height: 16px; border-radius: 3px; background: var(--paper); }
+.bk-ico::before, .bk-ico::after { content: ""; position: absolute; top: 5px; width: 6px; height: 6px; border-radius: 50%; }
+.bk-ico::before { left: -3px; background: var(--c, transparent); }
+.bk-ico::after { right: -3px; background: var(--c2, transparent); }
+.bk-ico.tpl { background: repeating-linear-gradient(90deg, var(--paper) 0 6px, transparent 6px 8px); }
+.bk-none { color: var(--ui-muted); font-size: 12px; margin: 6px 4px; }
+.bk-hint { margin: 0; color: var(--ui-muted); font-size: 11px; line-height: 1.5; }
+.bk-hint kbd { font: 11px ui-monospace, Consolas, monospace; border: 1px solid var(--ui-line); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 4px; margin: 0 1px; color: var(--ui-fg); }
+.bk-finder { position: fixed; z-index: 40; width: 300px; display: grid; gap: 6px; padding: 8px; font: 13px var(--f-ui);
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.45); }
+.bk-finder .bk-item { cursor: pointer; }
+.bk-ghost { position: fixed; z-index: 50; pointer-events: none; transform: translate(-50%, -20px) rotate(-2deg);
+  width: 200px; padding: 8px 10px; border-radius: 6px; opacity: .9; font: 13px var(--f-ui);
+  background: var(--paper); color: var(--paper-fg); box-shadow: 0 8px 20px rgba(0,0,0,.45); }
+.bk-ghost small { display: block; color: var(--paper-muted); font-size: 11px; }
+
+/* Ejecutar y Editar; el panel de un bloque encima de la pizarra, con los colores de los
+   controles flotantes (--ui-*). Traer y Fijar son de la parte del conector (P41). */
+.block-actions { display: flex; gap: 6px; align-items: center; }
+.block-panel { padding: 4px 12px; border-radius: 6px; cursor: pointer; font: 600 13px var(--f-ui);
+  background: transparent; color: var(--paper-fg); border: 1px solid var(--b-line); }
+.block-panel:hover { background: var(--b-field); }
+/* Interfaz propia de un paquete (PackFrame, PLAN_PAQUETES §5): sin borde ni fondo, sobre el
+   papel de la tarjeta o el fondo del panel. `color-scheme` igual que el del documento del
+   marco: si no coinciden, el navegador pinta el marco con fondo opaco. */
+.pf-frame { display: block; width: 100%; border: 0; background: transparent; color-scheme: normal; margin: 2px 0 8px; }
+.pp { height: min(86vh, 900px); }
+/* La interfaz propia del bloque (el árbol de un terminal, tres columnas): el panel ancho. */
+.pull.pp-own { width: min(1180px, 100%); height: min(92vh, 980px); max-height: min(92vh, 980px); }
+.pf-panel { flex: 1; min-height: 0; margin: 0; padding: 0 18px 14px; box-sizing: border-box; }
+.pf-note { color: var(--paper-muted); margin: 4px 0 8px; }
+.pf-gone { color: var(--b-err); }
+.pf-gone button { margin-left: 4px; }
+.pack-notice { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 950; max-width: min(520px, 90vw);
+  padding: 8px 14px; border-radius: 8px; background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3); font: 13px/1.4 var(--f-ui); }
+.pack-notice.err { border-color: var(--b-err); }
+/* El aviso de la primera animación (D187): como el de los paquetes, centrado en el lienzo como
+   la barra de Excalidraw (styles.css, `.App-toolbar-container`) y por encima de sus pistas
+   (`.HintViewer`, a 68 px, hasta dos líneas); no tapa la barra ni el panel derecho (`--rp-w`). */
+.anim-notice { position: fixed; left: calc((100% - var(--rp-w, 0px)) / 2 + min(90px, var(--rp-w, 0px))); bottom: 124px;
+  transform: translateX(-50%); z-index: 950; width: max-content; max-width: min(560px, calc(100vw - var(--rp-w, 0px) - 32px));
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 10px 12px 10px 16px; border-radius: 8px;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-left: 4px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3); font: 13px/1.4 var(--f-ui); box-sizing: border-box; }
+.anim-notice > span:first-child { flex: 1 1 220px; min-width: 0; }
+.anim-notice-btns { display: flex; gap: 6px; margin-left: auto; }
+.pull-backdrop { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 16px;
+  background: rgba(20, 20, 24, .55); }
+.pull { width: min(860px, 100%); max-height: min(86vh, 900px); display: flex; flex-direction: column;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .35); font: 13px/1.4 var(--f-ui); }
+.pull-head { display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px 10px; border-bottom: 1px solid var(--ui-line); }
+.pull-head > div { flex: 1; min-width: 0; }
+.pull-head h2 { margin: 0; font-size: 16px; }
+.pull-head p { margin: 2px 0 0; color: var(--ui-muted); overflow-wrap: anywhere; }
+.pull-btn { padding: 5px 14px; border-radius: 6px; cursor: pointer; font: 600 13px var(--f-ui);
+  background: transparent; color: var(--ui-fg); border: 1px solid var(--ui-line); }
+.pull-btn:hover:not(:disabled) { background: var(--ui-hover); }
+.pull-btn:disabled { opacity: .4; cursor: default; }
+.pull-apply { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.pull-apply:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+.pull-error { color: var(--b-err); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pull-error button { display: block; margin-top: 6px; }
+
+/* La barra de herramientas de Excalidraw va abajo, en el centro (R37): arriba la tapaba la
+   píldora del proyecto. Con ella bajan su pista («Para mover el lienzo…») y el desplegable de
+   más herramientas, que se abre hacia arriba. Con el panel derecho abierto (D174), centradas
+   en el hueco de la pizarra entre los botones de abajo a la izquierda y la ayuda. */
+.app .excalidraw .App-toolbar-container { position: fixed; left: calc((100% - var(--rp-w, 0px)) / 2 + min(90px, var(--rp-w, 0px))); bottom: 16px; transform: translateX(-50%); z-index: 4; }
+.app .excalidraw .HintViewer { position: fixed; left: calc((100% - var(--rp-w, 0px)) / 2 + min(90px, var(--rp-w, 0px))); top: auto; bottom: 68px; transform: translateX(-50%); }
+.app .excalidraw .App-toolbar__extra-tools-dropdown { top: auto; bottom: calc(100% + 8px); }

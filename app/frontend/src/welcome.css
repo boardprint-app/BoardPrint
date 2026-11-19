@@ -1,0 +1,57 @@
+/* La bienvenida (D186): la interfaz de la app (`--ui-*` del skin), como Ajustes, y por encima
+   de ella (se abre también desde Ajustes → General). Alto fijo: el pie no salta entre pasos. */
+.wl-backdrop { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 16px;
+  background: rgba(20, 20, 24, .55); }
+.wl { width: min(760px, 100%); height: min(88vh, 600px); display: flex; flex-direction: column; outline: none;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .35); font: 13px/1.45 var(--f-ui); box-sizing: border-box; }
+.wl-head { display: flex; align-items: baseline; gap: 12px; padding: 16px 22px 10px; }
+.wl-head h2 { margin: 0; flex: 1; font-size: 18px; }
+.wl-count { color: var(--ui-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* El indicador: los cuatro pasos, el actual marcado y los de antes hechos */
+.wl-steps { list-style: none; margin: 0; padding: 0 18px 12px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px; border-bottom: 1px solid var(--ui-line); }
+.wl-steps button { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--ui-muted); font: 600 12.5px var(--f-ui); text-align: left; cursor: pointer;
+  box-shadow: inset 0 -3px 0 var(--ui-line); }
+.wl-steps button:hover:not(:disabled) { background: var(--ui-hover); }
+.wl-steps button:disabled { cursor: default; }
+.wl-steps .done button { color: var(--ui-fg); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+.wl-steps .on button { color: var(--ui-fg); box-shadow: inset 0 -3px 0 var(--accent); }
+.wl-num { flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid var(--ui-line); font-size: 11px; font-variant-numeric: tabular-nums; }
+.wl-steps .on .wl-num { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+
+.wl-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; }
+.wl-body h3 { margin: 0; font-size: 16px; }
+.wl-body p { margin: 0; }
+.wl-intro { max-width: 62ch; }
+.wl-note { color: var(--ui-muted); font-size: 12px; max-width: 70ch; }
+.wl-field { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: center; gap: 12px; }
+.wl-field > :first-child { font-weight: 600; }
+.wl select { font: 13px var(--f-ui); color: var(--ui-fg); background: var(--ui-bg); border: 1px solid var(--ui-line);
+  border-radius: 6px; padding: 5px 8px; min-height: 30px; justify-self: start; min-width: 160px; }
+.wl select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wl option { background: var(--ui-bg); color: var(--ui-fg); }
+
+/* El estado de la sesión y de cada programa: una caja con un filo de color */
+.wl-state { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px;
+  background: var(--ui-hover); border-left: 4px solid var(--ui-line); overflow-wrap: anywhere; }
+.wl-ok { border-left-color: #2f9e44; }
+.wl-off { border-left-color: #e8590c; }
+.wl-wait { border-left-color: var(--accent); color: var(--ui-muted); }
+.wl-wait b { color: var(--ui-fg); font-weight: 600; }
+.wl-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.wl-program { display: flex; flex-direction: column; gap: 8px; }
+
+.wl-folder { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.wl-label { font-weight: 600; }
+
+.wl-foot { display: flex; align-items: center; gap: 8px; padding: 12px 22px 14px; border-top: 1px solid var(--ui-line); }
+.wl-skip { margin-right: auto; }
+
+@media (max-width: 700px) {
+  .wl-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wl-field { grid-template-columns: 1fr; gap: 4px; }
+}

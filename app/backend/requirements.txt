@@ -1,0 +1,8 @@
+# Backend de la pizarra (servidor). La lógica de pizarra/ y sus tests solo necesitan
+# requirements-base.txt.
+-r requirements-base.txt
+fastapi==0.162.2
+uvicorn[standard]==0.54.0
+claude-agent-sdk==0.2.179
+# La API key del agente en el almacén del sistema (PLAN_PUBLICACION O9). MIT.
+keyring==25.7.0

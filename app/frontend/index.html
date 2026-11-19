@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BoardPrint</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- Fuentes de Excalidraw servidas en local (public/fonts), nunca desde un CDN -->
+    <script>window.EXCALIDRAW_ASSET_PATH = "/";</script>
+    <!-- Excalidraw añade esm.sh como respaldo de cada fuente: la CSP lo bloquea (D44).
+         frame-src: un marco solo carga de la app; la interfaz de un paquete no puede navegar
+         ella misma a otra web con los datos de su bloque (PLAN_PAQUETES, riesgo 9) -->
+    <meta http-equiv="Content-Security-Policy" content="font-src 'self' data:; frame-src 'self'" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

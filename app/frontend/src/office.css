@@ -1,0 +1,47 @@
+/* Office con el agente (D176, OfficeMenu.tsx): el submenú de Leer, la caja de Editar, Nuevo
+   archivo en la barra y el diff de una propuesta de archivo. Con las variables del skin. */
+.card-menu .it.om-open { background: var(--ui-hover); }
+.om-caret { margin-left: auto; color: var(--ui-muted); font-size: 11px; }
+.it.om-open .om-caret { transform: rotate(90deg); }
+.om-sub { display: flex; flex-direction: column; margin: 0 0 4px 26px; padding-left: 6px;
+  border-left: 2px solid var(--ui-line); max-height: 260px; overflow-y: auto; }
+.om-h { font: 600 10.5px var(--f-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--ui-muted);
+  padding: 8px 10px 3px; }
+.card-menu .it.om-block { min-height: 30px; }
+.om-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.om-tag { margin-left: auto; flex: none; font: 600 10px var(--f-ui); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--accent); }
+.om-none { font: 12px var(--f-ui); color: var(--ui-muted); padding: 4px 10px 8px; }
+.om-edit { display: flex; flex-direction: column; gap: 6px; padding: 4px 6px 6px; }
+.om-edit textarea { box-sizing: border-box; width: 100%; resize: vertical; min-height: 60px; padding: 7px 8px;
+  font: 13px/1.35 var(--f-ui); color: var(--ui-fg); background: var(--ui-bg);
+  border: 1px solid var(--ui-line); border-radius: 7px; }
+.om-edit textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.om-row { display: flex; align-items: center; gap: 8px; }
+.om-row small { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.3; color: var(--ui-muted); }
+.om-go { flex: none; min-height: 28px; padding: 0 14px; border-radius: 6px; border: 1px solid transparent; cursor: pointer;
+  background: var(--accent); color: var(--accent-fg); font: 700 12.5px var(--f-ui); }
+.om-go:disabled { opacity: .45; cursor: default; }
+/* Nuevo archivo, junto a Añadir archivo */
+.tb-new { position: relative; display: inline-flex; }
+.tb-new-menu { position: absolute; top: calc(100% + 6px); right: 0; width: 320px; }
+.om-types { display: flex; gap: 4px; padding: 2px 6px 4px; }
+.om-types button { flex: 1; min-height: 30px; border: 1px solid var(--ui-line); border-radius: 7px; background: transparent;
+  color: inherit; font: 600 12.5px var(--f-ui); cursor: pointer; }
+.om-types button:hover { background: var(--ui-hover); }
+.om-types button.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+/* La propuesta de archivo, en su pestaña (ProposalOverlay) */
+.ask:has(.om-diff) { width: 340px; }
+.om-diff > ul > li { display: flex; flex-direction: column; gap: 2px; }
+.om-diff .al-id { font-weight: 600; color: var(--ui-muted); font-size: 11px; }
+.om-text { font: 12.5px/1.4 var(--f-ui); overflow-wrap: anywhere; white-space: pre-wrap; max-height: 120px; overflow-y: auto; }
+.om-note { font-size: 11px; color: var(--ui-muted); }
+/* Dentro de la barra (.toolbar), sus reglas de botón no valen para el desplegable */
+.tb-new-menu { white-space: normal; }
+.tb-new-menu .om-edit textarea { white-space: pre-wrap; }
+.toolbar .tb-new-menu .om-types button { flex: 1; justify-content: center; padding: 0 8px; min-height: 30px;
+  border-radius: 7px; font: 600 12.5px var(--f-ui); }
+.toolbar .tb-new-menu .om-types button.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.toolbar .tb-new-menu .om-go { padding: 0 14px; min-height: 28px; border-radius: 6px; border-color: transparent;
+  background: var(--accent); color: var(--accent-fg); font: 700 12.5px var(--f-ui); }
+.toolbar .tb-new-menu .om-go:disabled { opacity: .45; }

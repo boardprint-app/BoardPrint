@@ -1,0 +1,10 @@
+id = "{id}"
+name = "{name}"
+version = "0.1.0"
+author = "Agente de diseño"
+description = "{description}"
+sdk = ">=1.0,<2"
+module = "blocks"
+
+[python]
+dependencies = []
