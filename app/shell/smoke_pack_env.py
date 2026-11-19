@@ -4,8 +4,8 @@
 
 Solo Windows, en el CI, tras compilar el instalador: lo instala en silencio (como un usuario,
 en %LOCALAPPDATA%), y con el sidecar instalado (`--probe-pack-env`) crea un entorno con numpy
-en la caché de la app, registra `demo` y un paquete con numpy en el trabajador y ejecuta un
-bloque, dos veces: con la caché fría y con la caliente. Comprueba el criterio de fracaso de
+en la caché de la app, registra el paquete de prueba de los tests y uno con numpy en el
+trabajador y ejecuta un bloque, dos veces: con la caché fría y con la caliente. Comprueba el criterio de fracaso de
 §12 y deja las medidas en el resumen del run.
 """
 import json
@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+PRUEBA = ROOT / "app" / "backend" / "tests" / "packs_prueba" / "prueba"
 BUNDLE = ROOT / "app" / "shell" / "src-tauri" / "target" / "release" / "bundle" / "nsis"
 PRODUCT, IDENTIFIER = "BoardPrint", "dev.boardprint.desktop"
 # El instalador sin el entorno de paquetes (`tauri build` en local el 2026-11-12, sin `pyenv/`
@@ -51,7 +52,7 @@ def probe(home, cache, packs, out):
            "--pyenv-dir", str(home / "pyenv"), "--cache-dir", str(cache),
            "--worker-dir", str(home / "worker"), "--engine-dir", str(home / "engine"),
            "--packs", str(packs), "--packs", str(ROOT / "app" / "backend" / "tests" / "packs_numpy"),
-           "--run", "numpy_demo.seno", "--baseline", "demo.tubo"]
+           "--run", "numpy_demo.seno", "--baseline", "prueba.tubo"]
     t0 = time.time()
     proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     total = time.time() - t0
@@ -72,18 +73,11 @@ def main():
     setup, home = install()
     setup_mb = setup.stat().st_size / 1e6
     pyenv_mb = sum(f.stat().st_size for f in (home / "pyenv").rglob("*") if f.is_file()) / 1e6
-    # La prueba mide contra `demo.tubo` (packs/demo): el repo público no lleva paquetes y solo
-    # comprueba el tamaño del instalador.
-    if not (ROOT / "packs" / "demo").is_dir():
-        print(f"sin packs/demo: se salta la prueba del entorno. Instalador {setup_mb:.1f} MB, "
-              f"pyenv {pyenv_mb:.1f} MB")
-        if setup_mb - BASELINE_MB > MAX_GROWTH_MB:
-            sys.exit(f"criterio de fracaso de §12: el instalador crece {setup_mb - BASELINE_MB:.1f} MB")
-        return
-
     tmp = Path(tempfile.mkdtemp())
     packs = tmp / "packs"
-    shutil.copytree(ROOT / "packs" / "demo", packs / "demo",
+    # El paquete de prueba de los tests (O20): también está en el repo público, que no lleva
+    # paquetes; así la app instalada carga un paquete de verdad en el CI de los dos repos.
+    shutil.copytree(PRUEBA, packs / "prueba",
                     ignore=shutil.ignore_patterns("__pycache__"))
     # La caché de la app de verdad (Tauri app_cache_dir: %LOCALAPPDATA%\<identificador>).
     cache = Path(os.environ["LOCALAPPDATA"]) / IDENTIFIER
@@ -106,8 +100,8 @@ def main():
         ("Registrar en caliente", f"{warm['register_warm_seconds']:.2f} s", ""),
         ("Ejecutar numpy_demo.seno (proceso + registro + bloque)", f"{warm['run_seconds']:.2f} s",
          f"el bloque solo: {warm['run_only_seconds'] * 1000:.0f} ms"),
-        ("demo.tubo en el trabajador", f"{warm['run_worker_baseline_seconds']:.2f} s", ""),
-        ("demo.tubo como hoy (D92, proceso del sidecar)", f"{warm['run_today_seconds']:.2f} s", ""),
+        ("prueba.tubo en el trabajador", f"{warm['run_worker_baseline_seconds']:.2f} s", ""),
+        ("prueba.tubo como hoy (D92, proceso del sidecar)", f"{warm['run_today_seconds']:.2f} s", ""),
         ("Lo que suma el trabajador a una ejecución", f"{added:+.2f} s",
          f"máx. +{MAX_RUN_ADDED_S} s"),
     ]

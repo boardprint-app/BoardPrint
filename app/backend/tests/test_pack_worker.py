@@ -151,7 +151,19 @@ class Trabajador(Base):
             self.host.preview("w.b", {"a": -1.0}, {})
 
     def test_conectores(self):
-        self.assertIs(self.host.connector("w", "available"), True)
+        # `load` calienta el trabajador de conectores en otro hilo, con su candado: mientras
+        # tanto `available` contesta `HostBusy` sin esperar (lo que pide el servidor). Aquí se
+        # espera a que acabe, que con los paquetes del repo puede pasar de un segundo.
+        limite = time.monotonic() + 60
+        while True:
+            try:
+                disponible = self.host.connector("w", "available")
+                break
+            except pack_host.HostBusy:
+                if time.monotonic() > limite:
+                    raise
+                time.sleep(0.2)
+        self.assertIs(disponible, True)
         self.assertEqual(self.host.connector("w", "open_file", "C:/x.w"), "abierto C:/x.w")
         self.assertEqual(self.remote.connectors["w"].config, {"url": "http://w"})
 

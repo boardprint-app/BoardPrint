@@ -15,7 +15,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": ["nsis", "dmg"],
+    "targets": ["nsis", "app", "dmg"],
     "category": "DeveloperTool",
     "shortDescription": "Pizarra de ingeniería con agentes",
     "icon": [
@@ -46,7 +46,8 @@
       "../../backend/pizarra/pack_versions.py": "worker/pizarra/pack_versions.py",
       "../../backend/pizarra/pack_validate.py": "worker/pizarra/pack_validate.py",
       "../../backend/pizarra/files.py": "worker/pizarra/files.py",
-      "../../backend/pizarra/pack_locales.py": "worker/pizarra/pack_locales.py"
+      "../../backend/pizarra/pack_locales.py": "worker/pizarra/pack_locales.py",
+      "../../backend/pizarra/library_schema.py": "worker/pizarra/library_schema.py"
     },
     "macOS": {
       "signingIdentity": "-"
