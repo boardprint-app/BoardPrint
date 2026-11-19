@@ -23,7 +23,7 @@ def changes(d, kind):
 
 class Diff(unittest.TestCase):
     def setUp(self):
-        self.tubo = scene.block_element("demo.tubo", 0, 0)
+        self.tubo = scene.block_element("prueba.tubo", 0, 0)
         self.p = postit("p1")
         self.txt = {"id": "t1", "type": "text", "x": 0, "y": 300, "width": 100, "height": 20,
                     "version": 1, "text": "Montaje"}

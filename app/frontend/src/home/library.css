@@ -1,0 +1,163 @@
+/* La *Librería* de la pantalla de inicio (PLAN_V020 §5): una ventana grande como *Ajustes*, con
+   la interfaz de la app (`--ui-*` del skin): una tabla se lee mejor sobre papel liso que sobre
+   la pizarra. */
+.lb-backdrop { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 16px;
+  background: rgba(20, 20, 24, .55); }
+.lb { width: min(1320px, 100%); height: min(90vh, 900px); display: flex; flex-direction: column; gap: 10px;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .35); font: 13px/1.45 var(--f-ui); box-sizing: border-box; padding-bottom: 12px; }
+.lb :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lb-head { display: flex; align-items: flex-start; gap: 10px; padding: 14px 18px 12px; border-bottom: 1px solid var(--ui-line); }
+.lb-head > div { flex: 1; min-width: 0; }
+.lb .lb-head h2 { margin: 0; font: 600 17px var(--f-ui); }       /* no la tiza de `.home h2` */
+.lb-head p { margin: 2px 0 0; color: var(--ui-muted); overflow-wrap: anywhere; }
+.lb-muted { color: var(--ui-muted); }
+.lb-msg { margin: 0 18px; }
+.lb-ok { color: var(--ui-fg); padding: 6px 10px; border-radius: 6px; background: var(--ui-hover); box-shadow: inset 3px 0 0 #2f9e44; }
+.lb-info { margin: 0; padding: 6px 10px; border-radius: 6px; background: var(--ui-hover); box-shadow: inset 3px 0 0 #e8590c; }
+.lb-foot { margin: 0 18px; font-size: 12px; }
+
+.lb input, .lb select { font: 13px var(--f-ui); color: var(--ui-fg); background: var(--ui-bg);
+  border: 1px solid var(--ui-line); border-radius: 6px; padding: 4px 8px; min-height: 30px; box-sizing: border-box; }
+.lb option { background: var(--ui-bg); color: var(--ui-fg); }
+
+/* La barra: un tipo por pestaña y el filtro */
+.lb-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 0 18px; }
+.lb-tabs { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; min-width: 0; }
+.lb-tab { border: 1px solid var(--ui-line); background: transparent; color: inherit; border-radius: 16px;
+  padding: 3px 12px; font: 600 13px var(--f-ui); cursor: pointer; }
+.lb-tab:hover { background: var(--ui-hover); }
+.lb-tab.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.lb-n { font-weight: 400; opacity: .75; font-variant-numeric: tabular-nums; }
+.lb-filter { width: 300px; max-width: 100%; }
+
+.lb-dirty, .lb-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 18px;
+  padding: 6px 10px; border-radius: 6px; background: var(--ui-hover); box-shadow: inset 3px 0 0 var(--accent); }
+.lb-dirty span, .lb-confirm p { flex: 1; margin: 0; font-weight: 600; }
+
+/* La tabla y, a su lado, la ficha */
+.lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 0 18px; }
+.lb-main.with-ficha { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
+.lb-table-wrap { min-height: 0; overflow: auto; border: 1px solid var(--ui-line); border-radius: 8px; }
+.lb-empty { margin: 0; padding: 24px; }
+.lb-empty p { margin: 0 0 4px; }
+
+.lb-table { width: 100%; border-collapse: collapse; }
+.lb-table th, .lb-table td { padding: 4px 8px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--ui-line); }
+.lb-table thead th { position: sticky; top: 0; z-index: 1; background: var(--ui-bg); font-weight: 600; color: var(--ui-muted);
+  white-space: nowrap; box-shadow: inset 0 -1px 0 var(--ui-line); }
+.lb-table tbody tr { cursor: pointer; }
+.lb-table tbody tr:hover { background: var(--ui-hover); }
+.lb-table tbody tr.sel { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.lb-table tbody tr.changed td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.lb-table tbody tr.removing td { text-decoration: line-through; color: var(--ui-muted); }
+.lb-table td input { width: 100%; min-width: 70px; border-color: transparent; background: transparent; }
+/* que lo escrito no se corte: con la ficha abierta, la tabla se desplaza en vez de apretarlo */
+.lb-table td input.lb-in-ubicacion, .lb-table td input.lb-in-nota { min-width: 150px; }
+.lb-table td input.lb-in-fecha { min-width: 100px; }
+.lb-table td input:hover:not(:disabled) { border-color: var(--ui-line); }
+.lb-table td input:focus { border-color: var(--accent); background: var(--ui-bg); }
+.lb-num { text-align: right; font-variant-numeric: tabular-nums; }
+.lb-table th.lb-num { text-align: right; }
+.lb-table td input.lb-qty { width: 76px; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.lb-table td input.lb-qty::placeholder { color: var(--ui-muted); opacity: 1; }
+.lb-table td input.bad { border-color: var(--b-err); box-shadow: inset 0 0 0 1px var(--b-err); }
+/* *Añadir clave* (PLAN_LIBRERIA L2): la fila nueva se escribe, no se abre */
+.lb-table tbody tr.lb-new { cursor: default; }
+.lb-table tbody tr.lb-new:hover { background: transparent; }
+.lb-table td input.lb-in-key { min-width: 170px; font-family: ui-monospace, Consolas, monospace; font-weight: 600;
+  border-color: var(--ui-line); }
+.lb-table tr.lb-new .lb-reason { font-size: 12px; }
+.lb-table tfoot td.lb-add { border-bottom: 0; padding: 8px; }
+.lb-key { all: unset; cursor: pointer; font-weight: 600; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+.lb-key:hover { text-decoration: underline; }
+.lb-origin { color: var(--ui-muted); min-width: 110px; }
+.lb-over { color: var(--ui-fg); }
+.lb-act { width: 30px; }
+.lb-icon { width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--ui-muted);
+  font: 16px var(--f-ui); cursor: pointer; }
+.lb-icon:hover { background: var(--ui-line); color: var(--ui-fg); }
+
+.lb-badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 700;
+  border: 1px solid var(--ui-line); white-space: nowrap; }
+.lb-b-ok { border-color: #2f9e44; color: #2b8a3e; }
+.lb-b-err { border-color: var(--b-err); color: var(--b-err); }
+.lb-chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--ui-hover); font-size: 12px; }
+
+.lb-ficha { min-height: 0; overflow-y: auto; border: 1px solid var(--ui-line); border-radius: 8px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px; }
+.lb-ficha-head { display: flex; align-items: center; gap: 8px; }
+.lb-ficha-head h3 { margin: 0; flex: 1; font: 600 15px ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.lb-ficha-meta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.lb-ficha-line { margin: 0; }
+.lb-ficha h4 { margin: 6px 0 0; font-size: 13px; }
+.lb-ficha p { margin: 0; }
+.lb-values { border-collapse: collapse; width: 100%; }
+.lb-values th, .lb-values td { padding: 3px 6px; border-bottom: 1px solid var(--ui-line); text-align: left; vertical-align: top; }
+.lb-values th { font: 600 12px ui-monospace, Consolas, monospace; white-space: nowrap; }
+.lb-values td.lb-num { text-align: right; white-space: nowrap; }
+.lb-values td.lb-src { width: 100%; }
+.lb-src { font-size: 11px; overflow-wrap: anywhere; }
+.lb-toml { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--ui-hover); font: 12px/1.45 ui-monospace, Consolas, monospace;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.lb-confirm-inline { padding: 8px 10px; border-radius: 6px; background: var(--ui-hover); display: flex; flex-direction: column; gap: 8px; }
+
+/* Importar (V16) */
+.lb-import { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 0 18px; overflow: auto; }
+.lb-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.lb-steps li { display: flex; align-items: center; gap: 8px; color: var(--ui-muted); font-weight: 600; }
+.lb-steps li.on { color: var(--ui-fg); }
+.lb-step-n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--ui-line);
+  font-size: 12px; }
+.lb-steps li.on .lb-step-n { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.lb-steps li.done .lb-step-n { border-color: var(--accent); }
+.lb-pick { display: flex; flex-direction: column; gap: 10px; padding: 18px; border: 1px dashed var(--ui-line); border-radius: 8px; max-width: 760px; }
+.lb-pick p { margin: 0; }
+.lb .lb-left { justify-content: flex-start; }
+.lb-path { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.lb-path label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; flex: 1 1 360px; min-width: 0; }
+.lb-file { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 6px 10px; border-radius: 6px; background: var(--ui-hover); }
+.lb-file > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.lb-map { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.lb-map-opts { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px 16px; }
+.lb-map-opts label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.lb-map-opts input { width: 240px; }
+.lb-map-hint { margin: 0; flex: 1 1 280px; padding-bottom: 6px; }
+.lb-map-table { border: 1px solid var(--ui-line); border-radius: 8px; border-collapse: separate; border-spacing: 0; }
+.lb-map-table tbody tr { cursor: default; }
+.lb-map-table tbody th { font-weight: 600; white-space: nowrap; }
+.lb-map-table tr.mapped th { box-shadow: inset 3px 0 0 var(--accent); }
+.lb-map-table tr:last-child > * { border-bottom: 0; }
+.lb-sample { color: var(--ui-muted); max-width: 420px; overflow-wrap: anywhere; }
+.lb-target { display: flex; gap: 6px; flex-wrap: wrap; }
+.lb-target select { min-width: 220px; max-width: 340px; }
+/* la unidad y la descripción del campo elegido (PLAN_LIBRERIA L4) */
+.lb-field-info { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 12px; color: var(--ui-muted); }
+.lb-missing code { font-size: 12px; }
+.lb-target input { width: 180px; }
+.lb-import-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+
+.lb-plan { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.lb-plan p { margin: 0; }
+.lb-counts { display: flex; flex-wrap: wrap; gap: 8px; }
+.lb-count { padding: 4px 12px; border-radius: 6px; background: var(--ui-hover); }
+.lb-count b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.lb-count.lb-s-create { box-shadow: inset 3px 0 0 #2f9e44; }
+.lb-count.lb-s-update { box-shadow: inset 3px 0 0 var(--accent); }
+.lb-count.lb-s-invalid { box-shadow: inset 3px 0 0 var(--b-err); }
+.lb-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.lb-check input { min-height: 0; }
+.lb-plan-wrap { border: 1px solid var(--ui-line); border-radius: 8px; overflow: auto; max-height: 52vh; }
+.lb-plan-table tbody tr { cursor: default; }
+.lb-plan-table tr.lb-s-invalid { background: color-mix(in srgb, var(--b-err) 10%, transparent); }
+.lb-plan-table tr.lb-s-unchanged td { color: var(--ui-muted); }
+.lb-badge.lb-s-create { border-color: #2f9e44; color: #2b8a3e; }
+.lb-badge.lb-s-update { border-color: var(--accent); }
+.lb-badge.lb-s-invalid { border-color: var(--b-err); color: var(--b-err); }
+.lb-reason { color: var(--b-err); display: block; }
+.lb-warn { display: block; color: #c2410c; }
+.lb-warn::before { content: "⚠ "; }
+
+@media (max-width: 900px) {
+  .lb-main.with-ficha { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+}

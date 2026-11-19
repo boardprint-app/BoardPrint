@@ -17,6 +17,7 @@ from pathlib import Path
 
 from boardprint_sdk.packs import (Action, BlockType, ConfirmRequired, Connector, Fix, Param,
                                   PortType, Pull, RunContext, Template, View)
+from boardprint_sdk.library import Library, using as using_library
 
 DATA_VERSION = 1
 
@@ -134,13 +135,21 @@ def from_data(data, registry_cls=None):
 
 def context(block_id, env=None, workdir=None, options=None, progress=None):
     """El `RunContext` de un bloque con su entorno (`Board.run_env`: proyecto, registro de
-    sincronización y conectores)."""
+    sincronización, conectores y la carpeta de la librería del workspace, SDK 1.5)."""
     env = env or {}
     return RunContext(block_id=block_id, workdir=Path(workdir) if workdir else None,
                       _progress=progress, options=dict(options or {}),
                       project_name=env.get("project_name", ""),
                       sync_file=Path(env["sync_file"]) if env.get("sync_file") else None,
-                      connectors=dict(env.get("connectors") or {}))
+                      connectors=dict(env.get("connectors") or {}),
+                      library=library_of(env))
+
+
+def library_of(env):
+    """La librería del workspace del entorno `env` (`library_dir`); sin ella, vacía. La ponen
+    con `using_library` quien ejecuta, la acción y la vista previa, para lo que no recibe `ctx`
+    (`boardprint_sdk.library.current()`)."""
+    return Library((env or {}).get("library_dir") or None)
 
 
 def run_step(registry, step, progress=None):
@@ -153,7 +162,8 @@ def run_step(registry, step, progress=None):
     ctx = context(step["block_id"], step.get("env"), step.get("workdir"), step.get("options"),
                   progress)
     try:
-        return ("ok", btype.run(step["params"], step["inputs"], ctx))
+        with using_library(ctx.library):
+            return ("ok", btype.run(step["params"], step["inputs"], ctx))
     except ConfirmRequired as exc:
         return ("error", str(exc), {"action": exc.action, "label": exc.label})
     except Exception as exc:          # noqa: BLE001 el error se enseña en el bloque

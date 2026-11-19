@@ -15,7 +15,11 @@ export type AppSettings = {
   fuentes: Record<"interfaz" | "pizarra" | "chat" | "numeros", string>;
   atajos: Record<string, string>;
   agentes: { animaciones_automaticas: boolean; tope_proyecto_usd: number;
-             acceso: "sesion" | "api_key"; api_key_guardada: boolean };
+             acceso: "sesion" | "api_key"; api_key_guardada: boolean;
+             /** El revisor (PLAN_V020 V5): apagado | a_demanda | hitos. */
+             intrusividad_revisor?: string;
+             /** El modelo de cada agente (V7): opus | sonnet. */
+             modelo_diseno?: string; modelo_revisor?: string };
   skin: string;
   bienvenida_vista: boolean;
   workspace: { nombre: string; ruta: string | null; nube: string | null } | null;
@@ -27,6 +31,8 @@ export type AppSettings = {
     escala: { min: number; max: number; paso: number };
     fuentes: Record<string, string[]>;
     skins: string[];
+    intrusividades_revisor?: string[];
+    modelos?: string[];
   };
 };
 

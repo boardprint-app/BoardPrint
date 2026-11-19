@@ -2,10 +2,12 @@
 // `animaciones_automaticas`, la que marca el aviso de la primera animación) y el tope por
 // proyecto por defecto, en dólares equivalentes (cada proyecto lo cambia en su panel). Y cómo
 // entra el agente (PLAN_PUBLICACION O9): la sesión de Claude Code o una API key de Anthropic,
-// que se guarda en el almacén del sistema y nunca vuelve a la interfaz.
+// que se guarda en el almacén del sistema y nunca vuelve a la interfaz. Desde FF 6.1, la
+// intrusividad del revisor (PLAN_V020 V5) y el modelo de cada agente (V7).
 import { useEffect, useState } from "react";
 import { saveApiKey, type AppSettings } from "../appSettings";
 import { t } from "../i18n";
+import { INTRUSIVENESS } from "../review";
 import { Row, rowLabel, TabHead, useSaver } from "./common";
 
 export function AgentsTab({ app }: { app: AppSettings }) {
@@ -45,7 +47,58 @@ export function AgentsTab({ app }: { app: AppSettings }) {
           <span>{t("ajustes.agentes.usd")}</span>
         </label>
       </Row>
+      <ReviewerRow app={app} />
+      <ModelRow app={app} agent="diseno" title={t("ajustes.agentes.modelo_diseno")} />
+      <ModelRow app={app} agent="revisor" title={t("ajustes.agentes.modelo_revisor")} />
     </>
+  );
+}
+
+/** Cuándo revisa el revisor (V5): cada opción con su frase. */
+function ReviewerRow({ app }: { app: AppSettings }) {
+  const { save, errors, busy } = useSaver();
+  const value = app.agentes.intrusividad_revisor ?? "a_demanda";
+  const options = app.opciones.intrusividades_revisor ?? INTRUSIVENESS;
+  const label: Record<string, string> = {
+    apagado: t("ajustes.agentes.intrusividad.apagado"), a_demanda: t("ajustes.agentes.intrusividad.a_demanda"),
+    hitos: t("ajustes.agentes.intrusividad.hitos"),
+  };
+  const note: Record<string, string> = {
+    apagado: t("ajustes.agentes.intrusividad.apagado_nota"), a_demanda: t("ajustes.agentes.intrusividad.a_demanda_nota"),
+    hitos: t("ajustes.agentes.intrusividad.hitos_nota"),
+  };
+  return (
+    <Row id="intrusividad_revisor" title={t("ajustes.agentes.intrusividad")} hint={t("ajustes.agentes.intrusividad_nota")}
+         error={errors.intrusividad_revisor}>
+      <div className="st-choices" role="radiogroup" aria-labelledby={rowLabel("intrusividad_revisor")}>
+        {options.map((o) => (
+          <label key={o} className="st-choice">
+            <input type="radio" name="intrusividad_revisor" value={o} checked={value === o}
+                   disabled={busy === "intrusividad_revisor"}
+                   onChange={() => save("intrusividad_revisor", { agentes: { intrusividad_revisor: o } })} />
+            <span><b>{label[o] ?? o}</b><small>{note[o] ?? ""}</small></span>
+          </label>
+        ))}
+      </div>
+    </Row>
+  );
+}
+
+/** El modelo de un agente (V7): Opus, o Sonnet, más barato. */
+function ModelRow({ app, agent, title }: { app: AppSettings; agent: "diseno" | "revisor"; title: string }) {
+  const { save, errors, busy } = useSaver();
+  const id = `modelo_${agent}`;
+  const value = (agent === "diseno" ? app.agentes.modelo_diseno : app.agentes.modelo_revisor) ?? "opus";
+  const label: Record<string, string> = {
+    opus: t("ajustes.agentes.modelo.opus"), sonnet: t("ajustes.agentes.modelo.sonnet"),
+  };
+  return (
+    <Row id={id} title={title} hint={t("ajustes.agentes.modelo_nota")} error={errors[id]}>
+      <select aria-labelledby={rowLabel(id)} value={value} disabled={busy === id}
+              onChange={(e) => save(id, { agentes: { [id]: e.target.value } })}>
+        {(app.opciones.modelos ?? ["opus", "sonnet"]).map((m) => <option key={m} value={m}>{label[m] ?? m}</option>)}
+      </select>
+    </Row>
   );
 }
 

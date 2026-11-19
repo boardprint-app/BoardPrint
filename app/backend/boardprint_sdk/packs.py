@@ -17,6 +17,8 @@ import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .library import Library
+
 __all__ = ["Param", "ConfirmRequired", "Pull", "Fix", "PortType", "BlockType", "Template",
            "RunContext", "PackBuilder", "View", "Action", "Connector", "chart", "view2d", "box",
            "line", "point"]
@@ -333,9 +335,16 @@ class RunContext:
     sync_file: Path | None = None
     _progress: object = None
     _cancelled: object = None
+    # La librería del workspace (SDK 1.5, PLAN_V020 V15): `records(type)`, `load(key)`,
+    # `stock(key)`. Sin workspace (los tests de un paquete), vacía.
+    library: Library | None = None
     # La pizarra, para la API de P39 (abajo). La pone el núcleo en una acción (`pack.action`);
     # al ejecutar un bloque en su proceso aparte (D92) no hay pizarra y no está.
     _board: object = field(default=None, init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        if self.library is None:
+            self.library = Library()
 
     def sync_file_of(self, block_id):
         """El registro de otro bloque del proyecto (p. ej. *Analizar* lee el de su *Construir*,

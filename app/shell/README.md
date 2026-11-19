@@ -38,6 +38,28 @@ cd ../.. && .venv/Scripts/python.exe app/shell/build_sidecar.py
 cd app/shell && npm ci && npx tauri build
 ```
 
+### Versión y actualizador (`docs/PLAN_V020.md` §4)
+
+- **La versión** se cambia solo con `python scripts/set_version.py X.Y.Z`, que la escribe en
+  todos los manifiestos (un test falla si difieren). El workflow App la toma de su entrada
+  `version`.
+- **La clave del actualizador** firma cada instalador (`<nombre>.sig`) y la app solo instala
+  una actualización con su firma. La privada vive **fuera del repo**:
+  `%USERPROFILE%\.tauri\boardprint-updater.key` (y una copia en el gestor de contraseñas), y
+  en el secreto `TAURI_SIGNING_PRIVATE_KEY` del repo; la pública, en `tauri.conf.json`.
+  **Perderla deja a todos sin actualizaciones**: tendrían que reinstalar a mano con una clave
+  nueva. En local, antes de `npx tauri build`:
+  ```bash
+  export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/boardprint-updater.key)" TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+  ```
+  Sin ella, `tauri build` falla al firmar (`createUpdaterArtifacts`).
+- **`latest.json`**: `python scripts/latest_json.py <carpeta> X.Y.Z [--notas f.md]` lo escribe
+  con los instaladores firmados de la carpeta; el job *publicar* lo sube al Release, y las
+  notas salen de `docs/releases/vX.Y.Z.md`.
+- **En la app**: el shell comprueba al arrancar y deja lo que sabe en `update.json` (carpeta de
+  los ajustes); *Instalar* lo pide el usuario y llega al shell por `update.request`
+  (`src/updates.rs`, `pizarra/update_api.py`). Antes de instalar para el backend.
+
 ## Entorno de paquetes (`PLAN_PAQUETES` P19-P21)
 
 Los bloques de los paquetes acabarán corriendo en un **Python de verdad** (`pyenv/python`), no

@@ -23,7 +23,7 @@ import unittest
 import zlib
 
 from pizarra import agent, agent_board_tools as abt, execution, graph, scene, zone
-from tests.helpers import new_board, necesita_paquetes
+from tests.helpers import new_board
 
 
 def _data(result):
@@ -58,47 +58,44 @@ class CrearBloque(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
 
-    @necesita_paquetes
     def test_crea_un_tipo_cargado_suyo_y_devuelve_sus_puertos(self):
-        result, new = abt.tool_crear_bloque(self.b, {"tipo": "demo.voladizo"})
+        result, new = abt.tool_crear_bloque(self.b, {"tipo": "prueba.voladizo"})
         d = _data(result)
         el = new[0]
         self.assertEqual(d["creado"], el["id"])
         self.assertEqual((d["entradas"], d["salidas"]),
-                         ({"tubo": "demo.tubo"}, {"voladizo": "demo.voladizo"}))
+                         ({"tubo": "prueba.tubo"}, {"voladizo": "prueba.voladizo"}))
         self.assertEqual(el["customData"]["author"], agent.AGENT)
         self.assertIn(el["id"], graph.blocks_in(self.b.elements, self.b.registry))
 
     def test_un_tipo_que_no_esta_cargado_se_rechaza_y_no_deja_nada(self):
         n = len(self.b.elements)
-        result, new = abt.tool_crear_bloque(self.b, {"tipo": "demo.no_existe"})
+        result, new = abt.tool_crear_bloque(self.b, {"tipo": "prueba.no_existe"})
         self.assertTrue(result["is_error"])
         self.assertEqual((new, len(self.b.elements)), ([], n))
 
     def test_unos_parametros_que_no_valen_no_dejan_nada(self):
         for params in ({"no_existe": 1}, {"L": "mucho"}):
-            result, new = abt.tool_crear_bloque(self.b, {"tipo": "demo.tubo", "params": params})
+            result, new = abt.tool_crear_bloque(self.b, {"tipo": "prueba.tubo", "params": params})
             self.assertTrue(result["is_error"], params)
             self.assertEqual((new, self.b.elements, self.b.state), ([], [], {}))
 
-    @necesita_paquetes
     def test_con_parametros_los_lleva_y_el_resto_por_defecto(self):
-        _, new = abt.tool_crear_bloque(self.b, {"tipo": "demo.tubo", "params": {"L": 250}})
+        _, new = abt.tool_crear_bloque(self.b, {"tipo": "prueba.tubo", "params": {"L": 250}})
         params = self.b.state[new[0]["id"]]["params"]
-        self.assertEqual(params, {**self.b.default_params("demo.tubo"), "L": 250})
+        self.assertEqual(params, {**self.b.default_params("prueba.tubo"), "L": 250})
 
-    @necesita_paquetes
     def test_nunca_cae_encima_de_otro_elemento_ni_junto_a_un_ancla_sin_hueco(self):
-        t = scene.block_element("demo.tubo", 0, 0)
-        v = scene.block_element("demo.voladizo", 300, 0)        # 20 px a la derecha del tubo
+        t = scene.block_element("prueba.tubo", 0, 0)
+        v = scene.block_element("prueba.voladizo", 300, 0)        # 20 px a la derecha del tubo
         self.b.apply_client_elements([t, v])
         for _ in range(4):
-            result, _ = abt.tool_crear_bloque(self.b, {"tipo": "demo.tubo", "cerca_de": t["id"]})
+            result, _ = abt.tool_crear_bloque(self.b, {"tipo": "prueba.tubo", "cerca_de": t["id"]})
             self.assertNotIn("is_error", result)
         _no_overlaps(self, self.b.elements)
 
     def test_cerca_de_un_elemento_que_no_existe_se_rechaza(self):
-        result, new = abt.tool_crear_bloque(self.b, {"tipo": "demo.tubo", "cerca_de": "nada"})
+        result, new = abt.tool_crear_bloque(self.b, {"tipo": "prueba.tubo", "cerca_de": "nada"})
         self.assertTrue(result["is_error"])
         self.assertEqual(new, [])
 
@@ -109,9 +106,9 @@ class Conectar(unittest.TestCase):
 
     def _board(self):
         b = new_board()
-        t1, t2 = scene.block_element("demo.tubo", 0, 0), scene.block_element("demo.tubo", 0, 400)
-        v1, v2 = (scene.block_element("demo.voladizo", 400, 0),
-                  scene.block_element("demo.voladizo", 400, 400))
+        t1, t2 = scene.block_element("prueba.tubo", 0, 0), scene.block_element("prueba.tubo", 0, 400)
+        v1, v2 = (scene.block_element("prueba.voladizo", 400, 0),
+                  scene.block_element("prueba.voladizo", 400, 400))
         b.apply_client_elements([t1, t2, v1, v2])
         return b, t1["id"], t2["id"], v1["id"], v2["id"]
 
@@ -132,7 +129,6 @@ class Conectar(unittest.TestCase):
             return False
         return True
 
-    @necesita_paquetes
     def test_acepta_y_rechaza_lo_mismo_que_una_flecha_de_la_interfaz(self):
         cases = {
             "salida con su entrada": lambda t1, t2, v1, v2: (t1, "tubo", v1, "tubo"),
@@ -151,7 +147,6 @@ class Conectar(unittest.TestCase):
         b, t1, _, v1, _ = self._board()
         self.assertTrue(self._agent_accepts(b, t1, "tubo", v1, "tubo"))
 
-    @necesita_paquetes
     def test_la_conexion_aceptada_entra_en_el_grafo_suya_y_enganchada(self):
         b, t1, _, v1, _ = self._board()
         result, changed = abt.tool_conectar(b, {"desde": f"{t1}:tubo", "hasta": f"{v1}:tubo"})
@@ -163,7 +158,6 @@ class Conectar(unittest.TestCase):
             if e["id"] in (t1, v1):
                 self.assertIn({"id": arrow["id"], "type": "arrow"}, e["boundElements"])
 
-    @necesita_paquetes
     def test_una_entrada_ocupada_se_rechaza_aunque_la_flecha_nueva_ordene_antes(self):
         # El grafo recorre las flechas por id: una nueva con un id menor le quitaría la entrada
         # a la de antes. Nunca: la de antes sigue y la nueva se rechaza.
@@ -175,13 +169,11 @@ class Conectar(unittest.TestCase):
         self.assertFalse(self._agent_accepts(b, t2, "tubo", v1, "tubo"))
         self.assertEqual(graph.build(b.elements, b.registry)[0][v1]["tubo"], (t1, "tubo"))
 
-    @necesita_paquetes
     def test_una_salida_alimenta_a_varias_entradas(self):
         b, t1, _, v1, v2 = self._board()
         self.assertTrue(self._agent_accepts(b, t1, "tubo", v1, "tubo"))
         self.assertTrue(self._agent_accepts(b, t1, "tubo", v2, "tubo"))
 
-    @necesita_paquetes
     def test_sin_puertos_elige_el_unico_posible_y_lo_escribe_en_la_flecha(self):
         b, t1, _, v1, _ = self._board()
         _, changed = abt.tool_conectar(b, {"desde": t1, "hasta": v1})
@@ -195,13 +187,12 @@ class Conectar(unittest.TestCase):
 
 
 class PonerPlantilla(unittest.TestCase):
-    @necesita_paquetes
     def test_nunca_cae_encima_de_lo_que_hay_y_es_del_agente(self):
         b = new_board()
-        t = scene.block_element("demo.tubo", 0, 0)
+        t = scene.block_element("prueba.tubo", 0, 0)
         b.apply_client_elements([t])
         for near in (None, t["id"]):
-            result, new = abt.tool_poner_plantilla(b, {"plantilla": "demo.cadena",
+            result, new = abt.tool_poner_plantilla(b, {"plantilla": "prueba.cadena",
                                                        "cerca_de": near})
             d = _data(result)
             self.assertEqual(len(d["bloques"]) + len(d["conexiones"]), len(new))
@@ -211,18 +202,17 @@ class PonerPlantilla(unittest.TestCase):
 
     def test_una_plantilla_que_no_existe_se_rechaza_y_no_deja_nada(self):
         b = new_board()
-        result, new = abt.tool_poner_plantilla(b, {"plantilla": "demo.nada"})
+        result, new = abt.tool_poner_plantilla(b, {"plantilla": "prueba.nada"})
         self.assertTrue(result["is_error"])
         self.assertEqual((new, b.elements), ([], []))
 
 
-@necesita_paquetes
 class ParametrosYAutoria(unittest.TestCase):
     """D20: lo suyo lo edita directamente; lo del ingeniero, con propuesta."""
 
     def test_los_parametros_de_un_bloque_suyo_se_cambian_directamente(self):
         b = new_board()
-        _, new = abt.tool_crear_bloque(b, {"tipo": "demo.tubo"})
+        _, new = abt.tool_crear_bloque(b, {"tipo": "prueba.tubo"})
         bid = new[0]["id"]
         result, _, proposed = agent.tool_proponer_cambio(
             b, {"target": bid, "change": {"params": {"L": 250}}, "reason": "Más corto"})
@@ -233,7 +223,7 @@ class ParametrosYAutoria(unittest.TestCase):
 
     def test_los_de_un_bloque_del_ingeniero_nunca_sin_propuesta(self):
         b = new_board()
-        t = scene.block_element("demo.tubo", 0, 0)
+        t = scene.block_element("prueba.tubo", 0, 0)
         b.apply_client_elements([t])
         before = dict(b.state[t["id"]]["params"])
         _, _, proposed = agent.tool_proponer_cambio(
@@ -249,11 +239,10 @@ def _inline(board):
     return run_block
 
 
-@necesita_paquetes
 class EjecutarBloque(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.b = new_board()
-        _, new = abt.tool_crear_bloque(self.b, {"tipo": "demo.tubo"})
+        _, new = abt.tool_crear_bloque(self.b, {"tipo": "prueba.tubo"})
         self.bid = new[0]["id"]
 
     async def test_ejecuta_espera_y_da_estado_y_salidas_sin_cambiar_parametros(self):
@@ -300,7 +289,7 @@ class VentanaFalsa:
 class VerZona(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.b = new_board()
-        self.t = scene.block_element("demo.tubo", 0, 0)
+        self.t = scene.block_element("prueba.tubo", 0, 0)
         self.foto = {"id": "foto", "type": "embeddable", "version": 1, "x": 400, "y": 0,
                      "width": 200, "height": 150,
                      "customData": {"kind": "image", "author": "user",
@@ -374,12 +363,11 @@ class VerZona(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(w.sent, [])
 
 
-@necesita_paquetes
 class LeerPizarraTraeElCatalogo(unittest.TestCase):
     def test_los_tipos_y_las_plantillas_que_se_pueden_poner(self):
         d = _data(agent.tool_leer_pizarra(new_board(), {}))
-        self.assertEqual(d["catalog"]["blocks"]["demo.voladizo"]["inputs"], {"tubo": "demo.tubo"})
-        self.assertIn("demo.cadena", d["catalog"]["templates"])
+        self.assertEqual(d["catalog"]["blocks"]["prueba.voladizo"]["inputs"], {"tubo": "prueba.tubo"})
+        self.assertIn("prueba.cadena", d["catalog"]["templates"])
 
 
 if __name__ == "__main__":

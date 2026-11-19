@@ -81,6 +81,10 @@ def register(pack):
   de un campo hecho con `chart(...)`) y `view2d` (vista 2D a escala con `box`, `line`,
   `point`). No hace falta interfaz propia.
 - `ctx.progress(fracción, mensaje)` en un cálculo largo.
+- Componentes del ingeniero (SDK 1.5): `ctx.library.records(tipo)`, `ctx.library.load(clave)`
+  (cada ficha con `key`, `type`, `status`, `path` y el TOML en `data`) y
+  `ctx.library.stock(clave)` (`cantidad` None es desconocida, no 0). En una vista previa,
+  `boardprint_sdk.library.current()`. Sin workspace, vacía.
 - Vista previa (`preview=`, opcional): `preview(params, inputs)` da lo que enseña el editor
   con los parámetros que se están editando, rápida y sin archivos. Sus fallos van en
   `error` (un texto) o en `errores…` (`{clave: motivo}`), a cualquier profundidad: una

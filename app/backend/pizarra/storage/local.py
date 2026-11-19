@@ -5,12 +5,16 @@
     <workspace>/<carpeta>/…/<proyecto>/project.toml
 
 Una carpeta con `project.toml` es un proyecto y no se mira dentro; cualquier otra es una
-carpeta del workspace, salvo las ocultas y, en la raíz, `profile/` y `packs/`. El usuario
+carpeta del workspace, salvo las ocultas y, en la raíz, `profile/`, `packs/` y `library/`
+(la librería de componentes, PLAN_V020 V14: `library/<tipo>s/<clave>.toml` y
+`library/stock.csv`, y las copias del perfil al importar otro, `profile/.copias/`). El usuario
 puede renombrar, mover o copiar carpetas desde el Explorador: el id de `project.toml` sigue
 al proyecto, y una copia (dos con el mismo id) recibe uno nuevo.
 """
+import csv
 import ctypes
 import hashlib
+import io
 import json
 import os
 import re
@@ -24,16 +28,22 @@ from pathlib import Path
 
 import tomli_w
 
+from boardprint_sdk.library import STOCK_COLUMNS, STOCK_FILE, _read_stock
 from pizarra import i18n
 from pizarra.config import APP_ID, LEGACY_INDEX_DIRS
 from pizarra.pasted import ANIMATION_EXT, IMAGE_EXT
-from pizarra.storage.base import (AGENT_FILES, Conflict, InvalidName, Node, NotFound, ProjectInfo,
+from pizarra.storage.base import (AGENT_CHATS, AGENT_FILES, Conflict, InvalidName, Node, NotFound, ProjectInfo,
                                   StorageError, Workspace, WorkspaceInfo)
-from pizarra.storage.names import ROOT_RESERVED, check_name, split_rel
+from pizarra.storage.names import (ROOT_RESERVED, check_ficha_key, check_ficha_type, check_name,
+                                   split_rel)
 
 SCHEMA = 1
 PROJECT_FILE = "project.toml"
 WORKSPACE_FILE = "workspace.toml"
+PROFILE_DIR = "profile"                 # reservada en la raíz (`names.ROOT_RESERVED`)
+MANUFACTURING_FILE = "fabricacion.md"   # el perfil de fabricación (D31, PLAN_V020 V8)
+LIBRARY_DIR = "library"                 # la librería (V14), dentro de `profile/`: el perfil la lleva (D26)
+PROFILE_COPIES = ".copias"              # `profile/.copias/<fecha>.zip`, antes de importar un perfil (L9)
 INDEX_DIR = f".{APP_ID}"
 # Ids de bloque: los de Excalidraw (nanoid) y los de los tests. Nunca un separador ni un punto.
 BLOCK_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
@@ -78,6 +88,20 @@ def atomic_write(path, data: bytes):
             if intento == 19:
                 raise
             time.sleep(0.1)
+
+
+def stock_csv(stock):
+    """El texto de `library/stock.csv` con el stock `{clave: entrada}` (lo que lee
+    `boardprint_sdk.library._read_stock`), por clave. Lo usan `save_stock` y el perfil `.zip`."""
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(STOCK_COLUMNS)
+    for key in sorted(stock):
+        e = stock[key]
+        qty = e.get("cantidad")
+        w.writerow([key, "" if qty is None else (repr(qty) if isinstance(qty, float) else qty),
+                    *(e.get(c) or "" for c in STOCK_COLUMNS[2:])])
+    return buf.getvalue()
 
 
 def _rename(src, dst):
@@ -627,11 +651,17 @@ class LocalWorkspace(Workspace):
             raise InvalidName(f"fichero del agente desconocido: {name!r}")
         return self._dir_of(project_id) / "agent" / f"{name}.json"
 
-    def load_agent_chat(self, project_id):
-        return self._load_jsonl(self._dir_of(project_id) / "agent" / "chat.jsonl")
+    def _chat_path(self, project_id, name):
+        """`agent/chat.jsonl` (diseño) o `agent/review.jsonl` (revisor): nunca otro nombre."""
+        if name not in AGENT_CHATS:
+            raise InvalidName(f"conversación del agente desconocida: {name!r}")
+        return self._dir_of(project_id) / "agent" / f"{name}.jsonl"
 
-    def append_agent_chat(self, project_id, events):
-        self._append_jsonl(self._dir_of(project_id) / "agent" / "chat.jsonl", events)
+    def load_agent_chat(self, project_id, name="chat"):
+        return self._load_jsonl(self._chat_path(project_id, name))
+
+    def append_agent_chat(self, project_id, events, name="chat"):
+        self._append_jsonl(self._chat_path(project_id, name), events)
 
     def _thread_path(self, project_id, thread_id):
         """`agent/threads/<id>.jsonl` (D165): el id, como uno de bloque; nunca una ruta."""
@@ -722,6 +752,82 @@ class LocalWorkspace(Workspace):
             raise StorageError(i18n.t("workspace.ilegible_sin_motivo", fichero=self.root / WORKSPACE_FILE))
         data["unidades"] = dict(units)
         _write_toml(self.root / WORKSPACE_FILE, data)
+
+    # ------------------------------------------- perfil de fabricación (D31, V8)
+    def _profile_path(self):
+        return self.root / PROFILE_DIR / MANUFACTURING_FILE
+
+    def load_manufacturing_profile(self):
+        p = self._profile_path()
+        try:
+            return p.read_text(encoding="utf-8", errors="replace") if p.is_file() else None
+        except OSError:
+            return None
+
+    def save_manufacturing_profile(self, text):
+        atomic_write(self._profile_path(), str(text).encode("utf-8"))
+
+    # ----------------------------------------- librería del workspace (V14, V15)
+    def library_dir(self):
+        return self.root / PROFILE_DIR / LIBRARY_DIR
+
+    def _library_paths(self):
+        """{clave: ruta} de las fichas (`library/<carpeta>/<clave>.toml`, sin las carpetas
+        ocultas); una clave en dos carpetas (copiada a mano), la primera por ruta."""
+        d = self.library_dir()
+        if not d.is_dir():
+            return {}
+        out = {}
+        for p in sorted(d.glob("*/*.toml")):
+            if not p.parent.name.startswith(".") and p.is_file():
+                out.setdefault(p.stem, p)
+        return out
+
+    def list_library_fichas(self):
+        out = {}
+        for key, p in self._library_paths().items():
+            try:
+                out[key] = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+        return out
+
+    def load_library_ficha(self, key):
+        p = self._library_paths().get(check_ficha_key(key))
+        try:
+            return p.read_text(encoding="utf-8", errors="replace") if p is not None else None
+        except OSError:
+            return None
+
+    def save_library_ficha(self, key, type_, text):
+        check_ficha_key(key)
+        target = self.library_dir() / f"{check_ficha_type(type_)}s" / f"{key}.toml"
+        atomic_write(target, str(text).encode("utf-8"))
+        for p in sorted(self.library_dir().glob(f"*/{key}.toml")):
+            if p.parent != target.parent and p.stem == key:   # tenía otro tipo
+                self._trash_fn(str(p))
+
+    def trash_library_ficha(self, key):
+        p = self._library_paths().get(check_ficha_key(key))
+        if p is None:
+            raise NotFound(i18n.t("libreria.no_existe", clave=key))
+        self._trash_fn(str(p))
+
+    def load_stock(self):
+        try:
+            text = (self.library_dir() / STOCK_FILE).read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            return {}
+        return _read_stock(text)
+
+    def save_stock(self, stock):
+        atomic_write(self.library_dir() / STOCK_FILE, stock_csv(stock).encode("utf-8"))
+
+    # ---------------------------- copias del perfil al importar otro (PLAN_LIBRERIA L9)
+    def profile_copy_dir(self):
+        # oculta y dentro de `profile/`: ni es una carpeta del workspace (D65) ni la librería
+        # la lee (`library/<tipo>s/` está en `profile/library/`)
+        return self.root / PROFILE_DIR / PROFILE_COPIES
 
     def load_thumbnail(self, project_id):
         p = self._dir_of(project_id) / "board" / "thumbnail.png"

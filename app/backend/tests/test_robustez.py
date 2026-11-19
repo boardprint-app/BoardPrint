@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from pizarra import agent, desktop, scene, validation
-from tests.helpers import new_board, reopen, necesita_paquetes
+from tests.helpers import new_board, reopen
 from pizarra.validation import ValidationError
 
 
@@ -19,12 +19,11 @@ def _overlap(a, c):
     return not (a[2] <= c[0] or c[2] <= a[0] or a[3] <= c[1] or c[3] <= a[1])
 
 
-@necesita_paquetes
 class BloqueDesconocido(unittest.TestCase):
     """Un bloque de un tipo que no existe nunca deja la pizarra inutilizable."""
 
     def test_la_pizarra_sigue_funcionando_con_un_bloque_de_tipo_desconocido(self):
-        b, (t,) = _board("demo.tubo")
+        b, (t,) = _board("prueba.tubo")
         b.apply_client_elements([scene.block_element("pack.inexistente", 0, 400)])
         self.assertEqual(b.statuses(), {t: "nunca"})
         b.blocks_view()
@@ -42,18 +41,18 @@ class ProyectoNuevo(unittest.TestCase):
 
 class EntradasMalFormadas(unittest.TestCase):
     def test_set_params_de_un_bloque_inexistente_se_rechaza_sin_dejar_rastro(self):
-        b, _ = _board("demo.tubo")
+        b, _ = _board("prueba.tubo")
         with self.assertRaises(ValidationError):
             b.set_params("noexiste", {"t": 4})
         self.assertNotIn("noexiste", b.state)
 
     def test_set_params_que_no_son_un_objeto_se_rechazan(self):
-        b, (t,) = _board("demo.tubo")
+        b, (t,) = _board("prueba.tubo")
         with self.assertRaises(ValidationError):
             b.set_params(t, [1, 2])
 
     def test_fuentes_que_no_son_objetos_se_rechazan_con_motivo(self):
-        b, _ = _board("demo.tubo")
+        b, _ = _board("prueba.tubo")
         result, new = agent.tool_crear_postit(b, {"text": "ok 3 mm", "kind": "nota",
                                                   "sources": ["bloque:x"]})
         self.assertTrue(result["is_error"])
@@ -64,13 +63,13 @@ class FuentesQueExisten(unittest.TestCase):
     """Una fuente de bloque tiene que existir y tener salidas (regla de los números)."""
 
     def test_fuente_de_un_bloque_que_no_existe_se_rechaza(self):
-        b, _ = _board("demo.tubo")
+        b, _ = _board("prueba.tubo")
         with self.assertRaises(ValidationError):
             b.agent_add_postit({"text": "Pesa 2 kg", "kind": "nota", "author": "agent:design",
                                 "sources": [{"kind": "bloque", "ref": "bloque:noexiste"}]})
 
     def test_fuente_de_un_bloque_sin_ejecutar_se_rechaza(self):
-        b, (t,) = _board("demo.tubo")
+        b, (t,) = _board("prueba.tubo")
         with self.assertRaises(ValidationError):
             b.agent_add_postit({"text": "Pesa 2 kg", "kind": "nota", "author": "agent:design",
                                 "sources": [{"kind": "bloque", "ref": f"bloque:{t}"}]})
@@ -98,7 +97,7 @@ class SinTapar(unittest.TestCase):
                 self.assertFalse(_overlap(a, c), f"{ia} tapa a {ic}")
 
     def test_no_tapa_un_texto_suelto_del_usuario(self):
-        b, (t,) = _board("demo.tubo")
+        b, (t,) = _board("prueba.tubo")
         tubo = next(e for e in b.elements if e["id"] == t)
         b.apply_client_elements([{"id": "txt", "type": "text", "version": 1, "text": "nota mía",
                                   "x": tubo["x"] + tubo["width"] + 50, "y": tubo["y"],
@@ -108,7 +107,7 @@ class SinTapar(unittest.TestCase):
         self._sin_solapes(b)
 
     def test_no_tapa_una_linea_trazada_hacia_arriba_a_la_izquierda(self):
-        b, (t,) = _board("demo.tubo")
+        b, (t,) = _board("prueba.tubo")
         tubo = next(e for e in b.elements if e["id"] == t)
         x0 = tubo["x"] + tubo["width"] + 300
         b.apply_client_elements([{"id": "ln", "type": "freedraw", "version": 1,
@@ -119,7 +118,7 @@ class SinTapar(unittest.TestCase):
         self._sin_solapes(b)
 
     def test_una_posicion_pedida_que_tapa_algo_se_cambia_por_una_libre(self):
-        b, (t,) = _board("demo.tubo")
+        b, (t,) = _board("prueba.tubo")
         tubo = next(e for e in b.elements if e["id"] == t)
         b.agent_add_postit({"text": "ojo", "kind": "nota", "author": "agent:design"},
                            x=tubo["x"] + 10, y=tubo["y"] + 10)
@@ -136,7 +135,7 @@ class GuardadoConFicheroOcupado(unittest.TestCase):
     """En Windows otro proceso (OneDrive, antivirus) puede tener el fichero un instante."""
 
     def test_guardar_reintenta_si_el_fichero_esta_ocupado_un_momento(self):
-        b, _ = _board("demo.tubo")
+        b, _ = _board("prueba.tubo")
         b.save()
         real = Path.replace
         fallos = {"n": 2}

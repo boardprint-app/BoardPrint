@@ -8,6 +8,7 @@ import type { Compare } from "./versions";
 import type { Template } from "./palette";
 import type { SourceView } from "./cards";
 import type { PortTypes } from "./ports";
+import { isReviewEvent, reviewAfter, type ReviewMilestone, type ReviewState } from "./review";
 
 export type Value = {
   value: unknown; unit: string; label?: string; source?: string;
@@ -101,6 +102,9 @@ export type AgentEvent = {
   thread?: string;                    // de un hilo (D165): el chat principal no lo pinta
   close_request?: boolean;            // privacy/limit/user de *Cerrar con decisión* (D167)
   decision?: ThreadDecision;          // decision_proposal y closed de un hilo
+  agent?: string;                     // "revisor": de su pestaña, nunca del chat (FF 6.1, V3)
+  foco?: string;                      // revisor: en qué fijarse (user, privacy, limit)
+  milestone?: ReviewMilestone;        // revisor: el user de una revisión de hito (V5)
 };
 /** Consumo de un mensaje, un agente o el proyecto (D168): tokens y USD equivalentes. */
 export type AgentUsage = {
@@ -111,6 +115,8 @@ export type AgentState = {
   usage: { agents: Record<string, AgentUsage>; total: AgentUsage };
   limit: number; limit_own: boolean; remaining: number;
   exclude_attachments: boolean; privacy_seen: boolean; busy: boolean; thread: string | null;
+  /** Qué agente trabaja (V6: uno a la vez por proyecto). */
+  busy_agent?: "diseno" | "revisor" | null;
 };
 /** La decisión de un hilo (D167): con cifras, fuentes o `estimate` (D19). */
 export type ThreadDecision = { text: string; sources?: Record<string, any>[]; estimate?: boolean; at?: string };
@@ -153,6 +159,9 @@ type Snapshot = {
   agentLog: AgentEvent[];
   agentBusy: boolean;             // el chat principal tiene un mensaje en curso
   agentState: AgentState | null;  // consumo, tope y ajustes (D168, D169)
+  reviewLog: AgentEvent[];        // la conversación del revisor (FF 6.1, `review_history`)
+  reviewBusy: boolean;            // el revisor está con una revisión
+  reviewState: ReviewState | null;   // intrusividad, modelo y sus post-its (`review_state`)
   threads: ThreadInfo[];          // hilos del proyecto (D165)
   threadLogs: Record<string, AgentEvent[]>;   // los mensajes de cada hilo abierto (thread_history)
   threadBusy: string | null;      // el hilo con una pregunta en curso (una a la vez, R43)
@@ -175,7 +184,7 @@ type Snapshot = {
 const EMPTY: Snapshot = {
   project: null, savedAt: null,
   blocks: {}, types: {}, ports: {}, packs: [], templates: {}, problems: [], packIssues: NO_PACK_ISSUES, run: null, connectors: {}, connectorInfo: {}, lastError: null, agentLog: [], agentBusy: false,
-  agentState: null, threads: [], threadLogs: {}, threadBusy: null, threadFocus: null, threadClosing: null,
+  agentState: null, reviewLog: [], reviewBusy: false, reviewState: null, threads: [], threadLogs: {}, threadBusy: null, threadFocus: null, threadClosing: null,
   editingPostit: null, editingLink: null, postitFilter: FILTER_ALL, proposals: [], versionsTick: 0, compare: null,
   compareFocus: null, packPanel: null, notice: null, sources: {}, folderView: null, preview: null,
 };
@@ -189,6 +198,10 @@ export function resetStore() {
 }
 
 export function pushAgentEvent(ev: AgentEvent) {
+  if (isReviewEvent(ev)) {                     // lo del revisor va a su pestaña (V3)
+    const next = reviewAfter(snap.reviewLog, snap.reviewBusy, ev);
+    return setStore({ reviewLog: next.log, reviewBusy: next.busy });
+  }
   if (ev.thread) return pushThreadEvent(ev);   // lo de un hilo va en su ventana, no en el chat
   const busy = ev.kind === "user" ? true
     : ev.kind === "done" || ev.kind === "error" || ev.kind === "stopped" ? false : snap.agentBusy;

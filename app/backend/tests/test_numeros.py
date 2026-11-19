@@ -9,13 +9,13 @@ import tempfile
 import unittest
 
 from pizarra import agent, scene, validation
-from tests.helpers import new_board, reopen, necesita_paquetes
+from tests.helpers import new_board, reopen
 from pizarra.validation import ValidationError
 
 
 def _board_con_cadena():
     b = new_board()
-    t, v = scene.block_element("demo.tubo", 0, 0), scene.block_element("demo.voladizo", 400, 0)
+    t, v = scene.block_element("prueba.tubo", 0, 0), scene.block_element("prueba.voladizo", 400, 0)
     b.apply_client_elements([t, v, {"id": "a", "type": "arrow", "version": 1,
                                     "startBinding": {"elementId": t["id"]},
                                     "endBinding": {"elementId": v["id"]}}])
@@ -58,14 +58,12 @@ class CalculoDelAgente(unittest.TestCase):
             with self.assertRaises(ValidationError, msg=src):
                 validation.validate_postit(self.base(sources=[src]))
 
-    @necesita_paquetes
     def test_las_entradas_de_un_calculo_tienen_que_ser_bloques_con_resultados(self):
         b, _, _ = _board_con_cadena()
         with self.assertRaises(ValidationError):
             b.agent_add_postit(self.base(sources=[{
                 "kind": "calculo", "formula": "L/500", "inputs": ["bloque:noexiste"]}]))
 
-    @necesita_paquetes
     def test_el_post_it_guarda_la_cuenta_entera(self):
         # Cómo se pinta (no verificado, con la cuenta) lo decide la tarjeta:
         # frontend/src/postit.test.ts.
@@ -79,7 +77,6 @@ class CalculoDelAgente(unittest.TestCase):
         self.assertEqual((src["formula"], src["inputs"]),
                          ("L/500 = 600 mm / 500 = 1,2 mm", [f"bloque:{v}"]))
 
-    @necesita_paquetes
     def test_una_fuente_de_bloque_no_es_una_estimacion(self):
         b, _, v = _board_con_cadena()
         _, new = agent.tool_crear_postit(b, {

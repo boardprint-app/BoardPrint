@@ -304,11 +304,10 @@ class ServidorReal(unittest.TestCase):
         self.fail(f"no llegó ningún mensaje {kind}")
 
     # ------------------------------------------------- ejecución en segundo plano (D92)
-    @necesita_paquetes
     def test_ejecutar_va_en_un_proceso_aparte_y_llega_bloque_a_bloque_a_las_ventanas(self):
         pid = self.workspace.create_project("", "Ejecutar").id
         with self.ws(project=pid) as a, self.ws(project=pid) as b:
-            code, body = self.api("POST", f"/api/projects/{pid}/blocks", {"type": "demo.tubo"})
+            code, body = self.api("POST", f"/api/projects/{pid}/blocks", {"type": "prueba.tubo"})
             bid = json.loads(body)["id"]
             a.send(json.dumps({"type": "run", "block": bid}))
             seen = set()
@@ -325,13 +324,12 @@ class ServidorReal(unittest.TestCase):
             self.assertEqual(self.workspace.load_block_state(pid)[bid]["outputs"]["tubo"]["od"]
                              ["value"], 40, "guardado en disco")
 
-    @necesita_paquetes
     def test_cancelar_sin_ejecucion_y_dos_ejecuciones_a_la_vez_se_rechazan(self):
         pid = self.workspace.create_project("", "Una a la vez").id
         with self.ws(project=pid) as c:
             c.send(json.dumps({"type": "cancel"}))
             self.assertIn("ninguna ejecución", self.recv_type(c, "error")["message"])
-            code, body = self.api("POST", f"/api/projects/{pid}/blocks", {"type": "demo.tubo"})
+            code, body = self.api("POST", f"/api/projects/{pid}/blocks", {"type": "prueba.tubo"})
             bid = json.loads(body)["id"]
             c.send(json.dumps({"type": "run", "block": bid}))
             c.send(json.dumps({"type": "run", "block": bid}))
@@ -413,11 +411,10 @@ class ServidorReal(unittest.TestCase):
         a.close()
         b.close()
 
-    @necesita_paquetes
     def test_el_agente_ve_la_zona_que_pinta_una_ventana_y_ejecuta_como_el_boton(self):
         from tests.test_agent_board_tools import png
         pid = self.workspace.create_project("", "Herramientas").id
-        code, body = self.api("POST", f"/api/projects/{pid}/blocks", {"type": "demo.tubo"})
+        code, body = self.api("POST", f"/api/projects/{pid}/blocks", {"type": "prueba.tubo"})
         AgenteConHerramientas.bloque = bid = json.loads(body)["id"]
         agent_mod.DesignAgent = AgenteConHerramientas
         try:

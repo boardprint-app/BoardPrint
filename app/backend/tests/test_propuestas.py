@@ -10,7 +10,7 @@ import unittest
 
 from pizarra import scene
 from pizarra.validation import ValidationError
-from tests.helpers import new_board, reopen, necesita_paquetes
+from tests.helpers import new_board, reopen
 
 AGENT = "agent:design"
 
@@ -22,7 +22,7 @@ def current(board, eid):
 class Base(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
-        self.tubo = scene.block_element("demo.tubo", 0, 0)
+        self.tubo = scene.block_element("prueba.tubo", 0, 0)
         self.b.apply_client_elements([self.tubo])
         self.nota = self.b.user_add_postit("nota", 0, 300)
         self.b.apply_client_elements([{**self.nota, "version": 2,
@@ -111,7 +111,6 @@ class AceptarYRechazar(Base):
         self.b.accept_proposal(p["id"], self.view(p["id"])["current"])
         self.assertEqual(current(self.b, self.nota["id"])["customData"]["postitKind"], "riesgo")
 
-    @necesita_paquetes
     def test_aceptar_parametros_los_cambia_y_el_bloque_queda_por_ejecutar(self):
         self.b.run(self.tubo["id"])
         p = self.propose(self.tubo["id"], {"params": {"L": 250}})

@@ -11,6 +11,8 @@
 //    cierra (`tauri-plugin-single-instance`), y llega a la interfaz en `pizarra-open`;
 // 7. el modo de ventana y la escala de `settings.toml` (plan D183, `window_mode.rs`): al abrir
 //    y cada vez que el fichero cambia (lo escribe el backend desde *Ajustes*).
+// 8. el actualizador (docs/PLAN_V020.md §4, `updates.rs`): comprueba al arrancar e instala
+//    cuando el usuario lo pide, por ficheros en la carpeta de los ajustes.
 // La interfaz no usa IPC de Tauri: todo pasa por HTTP y WebSocket con el backend.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -25,6 +27,7 @@ use tauri::{DragDropEvent, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuil
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
+mod updates;
 mod window_mode;
 
 use window_mode::{Mode, WindowSettings};
@@ -33,6 +36,13 @@ const APP_NAME: &str = "BoardPrint"; // nombre del producto (plan D49, D158)
 const WINDOWED: (f64, f64) = (1400.0, 900.0); // el tamaño del modo «ventana»
 
 struct Backend(Mutex<Option<CommandChild>>);
+
+/// Para el backend (al salir y antes de instalar una actualización).
+fn stop_backend(app: &tauri::AppHandle) {
+    if let Some(child) = app.state::<Backend>().0.lock().unwrap().take() {
+        let _ = child.kill();
+    }
+}
 
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
@@ -119,6 +129,7 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let port = free_port();
             let token = random_token();
@@ -175,6 +186,9 @@ fn main() {
                 .build()?;
             let _ = window.set_zoom(initial.scale as f64 / 100.0);
             watch_window(window.clone(), settings.clone(), initial);
+            if let Some(dir) = settings.parent() {
+                updates::watch(app.handle().clone(), dir.to_path_buf(), stop_backend);
+            }
 
             // Rutas soltadas, con el punto (en píxeles físicos de la ventana) donde se soltaron:
             // la interfaz crea ahí sus tarjetas (frontend/src/App.tsx, `pizarra-drop`).
@@ -223,9 +237,7 @@ fn main() {
         .expect("error al construir la app")
         .run(|app, event| {
             if let RunEvent::Exit = event {
-                if let Some(child) = app.state::<Backend>().0.lock().unwrap().take() {
-                    let _ = child.kill();
-                }
+                stop_backend(app);
             }
         });
 }

@@ -12,6 +12,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"   # el actualizador (docs/PLAN_V020.md §4)
 serde_json = "1"
 toml = "0.8"   # [ventana] de settings.toml (D183); ya lo trae Tauri
 

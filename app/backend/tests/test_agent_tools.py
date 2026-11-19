@@ -41,7 +41,7 @@ except ImportError:                     # job básico del CI
 
 def _board_con_cadena():
     b = new_board()
-    t, v = scene.block_element("demo.tubo", 0, 0), scene.block_element("demo.voladizo", 400, 0)
+    t, v = scene.block_element("prueba.tubo", 0, 0), scene.block_element("prueba.voladizo", 400, 0)
     b.apply_client_elements([t, v, {"id": "a", "type": "arrow", "version": 1,
                                     "startBinding": {"elementId": t["id"]},
                                     "endBinding": {"elementId": v["id"]}}])
@@ -49,7 +49,6 @@ def _board_con_cadena():
     return b, t["id"], v["id"]
 
 
-@necesita_paquetes
 class HerramientasDelAgente(unittest.TestCase):
     def test_leer_pizarra_da_las_salidas_resumidas_y_como_citarlas(self):
         b, _, v = _board_con_cadena()
@@ -122,7 +121,6 @@ class HerramientasDelAgente(unittest.TestCase):
         self.assertEqual(new, [])
 
 
-@necesita_paquetes
 class ProponerCambio(unittest.TestCase):
     """`proponer_cambio` (D75): sobre lo del ingeniero deja una propuesta; nunca lo toca."""
 
@@ -158,7 +156,6 @@ def _data(result):
     return json.loads(result["content"][0]["text"])
 
 
-@necesita_paquetes
 class LoQueLeeElAgenteCabe(unittest.TestCase):
     """Prueba de punta a punta de FF 4.8: con el brazo ejecutado, leer_pizarra daba ~100 000
     caracteres y Claude Code no se los pasaba al agente; un tramo de leer_archivo de 60 000,
@@ -532,7 +529,6 @@ class LoQueElAgenteNoSabia(unittest.TestCase):
         data = _data(agent.tool_leer_pizarra(b, {}))
         self.assertEqual(data["connectors"]["fusion"], "no disponible")
 
-    @necesita_paquetes
     def test_leer_pizarra_da_el_estado_de_las_propuestas_del_agente(self):
         b, t, _ = _board_con_cadena()
         ids = []

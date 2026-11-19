@@ -2,8 +2,9 @@
 lectura y los cambios en una escritura.
 
 - `GET /api/settings`: idioma, unidades del workspace (D182), ventana y escala (D183),
-  fuentes (D184), atajos (D185), ajustes de los agentes (D144, D168), skin y bienvenida
-  (D186), con las listas de lo que se puede elegir.
+  fuentes (D184), atajos (D185), ajustes de los agentes (D144, D168; la intrusividad del
+  revisor y el modelo de cada agente, PLAN_V020 V5, V7), skin y bienvenida (D186), con las
+  listas de lo que se puede elegir.
 - `PUT /api/settings`: solo lo que cambia, con las mismas claves. **Todo o nada**: si una
   clave no vale, contesta 422 con el motivo y no se guarda ninguna. El cambio llega a todas
   las ventanas abiertas como `{"type": "settings"}` por el WebSocket, que vuelven a leer.
@@ -14,7 +15,8 @@ import asyncio
 import copy
 
 from pizarra import api_key, i18n, units, welcome
-from pizarra.settings import (FONT_CHOICES, LANGUAGES, SCALE_MAX, SCALE_MIN, SCALE_STEP, SKINS,
+from pizarra.settings import (AGENT_MODELS, FONT_CHOICES, LANGUAGES, MODEL_KEYS,
+                              REVIEW_INTRUSIVENESS, SCALE_MAX, SCALE_MIN, SCALE_STEP, SKINS,
                               WINDOW_MODES, positive_usd)
 from pizarra.storage import StorageError
 
@@ -34,7 +36,10 @@ def view(settings, workspace, key_store=None):
         "agentes": {"animaciones_automaticas": settings.animations_auto,
                     "tope_proyecto_usd": settings.project_limit_usd,
                     "acceso": settings.agent_access,
-                    "api_key_guardada": api_key.saved(key_store)},
+                    "api_key_guardada": api_key.saved(key_store),
+                    "intrusividad_revisor": settings.review_intrusiveness,     # PLAN_V020 V5
+                    "modelo_diseno": settings.saved_model("diseno"),           # V7
+                    "modelo_revisor": settings.saved_model("revisor")},
         "skin": settings.skin,
         "bienvenida_vista": settings.welcome_seen,
         "workspace": welcome.location(workspace),       # dónde se guarda (D186)
@@ -46,6 +51,8 @@ def view(settings, workspace, key_store=None):
             "escala": {"min": SCALE_MIN, "max": SCALE_MAX, "paso": SCALE_STEP},
             "fuentes": {k: list(v) for k, v in FONT_CHOICES.items()},
             "skins": list(SKINS),
+            "intrusividades_revisor": list(REVIEW_INTRUSIVENESS),
+            "modelos": list(AGENT_MODELS),
         },
     }
 
@@ -87,6 +94,11 @@ def apply(settings, workspace, changes):
             if a["acceso"] not in api_key.ACCESS:
                 raise ValueError(i18n.t("ajustes.acceso_no_valido"))
             settings.agent_access = a["acceso"]
+        if "intrusividad_revisor" in a:
+            settings.review_intrusiveness = a["intrusividad_revisor"]
+        for agent, key in MODEL_KEYS.items():
+            if key in a:
+                settings.set_agent_model(agent, a[key])
     if "skin" in changes:
         settings.skin = changes["skin"]
     if "bienvenida_vista" in changes:

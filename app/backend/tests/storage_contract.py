@@ -102,6 +102,9 @@ class StorageContract:
             with self.assertRaises(InvalidName):
                 self.ws.create_folder("", bad)
         self.ws.create_folder("", "Brazos")
+        # la librería va dentro de profile/ (V14): una carpeta «library» de v0.1.0 sigue siendo
+        # del usuario y no se esconde
+        self.assertEqual(self.ws.create_folder("", "library"), "library")
         self.ws.create_folder("Brazos", "packs")              # dentro de una carpeta, sí
 
     def test_nunca_se_pisa_una_carpeta_que_ya_existe(self):
@@ -212,6 +215,81 @@ class StorageContract:
         self.assertEqual(self.ws.load_agent_file(pid, "sessions"), {"chat": {"session_id": "s1"}})
         with self.assertRaises(InvalidName):
             self.ws.load_agent_file(pid, "../board/scene")
+
+    def test_la_conversacion_del_revisor_va_aparte_del_chat_de_diseno(self):
+        # PLAN_V020 V3: `review` nunca se mezcla con `chat`; otro nombre no se acepta
+        pid = self.ws.create_project("", "Con revisor").id
+        self.ws.append_agent_chat(pid, [{"kind": "user", "text": "diseña"}])
+        self.ws.append_agent_chat(pid, [{"kind": "user", "text": "revisa"}], "review")
+        self.assertEqual([e["text"] for e in self.ws.load_agent_chat(pid)], ["diseña"])
+        self.assertEqual([e["text"] for e in self.ws.load_agent_chat(pid, "review")], ["revisa"])
+        for malo in ("../chat", "otro", "sessions", ""):
+            with self.assertRaises(InvalidName, msg=malo):
+                self.ws.append_agent_chat(pid, [{"kind": "user"}], malo)
+
+    def test_el_perfil_de_fabricacion_vuelve_tal_cual_y_sin_el_es_none(self):
+        # V8: un Markdown del workspace, fuera de cualquier proyecto
+        self.assertIsNone(self.ws.load_manufacturing_profile())
+        self.ws.save_manufacturing_profile("# Máquinas\n- Fresadora 3 ejes ±0,05 mm\n")
+        self.assertEqual(self.ws.load_manufacturing_profile(),
+                         "# Máquinas\n- Fresadora 3 ejes ±0,05 mm\n")
+        self.assertNotIn("profile", [c.name for c in self.ws.tree().children])
+
+    def test_las_copias_del_perfil_no_salen_como_carpeta_ni_como_ficha(self):
+        # PLAN_LIBRERIA L9: `profile/.copias/` en local; un almacenamiento sin ella da None
+        d = self.ws.profile_copy_dir()
+        if d is None:
+            return
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "2026-11-18-120000.zip").write_bytes(b"PK")
+        (d / "suelta.toml").write_text(self.FICHA, encoding="utf-8")
+        self.assertEqual(self.ws.tree().children, [])
+        self.assertEqual(self.ws.list_library_fichas(), {})
+
+    # ------------------------------------------- librería del workspace (PLAN_V020 V14)
+    FICHA = '[meta]\nkey = "MG-200"\ntype = "muelle_gas"\nstatus = "unverified"\n'
+
+    def test_una_ficha_vuelve_tal_cual_por_su_clave_y_fuera_del_arbol(self):
+        self.assertEqual(self.ws.list_library_fichas(), {})
+        self.assertIsNone(self.ws.load_library_ficha("MG-200"))
+        texto = self.FICHA + "# un comentario que no se pierde\n"
+        self.ws.save_library_ficha("MG-200", "muelle_gas", texto)
+        self.assertEqual(self.ws.load_library_ficha("MG-200"), texto)
+        self.assertEqual(self.ws.list_library_fichas(), {"MG-200": texto})
+        self.assertNotIn("library", [c.name for c in self.ws.tree().children])
+
+    def test_una_clave_es_una_ficha_aunque_cambie_de_tipo(self):
+        self.ws.save_library_ficha("MG-200", "muelle_gas", self.FICHA)
+        otra = self.FICHA.replace("muelle_gas", "amortiguador")
+        self.ws.save_library_ficha("MG-200", "amortiguador", otra)
+        self.assertEqual(self.ws.list_library_fichas(), {"MG-200": otra})
+
+    def test_una_clave_o_un_tipo_que_no_valen_son_invalidname(self):
+        for clave in ("", "../fuera", "a/b", ".oculta", "CON", "con espacio", "x" * 101, None):
+            with self.assertRaises(InvalidName, msg=clave):
+                self.ws.save_library_ficha(clave, "muelle_gas", self.FICHA)
+        for tipo in ("", "Mayus", "con-guion", "../x", 3):
+            with self.assertRaises(InvalidName, msg=tipo):
+                self.ws.save_library_ficha("MG-200", tipo, self.FICHA)
+
+    def test_borrar_una_ficha_la_quita_y_una_que_no_esta_es_notfound(self):
+        self.ws.save_library_ficha("MG-200", "muelle_gas", self.FICHA)
+        self.ws.trash_library_ficha("MG-200")
+        self.assertIsNone(self.ws.load_library_ficha("MG-200"))
+        with self.assertRaises(NotFound):
+            self.ws.trash_library_ficha("MG-200")
+
+    def test_una_cantidad_vacia_es_desconocida_no_cero(self):
+        # D33: «no sé cuántas tengo» no es «no tengo»
+        self.assertEqual(self.ws.load_stock(), {})
+        stock = {"MG-200": {"cantidad": None, "ubicacion": "Estante 3", "fecha": "", "nota": ""},
+                 "SHG-20": {"cantidad": 0, "ubicacion": "", "fecha": "2026-11-17", "nota": "pedidas"},
+                 "M6x20": {"cantidad": 2.5, "ubicacion": "", "fecha": "", "nota": "kg, a granel"}}
+        self.ws.save_stock(stock)
+        got = self.ws.load_stock()
+        self.assertEqual(got, stock)
+        self.assertIsNone(got["MG-200"]["cantidad"])
+        self.assertEqual(got["SHG-20"]["cantidad"], 0)
 
     def test_los_mensajes_de_cada_hilo_van_aparte_y_se_borran_solos(self):
         # D165: el historial de un hilo se lee sin cargar los demás ni el chat

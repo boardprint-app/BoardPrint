@@ -8,8 +8,11 @@ conectores (`available`, `launch`, `open_file`) y el proceso de cada ejecución 
   del backend y de los paquetes (P65), que abren una pizarra con su propio registro.
 - **`WorkerHost`**: el de la app. Un *trabajador caliente* (`python -m boardprint_worker` en
   el entorno de paquetes) carga los paquetes y da el registro como datos (`pack_data`); la
-  vista previa, las acciones y los conectores van a él, uno detrás de otro. Cada ejecución,
-  a un trabajador propio (`WorkerRun`) que *Cancelar* mata. Si el caliente muere, se vuelve a
+  vista previa y las acciones van a él, una detrás de otra. Lo que habla con un programa
+  externo (los conectores y las acciones del paquete de un conector) va a **otro** caliente,
+  el del carril `EXTERNAL`, que arranca la primera vez que hace falta: un Fusion colgado o
+  con un diálogo abierto solo hace esperar a lo suyo (e2e de v0.1.0). Cada ejecución, a un
+  trabajador propio (`WorkerRun`) que *Cancelar* mata. Si un caliente muere, se vuelve a
   arrancar en la siguiente llamada.
 
 En una acción, el trabajador pide a la pizarra lo de la API de P39 (`call`) y el anfitrión lo
@@ -17,6 +20,7 @@ resuelve con el `BoardAPI` que se le pasa, con la validación de siempre (P91).
 """
 import asyncio
 import json
+import logging
 import subprocess
 import sys
 import threading
@@ -26,6 +30,7 @@ from pathlib import Path
 from pizarra import i18n, pack_data, packs
 
 PROTOCOL_VERSION = 2
+log = logging.getLogger(__name__)
 
 
 class HostError(ValueError):
@@ -45,10 +50,12 @@ class InProcessHost:
     def __init__(self, registry):
         self.registry = registry
 
-    def preview(self, kind, params, inputs):
+    def preview(self, kind, params, inputs, env=None):
         """Lo que da la vista previa de `kind`. `ValueError`, `TypeError` o `KeyError` del
-        paquete salen tal cual: son el motivo para el usuario."""
-        return self.registry[kind].preview(params, inputs)
+        paquete salen tal cual: son el motivo para el usuario. `env`, el de `Board.run_env`:
+        de él sale la librería del workspace (`boardprint_sdk.library.current()`)."""
+        with pack_data.using_library(pack_data.library_of(env)):
+            return self.registry[kind].preview(params, inputs)
 
     def action(self, name, params, inputs, args, env, board=None, block_id=""):
         """Lo que devuelve la acción `name` (ya JSON). `HostError` con el motivo si falla."""
@@ -59,7 +66,8 @@ class InProcessHost:
         ctx = pack_data.context(block_id, env)
         ctx._board = board
         try:
-            result = act.run(params, inputs, args, ctx)
+            with pack_data.using_library(ctx.library):
+                result = act.run(params, inputs, args, ctx)
         except Exception as exc:        # noqa: BLE001 un paquete con un fallo no tumba la app
             raise HostError(packs.action_error(name, exc)) from None
         try:
@@ -185,42 +193,85 @@ def _origins(origins):
     return [[str(o), str(d)] for o, d in origins]
 
 
+LOCAL = "local"                         # vista previa y acciones de los paquetes
+EXTERNAL = "externo"                    # lo que habla con un programa (conectores)
+
+
+class _Lane:
+    """Un trabajador caliente con su cerrojo: sus peticiones van una detrás de otra."""
+
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.proc = None
+
+
 class WorkerHost:
-    """El anfitrión de la app: un trabajador caliente para todo menos las ejecuciones."""
+    """El anfitrión de la app: dos trabajadores calientes (el local y el de los conectores)
+    para todo menos las ejecuciones."""
 
     def __init__(self, spec, origins, validated=None):
         self.spec = spec
         self.origins = [(str(o), str(d)) for o, d in packs._as_origins(origins)]
         self.validated = str(validated) if validated else None
-        self._lock = threading.RLock()
-        self._proc = None
+        self._lanes = {LOCAL: _Lane(), EXTERNAL: _Lane()}
         self.registry = None
         self.env = None                 # pack_env.PackEnvironment, si lo da (P92)
         self.env_problem = None         # por qué no tiene las librerías que piden
 
     def load(self):
         """Arranca el trabajador, carga los paquetes y devuelve el registro (datos, con este
-        anfitrión). Si no arranca, `HostError`."""
-        with self._lock:
+        anfitrión). Si no arranca, `HostError`. El del carril externo se cierra también y, si
+        hay conectores, vuelve a arrancar con los paquetes nuevos en segundo plano."""
+        lane = self._lanes[LOCAL]
+        with lane.lock:
             self.close()
-            self._proc = self.spec.start()
-            got = self._proc.request("register", dirs=_origins(self.origins),
-                                     validated=self.validated)
-            if not got.get("ok"):
-                raise HostError(got.get("error") or i18n.t("trabajador.no_carga"))
-            reg = pack_data.from_data(got["registry"])
+            reg = pack_data.from_data(self._start(lane)["registry"])
             reg.host = self
             self.registry = reg
-            return reg
+        if reg.connectors:
+            self._warm_external()
+        return reg
 
-    def _request(self, op, **fields):
-        with self._lock:
-            if self._proc is None or not self._proc.alive():
-                self.load()
-            return self._proc.request(op, **fields)
+    def _warm_external(self):
+        """Arranca el trabajador del carril externo en un hilo: quien pregunta `available`
+        (el bucle del servidor) nunca espera a que cargue los paquetes."""
+        def warm():
+            lane = self._lanes[EXTERNAL]
+            with lane.lock:
+                if lane.proc is not None and lane.proc.alive():
+                    return
+                try:
+                    self._start(lane)
+                except Exception as exc:   # noqa: BLE001 la siguiente llamada lo reintenta
+                    log.warning("el trabajador de los conectores no arranca: %s", exc)
+                    if lane.proc is not None:
+                        lane.proc.close()
+                    lane.proc = None
+        threading.Thread(target=warm, name="trabajador-conectores", daemon=True).start()
 
-    def preview(self, kind, params, inputs):
-        got = self._request("preview", kind=kind, params=params, inputs=inputs)
+    def _start(self, lane):
+        lane.proc = self.spec.start()
+        got = lane.proc.request("register", dirs=_origins(self.origins), validated=self.validated)
+        if not got.get("ok"):
+            raise HostError(got.get("error") or i18n.t("trabajador.no_carga"))
+        return got
+
+    def _request(self, op, lane=None, **fields):
+        lane = lane or self._lanes[LOCAL]
+        with lane.lock:
+            if lane.proc is None or not lane.proc.alive():
+                self._start(lane)        # solo el suyo: el otro puede estar esperando a Fusion
+            return lane.proc.request(op, **fields)
+
+    def _lane_for_action(self, name):
+        """El carril de la acción `name`: el externo si es del paquete de un conector."""
+        reg = self.registry
+        act = reg.actions.get(name) if reg is not None else None
+        talks = act is not None and any(c.pack == act.pack for c in reg.connectors.values())
+        return self._lanes[EXTERNAL if talks else LOCAL]
+
+    def preview(self, kind, params, inputs, env=None):
+        got = self._request("preview", kind=kind, params=params, inputs=inputs, env=env or {})
         if not got.get("ok"):
             raise HostError(got.get("error") or i18n.t("trabajador.vista_previa_fallo"))
         return got["result"]
@@ -231,7 +282,8 @@ class WorkerHost:
                 raise HostError(f"la pizarra no tiene {method!r}")
             return getattr(board, method)(*call_args)
 
-        got = self._request("action", on_call=on_call if board is not None else None,
+        got = self._request("action", lane=self._lane_for_action(name),
+                            on_call=on_call if board is not None else None,
                             name=name, block_id=block_id, params=params, inputs=inputs,
                             args=args, env=env, board=board is not None)
         if not got.get("ok"):
@@ -244,17 +296,22 @@ class WorkerHost:
         # acción contra un Fusion con un diálogo abierto). Si está ocupado, `HostBusy` y
         # `connectors.available` se queda con lo último que supo (e2e de v0.1.0: la app entera
         # se paraba mientras tanto).
+        lane = self._lanes[EXTERNAL]
         if method == "available":
-            if not self._lock.acquire(blocking=False):
+            if not lane.lock.acquire(blocking=False):
                 raise HostBusy(i18n.t("trabajador.ocupado"))
             try:
+                if lane.proc is None or not lane.proc.alive():   # arrancarlo carga los paquetes
+                    self._warm_external()
+                    raise HostBusy(i18n.t("trabajador.ocupado"))
                 return self._connector(cid, method, *args)
             finally:
-                self._lock.release()
+                lane.lock.release()
         return self._connector(cid, method, *args)
 
     def _connector(self, cid, method, *args):
-        got = self._request("connector", connector=cid, method=method, args=[str(a) for a in args])
+        got = self._request("connector", lane=self._lanes[EXTERNAL], connector=cid,
+                            method=method, args=[str(a) for a in args])
         if not got.get("ok"):
             raise HostError(got.get("error") or i18n.t("trabajador.conector_fallo", id=cid))
         return got["result"]
@@ -263,10 +320,11 @@ class WorkerHost:
         return WorkerRun(self.spec, self.origins, self.validated)
 
     def close(self):
-        with self._lock:
-            if self._proc is not None:
-                self._proc.close()
-                self._proc = None
+        for lane in self._lanes.values():
+            with lane.lock:
+                if lane.proc is not None:
+                    lane.proc.close()
+                    lane.proc = None
 
 
 # La API de P39 que el trabajador puede pedir (la de `pack_api.BoardAPI`, sin `block_type`,

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { send } from "./socket";
 import { useStore } from "./store";
 import { getLanguage, t } from "./i18n";
+import { agentName } from "./review";
 
 // Los números, con la coma o el punto del idioma de la interfaz (se crean al usarlos: el
 // idioma llega con los ajustes, después de cargar el módulo).
@@ -75,6 +76,12 @@ export function AgentUsageBar() {
               mensajes: t(tot.messages === 1 ? "agente.mensajes_uno" : "agente.mensajes_varios", { n: tot.messages }),
             })}
           </div>
+          {/* lo de cada agente (diseño y revisor, V7), si ya ha gastado más de uno */}
+          {Object.keys(st.usage.agents ?? {}).length > 1 && (
+            <div className="ag-usage-tokens">
+              {Object.entries(st.usage.agents).map(([k, u]) => t("agente.consumo.de_agente", { agente: agentName(k), usd: usd(u.usd) })).join(" · ")}
+            </div>
+          )}
           <p className="ag-note">{t("agente.consumo.nota")}</p>
           <label className="ag-field">
             <span>{t("agente.consumo.tope")}</span>

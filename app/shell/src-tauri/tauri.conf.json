@@ -14,6 +14,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["nsis", "dmg"],
     "category": "DeveloperTool",
     "shortDescription": "Pizarra de ingeniería con agentes",
@@ -55,6 +56,13 @@
         "installMode": "currentUser",
         "languages": ["Spanish", "English"]
       }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVEMjg2MzBFMUE5QzdCQzQKUldURWU1d2FEbU1vN1lTV3dzb1Yrdzh1OFdqN1BMWjk1c3FlR3piNGJnbS9xZk5walE1UFdGYWwK",
+      "endpoints": ["https://github.com/boardprint-app/BoardPrint/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
     }
   }
 }

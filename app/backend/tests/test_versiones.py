@@ -8,7 +8,7 @@ import copy
 import unittest
 
 from pizarra import scene
-from tests.helpers import new_board, reopen, necesita_paquetes
+from tests.helpers import new_board, reopen
 
 VOLATILE = ("version", "versionNonce", "updated")
 
@@ -22,7 +22,7 @@ def content(elements):
 class Versiones(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
-        self.tubo = scene.block_element("demo.tubo", 0, 0)
+        self.tubo = scene.block_element("prueba.tubo", 0, 0)
         self.b.apply_client_elements([self.tubo])
         self.nota = self.b.user_add_postit("nota", 0, 300)
         self.b.save()
@@ -42,7 +42,6 @@ class Versiones(unittest.TestCase):
         self.assertEqual([x["name"] for x in self.b.list_versions()], ["Primer encaje"])
         self.assertEqual(self.b.ws.load_version(self.b.project_id, v["id"])["elements"], els)
 
-    @necesita_paquetes
     def test_restaurar_deja_escena_y_estado_como_en_la_version(self):
         v = self.b.save_version("Primer encaje")
         saved = self.b.ws.load_version(self.b.project_id, v["id"])
@@ -52,7 +51,6 @@ class Versiones(unittest.TestCase):
         self.assertEqual(self.b.state[self.tubo["id"]]["params"]["L"], 300)
         self.assertEqual(content(reopen(self.b).elements), content(saved["elements"]))
 
-    @necesita_paquetes
     def test_restaurar_guarda_antes_la_actual_como_automatica(self):
         v = self.b.save_version("Primer encaje")
         self.edit()
@@ -68,7 +66,6 @@ class Versiones(unittest.TestCase):
         self.assertEqual(content(self.b.elements), before)
         self.assertEqual(self.b.state[self.tubo["id"]]["params"]["L"], 250)
 
-    @necesita_paquetes
     def test_lo_restaurado_gana_a_cualquier_ventana_que_vaya_por_detras(self):
         v = self.b.save_version("Primer encaje")
         self.edit()
@@ -80,7 +77,6 @@ class Versiones(unittest.TestCase):
         extra = [e for e in self.b.elements if e.get("isDeleted")]
         self.assertEqual(len(extra), 1)
 
-    @necesita_paquetes
     def test_comparar_una_version_con_la_pizarra_de_ahora(self):
         v = self.b.save_version("Primer encaje")
         self.edit()

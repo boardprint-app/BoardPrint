@@ -105,9 +105,10 @@ RULES = """- Una cifra derivada de una salida (un porcentaje, una resta, un coci
 OFFICE = """- Office (D176): crear_archivo cuando te pidan un informe, una lista de materiales o una presentación (Word, Excel o PowerPoint): queda en la carpeta del proyecto, o en una carpeta de la pizarra con `carpeta`, y nunca pisa nada. editar_archivo cuando te pidan cambiar un archivo de la pizarra: escribe una copia <nombre>_n y deja una propuesta con el diff; nunca toques el original de otra forma. Las cifras que escribes en los dos llevan `sources` (un archivo leído, `where` incluido, o un bloque) o estimate=true, como en un post-it."""
 
 
-def build(base, auto, registry, language="es"):
+def build(base, auto, registry, language="es", profile=None):
     """El prompt entero: la base, las reglas con el idioma de la interfaz en que responde
-    (D41, D180), las animaciones, Office y las instrucciones de los paquetes."""
+    (D41, D180), las animaciones, Office, las instrucciones de los paquetes y el perfil de
+    fabricación del workspace (V8)."""
     parts = [base, RULES + "\n- " + i18n.t("agente.idioma", language), animations_part(auto),
              OFFICE]
     packs = pack_instructions(registry)
@@ -115,4 +116,25 @@ def build(base, auto, registry, language="es"):
         parts.append("Instrucciones de los paquetes de bloques cargados (sus bloques están en "
                      "`catalog` de leer_pizarra):\n\n" + "\n\n".join(
                          f"## {name} (`{pid}`)\n{text}" for pid, name, text in packs))
+    parts += [p for p in (profile_part(profile),) if p]
     return "\n\n".join(parts)
+
+
+# Lo que entra del perfil de fabricación (V8) en el prompt; más, se corta con aviso.
+PROFILE_CHARS = 6000
+PROFILE_HEAD = ("Perfil de fabricación del workspace (lo que el ingeniero puede fabricar, con "
+                "qué y qué externaliza; lo escribe él en Ajustes → General). Tenlo en cuenta "
+                "al opinar de cómo se fabrica algo. No es un dato verificado: una cifra que "
+                "saques de él va con estimate=true y diciendo que es del perfil:")
+
+
+def profile_part(text):
+    """El perfil de fabricación en el prompt, o "" si no hay o está vacío (V8)."""
+    text = (text or "").strip() if isinstance(text, str) else ""
+    if not text:
+        return ""
+    if len(text) > PROFILE_CHARS:
+        log.warning("[perfil] el perfil de fabricación tiene %d caracteres y el máximo es %d; "
+                    "al agente le llega cortado", len(text), PROFILE_CHARS)
+        text = text[:PROFILE_CHARS].rstrip() + CUT
+    return f"{PROFILE_HEAD}\n\n{text}"

@@ -17,12 +17,13 @@ import json
 import unittest
 
 import boardprint_sdk
+from boardprint_sdk import library as sdk_library
 from boardprint_sdk import packs as sdk_packs
 from pizarra import packs
 from pizarra.pack_versions import parse_version
 
 # La superficie publicada, con la versión que la publicó.
-PUBLISHED_VERSION = "1.4.0"
+PUBLISHED_VERSION = "1.5.0"
 PUBLISHED = {
     "Action": {
         "__init__": "(name: str, run: object, description: str = '', pack: str = '') -> None"
@@ -58,7 +59,7 @@ PUBLISHED = {
         "__init__": "(classify: object = None, accept_port: str = '', accept_param: str = 'locks', self_param: str = '', accept: object = None) -> None"
     },
     "RunContext": {
-        "__init__": "(block_id: str, workdir: pathlib.Path | None = None, connectors: dict = <factory>, options: dict = <factory>, project_name: str = '', sync_file: pathlib.Path | None = None, _progress: object = None, _cancelled: object = None) -> None",
+        "__init__": "(block_id: str, workdir: pathlib.Path | None = None, connectors: dict = <factory>, options: dict = <factory>, project_name: str = '', sync_file: pathlib.Path | None = None, _progress: object = None, _cancelled: object = None, library: boardprint_sdk.library.Library | None = None) -> None",
         "add_postit": "(self, block_id, text, kind='nota', keys=())",
         "block": "(self, block_id)",
         "block_file": "(self, block_id, name)",
@@ -91,6 +92,22 @@ PUBLISHED = {
     },
     "view2d": {
         "__init__": "(x, y, items, label='', y_down=False)"
+    },
+    "library.Ficha": {
+        "__init__": "(key: str, type: str, status: str, path: pathlib.Path, data: dict = <factory>) -> None",
+        "verified": "property"
+    },
+    "library.Library": {
+        "__init__": "(root=None)",
+        "load": "(self, key)",
+        "records": "(self, type=None)",
+        "stock": "(self, key)"
+    },
+    "library.current": {
+        "__init__": "()"
+    },
+    "library.using": {
+        "__init__": "(library)"
     }
 }
 
@@ -100,17 +117,23 @@ def _sig(fn):
     return str(inspect.signature(fn)).replace("pathlib._local.", "pathlib.")
 
 
+# Los módulos públicos del SDK: los de `packs` van por su nombre (`Param`) y los de los demás,
+# con el módulo delante (`library.Library`, 1.5).
+MODULES = {"": sdk_packs, "library.": sdk_library}
+
+
 def surface():
-    """{nombre: {miembro: firma}} de lo que exporta `boardprint_sdk.packs`."""
+    """{nombre: {miembro: firma}} de lo que exportan los módulos del SDK (`MODULES`)."""
     out = {}
-    for name in sorted(sdk_packs.__all__):
-        obj = getattr(sdk_packs, name)
-        members = {"__init__": _sig(obj)}
-        if inspect.isclass(obj):
-            for m, fn in sorted(vars(obj).items()):
-                if not m.startswith("_") and inspect.isfunction(fn):
-                    members[m] = _sig(fn)
-        out[name] = members
+    for prefix, module in MODULES.items():
+        for name in sorted(module.__all__):
+            obj = getattr(module, name)
+            members = {"__init__": _sig(obj)}
+            if inspect.isclass(obj):
+                for m, fn in sorted(vars(obj).items()):
+                    if not m.startswith("_") and (inspect.isfunction(fn) or isinstance(fn, property)):
+                        members[m] = "property" if isinstance(fn, property) else _sig(fn)
+            out[prefix + name] = members
     return out
 
 
@@ -204,9 +227,10 @@ class Superficie(unittest.TestCase):
             self.assertEqual(diff(old, {"F": {"__init__": sig}}), (["F.__init__"], []), sig)
 
     def test_todo_lo_de_all_existe_y_nada_publico_se_queda_fuera(self):
-        public = {n for n, v in vars(sdk_packs).items()
-                  if not n.startswith("_") and getattr(v, "__module__", None) == sdk_packs.__name__}
-        self.assertEqual(public, set(sdk_packs.__all__))
+        for module in MODULES.values():
+            public = {n for n, v in vars(module).items()
+                      if not n.startswith("_") and getattr(v, "__module__", None) == module.__name__}
+            self.assertEqual(public, set(module.__all__), module.__name__)
 
 
 class ElBackendUsaElSDK(unittest.TestCase):

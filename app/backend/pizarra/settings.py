@@ -16,6 +16,9 @@
     privacidad_vista = true     # D169: ya se ha pulsado *Entendido* en el aviso
     animaciones_automaticas = false   # D144: el agente no las hace por su cuenta (por
                                       # defecto, true); se lee al empezar cada mensaje
+    intrusividad_revisor = "a_demanda"   # PLAN_V020 V5: apagado | a_demanda | hitos
+    modelo_diseno = "opus"      # V7, D7: opus | sonnet (PIZARRA_MODEL manda en desarrollo)
+    modelo_revisor = "opus"
     [paneles]
     derecho = 420               # D60, D174: ancho del panel derecho en px (nunca < 320)
     idioma = "es"               # D180: el de la interfaz y el de las respuestas del agente
@@ -52,6 +55,14 @@ SKINS = ("escuela", "corcho", "laboratorio", "cad", "calma")
 DEFAULT_SKIN = "escuela"
 AGENTS = "agentes"              # la tabla de los ajustes de los agentes
 DEFAULT_PROJECT_LIMIT_USD = 5.0  # dólares equivalentes por proyecto (D168)
+# Cuándo trabaja el revisor (PLAN_V020 V5, D17): nunca, cuando se le pide o, además, al guardar
+# una versión con nombre. *Continuo* queda para después.
+REVIEW_INTRUSIVENESS = ("apagado", "a_demanda", "hitos")
+DEFAULT_REVIEW_INTRUSIVENESS = "a_demanda"
+# El modelo de cada agente (V7, D7): el alias que entiende el CLI de Claude Code.
+AGENT_MODELS = ("opus", "sonnet")
+DEFAULT_AGENT_MODEL = "opus"
+MODEL_KEYS = {"diseno": "modelo_diseno", "revisor": "modelo_revisor"}
 PANELS = "paneles"              # la tabla de los tamaños de los paneles (D60)
 RIGHT_PANEL_MIN = 320           # px: el panel derecho nunca es más estrecho (D174)
 RIGHT_PANEL_DEFAULT = 420       # px: el del prototipo
@@ -353,6 +364,36 @@ class Settings:
         if value not in ACCESS:
             raise ValueError(i18n.t("ajustes.acceso_desconocido", valor=repr(value)))
         self._agents()["acceso"] = value
+
+    @property
+    def review_intrusiveness(self):
+        """Cuándo trabaja el revisor (V5): uno que no se entiende vale «a_demanda»."""
+        value = self._read(AGENTS, "intrusividad_revisor")
+        return value if value in REVIEW_INTRUSIVENESS else DEFAULT_REVIEW_INTRUSIVENESS
+
+    @review_intrusiveness.setter
+    def review_intrusiveness(self, value):
+        if value not in REVIEW_INTRUSIVENESS:
+            raise ValueError(i18n.t("ajustes.intrusividad_no_valida", valor=repr(value)))
+        self._agents()["intrusividad_revisor"] = value
+
+    def agent_model(self, agent):
+        """El modelo de `agent` («diseno» o «revisor», V7): uno que no se entiende, «opus».
+        `PIZARRA_MODEL` del entorno manda sobre el ajuste (desarrollo)."""
+        return os.environ.get("PIZARRA_MODEL", "").strip() or self.saved_model(agent)
+
+    def saved_model(self, agent):
+        """El del ajuste, sin mirar el entorno (lo que enseña *Ajustes*)."""
+        value = self._read(AGENTS, MODEL_KEYS[agent])
+        return value if value in AGENT_MODELS else DEFAULT_AGENT_MODEL
+
+    def set_agent_model(self, agent, value):
+        if agent not in MODEL_KEYS:
+            raise ValueError(i18n.t("ajustes.agente_desconocido", agente=repr(agent)))
+        if value not in AGENT_MODELS:
+            raise ValueError(i18n.t("ajustes.modelo_no_valido", clave=MODEL_KEYS[agent],
+                                    valor=repr(value), modelos=", ".join(AGENT_MODELS)))
+        self._agents()[MODEL_KEYS[agent]] = value
 
     # ------------------------------------------------------------- paneles (D60)
     @property

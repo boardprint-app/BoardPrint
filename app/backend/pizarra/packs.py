@@ -124,6 +124,8 @@ class PackInfo:
     dependencies: tuple = ()      # [python] dependencies (Ajustes → Paquetes, §7)
     # catálogos de traducción (`locales/<idioma>.toml`, O15): {idioma: {origen: traducción}}
     i18n: dict = field(default_factory=dict)
+    # campos de sus fichas por tipo (`library/schema.toml`, PLAN_LIBRERIA L3): {tipo: [campo]}
+    library_schema: dict = field(default_factory=dict)
 
 
 class Registry(dict):
@@ -612,7 +614,7 @@ def load(dirs=None, log=None, validated=None):
     reg.origins = [(o, str(d)) for o, d in origins]
     reg.validated = str(validated) if validated else None
 
-    from pizarra import pack_locales, pack_validate   # aquí: importan este módulo
+    from pizarra import library_schema, pack_locales, pack_validate   # aquí: importan este módulo
 
     found = discover(origins)
     chosen = {pid: places[0][1] for pid, places in found.items()}
@@ -633,7 +635,9 @@ def load(dirs=None, log=None, validated=None):
             info.digest = digests[pid] = digest(folder)
             # un catálogo mal hecho es un aviso: se deja fuera y el paquete carga (O15)
             info.i18n, bad = pack_locales.read(folder)
-            for msg in bad:
+            # y uno del esquema de sus fichas, también: sus fichas se ven igual (L3)
+            info.library_schema, bad_schema = library_schema.read(folder)
+            for msg in bad + bad_schema:
                 log(f"[paquetes] {pid}: aviso: {msg}")
             manifests[pid] = m
         except Exception as exc:                  # noqa: BLE001 un paquete roto no tumba la app

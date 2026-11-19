@@ -1,0 +1,7 @@
+id = "prueba"
+name = "Prueba"
+version = "0.1.2"
+author = "BoardPrint"
+sdk = ">=1.4,<2"
+module = "blocks"
+description = "Bloques mínimos de los tests del núcleo (Tubo y Voladizo): solo para los tests, no es un ejemplo. No va en packs/: el repo público no lleva paquetes."

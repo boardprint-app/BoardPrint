@@ -4,6 +4,7 @@
 import { ES_AGENTE } from "./agente";
 import { ES_BLOQUES } from "./bloques";
 import { ES_LIENZO } from "./lienzo";
+import { ES_LIBRERIA } from "./libreria";
 
 export const ES: Record<string, string> = {
   // unidades (D182)
@@ -57,6 +58,19 @@ export const ES: Record<string, string> = {
   "ajustes.bienvenida": "Bienvenida",
   "ajustes.bienvenida.nota": "Los primeros pasos: idioma y unidades, la sesión de Claude Code, los programas (como Fusion) y dónde se guarda.",
   "ajustes.bienvenida.boton": "Volver a ver la bienvenida",
+  "actualizar.titulo": "Actualizaciones",
+  "actualizar.nota": "La app busca una versión nueva al arrancar y te avisa; instalarla lo decides tú.",
+  "actualizar.buscar": "Buscar actualizaciones",
+  "actualizar.buscando": "Buscando…",
+  "actualizar.instalar": "Instalar y reiniciar",
+  "actualizar.ahora_no": "Ahora no",
+  "actualizar.aviso": "BoardPrint {version} está disponible.",
+  "actualizar.disponible": "Hay una versión nueva: {version} (tienes la {actual}).",
+  "actualizar.al_dia": "Tienes la última versión ({actual}).",
+  "actualizar.instalando": "Instalando la {version}: la app se reiniciará sola.",
+  "actualizar.error": "No se ha podido comprobar: {motivo}",
+  "actualizar.desconocido": "Aún no se ha comprobado.",
+  "actualizar.solo_escritorio": "Las actualizaciones las instala la app de escritorio.",
 
   // La bienvenida (D186)
   "bienvenida.titulo": "Bienvenida a BoardPrint",
@@ -231,6 +245,59 @@ export const ES: Record<string, string> = {
   "ajustes.agentes.clave_guardar": "Guardar la clave",
   "ajustes.agentes.clave_guardada": "Clave guardada en el sistema.",
   "ajustes.agentes.clave_borrar": "Borrar la clave",
+  // el revisor y el modelo de cada agente (FF 6.1, PLAN_V020 V5, V7)
+  "ajustes.agentes.intrusividad": "Cuándo revisa el revisor",
+  "ajustes.agentes.intrusividad_nota": "Un segundo agente, aislado del de diseño, que busca lo que puede fallar y lo deja en post-its. Su consumo cuenta en el tope del proyecto.",
+  "ajustes.agentes.intrusividad.apagado": "Apagado",
+  "ajustes.agentes.intrusividad.apagado_nota": "No revisa nunca.",
+  "ajustes.agentes.intrusividad.a_demanda": "A demanda",
+  "ajustes.agentes.intrusividad.a_demanda_nota": "Solo cuando pulsas Revisar en su pestaña del panel.",
+  "ajustes.agentes.intrusividad.hitos": "En hitos",
+  "ajustes.agentes.intrusividad.hitos_nota": "También al guardar una versión con nombre: repasa lo cambiado desde la anterior.",
+  "ajustes.agentes.modelo_diseno": "Modelo del agente de diseño",
+  "ajustes.agentes.modelo_revisor": "Modelo del revisor",
+  "ajustes.agentes.modelo_nota": "Opus es el más capaz; Sonnet, más barato.",
+  "ajustes.agentes.modelo.opus": "Opus",
+  "ajustes.agentes.modelo.sonnet": "Sonnet: más barato",
+  // el perfil de fabricación del workspace (V8, ProfileRow)
+  "ajustes.perfil": "Perfil de fabricación",
+  "ajustes.perfil.nota": "Lo que hay en tu taller: máquinas, materiales, tolerancias y qué se externaliza y a quién. Es del workspace (vale para todos sus proyectos) y lo leen los dos agentes.",
+  "ajustes.perfil.guardar": "Guardar",
+  "ajustes.perfil.guardado": "Guardado",
+  "ajustes.perfil.sin_guardar": "Cambios sin guardar",
+  "ajustes.perfil.plantilla": "Es la plantilla: los agentes no la leen hasta que la guardes",
+  "ajustes.perfil.plantilla_boton": "Volver a la plantilla",
+  // el perfil .zip (PLAN_LIBRERIA §5)
+  "ajustes.perfil_zip": "Exportar e importar el perfil",
+  "ajustes.perfil_zip.nota": "Un .zip con el perfil de fabricación y las fichas de la librería, para llevarlo a otra máquina o pasárselo a otra persona. Nunca lleva ajustes, claves, sesiones, proyectos ni rutas de tu disco.",
+  "ajustes.perfil_zip.con_stock": "Incluir el stock",
+  "ajustes.perfil_zip.exportar": "Exportar perfil…",
+  "ajustes.perfil_zip.importar": "Importar perfil…",
+  "ajustes.perfil_zip.exportado": "Perfil guardado en {ruta}",
+  "ajustes.perfil_zip.omitidas": "No van las fichas que no se pueden leer: {claves}",
+  "ajustes.perfil_zip.titulo": "Importar {nombre}",
+  "ajustes.perfil_zip.aviso": "Sustituye el perfil de este workspace. Lo que no traiga el archivo se queda como está.",
+  "ajustes.perfil_zip.origen": "Exportado el {fecha} con la versión {app}",
+  "ajustes.perfil_zip.origen_fecha": "Exportado el {fecha}",
+  "ajustes.perfil_zip.r.fichas": "Fichas",
+  "ajustes.perfil_zip.r.libreria": "Librería",
+  "ajustes.perfil_zip.r.quitadas": "Se quitan",
+  "ajustes.perfil_zip.r.fabricacion": "Fabricación",
+  "ajustes.perfil_zip.r.stock": "Stock",
+  "ajustes.perfil_zip.r.copia": "Copia",
+  "ajustes.perfil_zip.fichas_tipos": "{n} ({tipos})",
+  "ajustes.perfil_zip.libreria": "sustituye la de ahora (fichas ahora: {n})",
+  "ajustes.perfil_zip.fab_si": "la trae",
+  "ajustes.perfil_zip.fab_sustituye": "la trae: sustituye la de ahora",
+  "ajustes.perfil_zip.fab_no": "no la trae: se queda la de ahora",
+  "ajustes.perfil_zip.stock_si": "lo trae (claves: {n})",
+  "ajustes.perfil_zip.stock_sustituye": "lo trae (claves: {n}): sustituye el de ahora (claves: {ahora})",
+  "ajustes.perfil_zip.stock_no": "no lo trae: se queda el de ahora",
+  "ajustes.perfil_zip.copia": "antes de escribir nada, el perfil de ahora se guarda en {ruta}",
+  "ajustes.perfil_zip.no_valen": "No se importan (no valen):",
+  "ajustes.perfil_zip.aceptar": "Importar",
+  "ajustes.perfil_zip.cancelar": "Cancelar",
+  "ajustes.perfil_zip.importado": "Perfil importado. La copia del de antes está en {ruta}",
 
   // El aviso de la primera animación (D187)
   "aviso_animacion.texto": "Las animaciones automáticas se pueden desactivar en Ajustes.",
@@ -297,4 +364,5 @@ export const ES: Record<string, string> = {
   ...ES_LIENZO,
   ...ES_AGENTE,
   ...ES_BLOQUES,
+  ...ES_LIBRERIA,
 };

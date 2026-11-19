@@ -24,7 +24,6 @@ from unittest import mock
 
 from pizarra import packs
 from pizarra.pack_versions import parse_spec, parse_version, satisfies
-from tests.helpers import necesita_paquetes
 
 BODY = '''
 from boardprint_sdk.packs import Param
@@ -413,14 +412,13 @@ class RegistroDeLaApp(unittest.TestCase):
         self.assertIs(reg, self.saved)
         self.assertIn(("usuario", str(self.user)), reg.origins)
 
-    @necesita_paquetes
     def test_con_paquetes_carga_los_suyos_y_manda_el_del_workspace(self):
         write(self.user, "extra", title="del usuario")
         write(self.ws, "extra", title="del workspace")
         reg = self.blocks.configure(user_dir=self.user, workspace_dir=self.ws)
         self.assertIsNot(reg, self.saved)
         self.assertEqual(reg["extra.b"].title, "del workspace")
-        self.assertIn("demo.tubo", reg, "los de desarrollo siguen")
+        self.assertIn("prueba.tubo", reg, "los de desarrollo siguen")
         # una pizarra nueva usa el registro recargado; el proceso de cálculo carga lo mismo
         from tests.helpers import new_board
         self.assertIs(new_board().registry, reg)

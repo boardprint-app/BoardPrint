@@ -106,8 +106,8 @@ class APuntaLaTinta(unittest.TestCase):
     """Bloque A en (0, 0, 280, 220) y bloque B a su derecha, a 40 px."""
 
     def setUp(self):
-        self.a = {**scene.block_element("demo.tubo", 0, 0), "id": "A"}
-        self.bb = {**scene.block_element("demo.tubo", 320, 0), "id": "B"}
+        self.a = {**scene.block_element("prueba.tubo", 0, 0), "id": "A"}
+        self.bb = {**scene.block_element("prueba.tubo", 320, 0), "id": "B"}
         self.elements = [self.a, self.bb]
 
     def test_un_circulo_alrededor_de_un_bloque_apunta_a_el_y_nunca_al_de_al_lado(self):
@@ -171,7 +171,7 @@ class APuntaLaTinta(unittest.TestCase):
 class MarcasDelAgente(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
-        self.blk = scene.block_element("demo.tubo", 0, 0)
+        self.blk = scene.block_element("prueba.tubo", 0, 0)
         self.t = text("T", 0, 400, 200, 25)
         self.b.apply_client_elements([self.blk, self.t])
 
@@ -258,7 +258,7 @@ class MarcasDelAgente(unittest.TestCase):
 class LeerLaTinta(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
-        self.blk = scene.block_element("demo.tubo", 0, 0)
+        self.blk = scene.block_element("prueba.tubo", 0, 0)
         self.b.apply_client_elements([self.blk])
         x0, y0, x1, y1 = scene.bbox(self.blk)
         self.c = stroke(ring((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) * 0.65, (y1 - y0) * 0.65),

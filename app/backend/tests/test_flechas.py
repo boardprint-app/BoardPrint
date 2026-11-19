@@ -14,7 +14,7 @@ from pizarra import scene
 
 def block(bid, x, y):
     return {"id": bid, "type": "embeddable", "x": x, "y": y, "width": 300, "height": 200,
-            "customData": {"kind": "block", "blockType": "demo.tubo"}, "version": 1}
+            "customData": {"kind": "block", "blockType": "prueba.tubo"}, "version": 1}
 
 
 def arrow(aid, **kw):

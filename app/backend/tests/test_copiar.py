@@ -9,7 +9,7 @@ import unittest
 
 from pizarra import scene
 from pizarra.blocks import default_params
-from tests.helpers import new_board, reopen, necesita_paquetes
+from tests.helpers import new_board, reopen
 
 
 def pasted(original, new_id="pegado01", params=None):
@@ -21,11 +21,10 @@ def pasted(original, new_id="pegado01", params=None):
             "index": None, "x": original["x"] + 50}
 
 
-@necesita_paquetes
 class PegarBloque(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
-        self.tubo = scene.block_element("demo.tubo", 0, 0)
+        self.tubo = scene.block_element("prueba.tubo", 0, 0)
         self.b.apply_client_elements([self.tubo])
         self.b.set_params(self.tubo["id"], {"L": 450, "od": 50})
 
@@ -53,8 +52,8 @@ class PegarBloque(unittest.TestCase):
         p = self.b.state["pegado01"]["params"]
         self.assertEqual(p["L"], 999)
         self.assertNotIn("inventado", p)
-        self.assertEqual(p["od"], default_params("demo.tubo")["od"])
-        self.assertEqual(set(p), set(self.b.registry["demo.tubo"].params))
+        self.assertEqual(p["od"], default_params("prueba.tubo")["od"])
+        self.assertEqual(set(p), set(self.b.registry["prueba.tubo"].params))
 
     def test_los_parametros_no_se_quedan_en_la_escena_y_el_enlace_es_el_suyo(self):
         _, rewritten = self.b.apply_client_elements([pasted(self.tubo, params={"L": 1})])

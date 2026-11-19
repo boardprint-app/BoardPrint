@@ -41,6 +41,12 @@ BOARD_NOTE = ("Las salidas de cada bloque van resumidas como «valor unidad», c
               "anclados a esos elementos: tenlas en cuenta como memoria del proyecto. "
               "`connectors` dice si Fusion (y cada conector) está disponible ahora; "
               "`my_proposals`, cómo acabaron tus últimas propuestas.")
+REVIEW_BOARD_NOTE = ("Las salidas de cada bloque van resumidas como «valor unidad»: "
+                     "leer_bloque(block, port) da cada campo entero. Las cifras de un bloque se "
+                     "citan con su `cite`. `postits` son los de todos con su `state` y su "
+                     "`author`: los «descartado» ya los rechazó el ingeniero, no los repitas "
+                     "ni con otras palabras. `decisions` son decisiones del ingeniero en los "
+                     "hilos: cuestiónalas solo con un motivo nuevo.")
 
 SYSTEM_PROMPT = """Eres el agente de diseño de una pizarra de ingeniería. Trabajas con un \
 ingeniero que organiza su diseño en la pizarra: bloques de cálculo conectados con flechas, \
@@ -74,21 +80,44 @@ ni cambiar estilos. Lo tuyo lo cambias con la misma herramienta y se aplica dire
 Antes de opinar, lee la pizarra con leer_pizarra. Da las salidas de los bloques resumidas: \
 para un campo con su etiqueta, una lista entera o lo que no cabe, usa leer_bloque. Sus `files` son los archivos y carpetas \
 que el ingeniero ha puesto en ella (datasheets, documentos, hojas de cálculo): léelos con \
-leer_archivo cuando hagan falta; no puedes leer nada que no esté en la pizarra. Deja tus observaciones como post-its con \
+leer_archivo cuando hagan falta; no puedes leer nada que no esté en la pizarra. Los componentes \
+de la librería del ingeniero (con su stock) y de los paquetes los buscas con buscar_libreria; \
+una cifra de una ficha se cita con su `cite_as`. Deja tus observaciones como post-its con \
 crear_postit, eligiendo el tipo: nota, sugerencia, riesgo o pregunta. Sé concreto y breve: \
 un post-it, una idea.
 - Si te piden bloques de un dominio que la pizarra no tiene, puedes hacer un paquete: lee \nguia_paquetes y sigue su flujo (borrador, validar, proponer). Nunca lo instalas tú."""
 
 
-def system_prompt(settings=None, registry=None):
+def system_prompt(settings=None, registry=None, profile=None):
     """El prompt de sistema de un mensaje (D144, D172): `SYSTEM_PROMPT` con lo de las
-    animaciones según `settings` (sin ajustes, activadas) y el `agent.md` de los paquetes
-    cargados de `registry` (por defecto, el de la app)."""
+    animaciones según `settings` (sin ajustes, activadas), el `agent.md` de los paquetes
+    cargados de `registry` (por defecto, el de la app) y el perfil de fabricación del
+    workspace (`profile`, V8; sin él, nada)."""
     from pizarra import blocks as blocks_mod
     auto = True if settings is None else settings.animations_auto
     return agent_prompt.build(SYSTEM_PROMPT, auto,
                               blocks_mod.REGISTRY if registry is None else registry,
-                              "es" if settings is None else settings.language)
+                              "es" if settings is None else settings.language, profile)
+
+
+def agent_model(given, settings, agent):
+    """El modelo de un mensaje (V7): el dado al crear el agente; si no, el de los ajustes para
+    `agent` («diseno» o «revisor», con `PIZARRA_MODEL` por encima); sin ajustes, el entorno u
+    «opus»."""
+    if given:
+        return given
+    if settings is not None:
+        return settings.agent_model(agent)
+    return os.environ.get("PIZARRA_MODEL", "").strip() or "opus"
+
+
+def manufacturing_profile(board):
+    """El perfil de fabricación del workspace de la pizarra (V8), o None: un almacenamiento
+    sin él (o que no se lee) no impide hablar con el agente."""
+    try:
+        return board.ws.load_manufacturing_profile()
+    except (AttributeError, NotImplementedError, OSError, ValueError):
+        return None
 
 
 def _ok(data):
@@ -229,20 +258,25 @@ def my_proposals(board):
             for p in mine[-MY_PROPOSALS:]]
 
 
-def tool_leer_pizarra(board, _args):
+def tool_leer_pizarra(board, _args, review=False):
     """La pizarra con las salidas resumidas (FF 4.8, prueba de punta a punta): entera, el brazo
     pasaba de 100 000 caracteres y Claude Code no se la daba al agente. Aprieta hasta caber en
     `TOOL_CHARS`; lo de cada bloque, entero, con `leer_bloque`. Lleva las decisiones de los
-    hilos con sus anclas (D165), nunca lo hablado en ellos."""
+    hilos con sus anclas (D165), nunca lo hablado en ellos. Con `review` (el revisor, FF 6.1),
+    sin el catálogo de lo que se puede crear ni las propuestas del de diseño, y con los
+    post-its de todos y su estado, también los descartados (D73)."""
     from pizarra.agent_board_tools import catalog
     from pizarra.agent_threads import decisions
-    full = {**board.summary(), "decisions": decisions(board), "catalog": catalog(board.registry),
-            "connectors": connectors_now(board), "my_proposals": my_proposals(board)}
+    full = {**board.summary(), "decisions": decisions(board), "connectors": connectors_now(board)}
+    if review:                  # sus motivos son el razonamiento del de diseño (D16)
+        full.pop("proposals", None)
+    else:
+        full.update(catalog=catalog(board.registry), my_proposals=my_proposals(board))
     for cap in PORT_CHARS:
         out = {**full, "blocks": [
             {**{k: b[k] for k in ("id", "type", "status", "params")}, "cite": f"bloque:{b['id']}",
              "outputs": _digest(b["outputs"], cap)} for b in full["blocks"]],
-            "note": BOARD_NOTE}
+            "note": REVIEW_BOARD_NOTE if review else BOARD_NOTE}
         text = json.dumps(out, ensure_ascii=False)
         if len(text) <= TOOL_CHARS:
             break
@@ -278,6 +312,57 @@ def tool_leer_bloque(board, args):
         out["next"] = i
         out["note"] = (f"quedan {len(items) - i} campos: vuelve a llamar con from={i}"
                        + (f" y port={port!r}" if port else ""))
+    return _ok(out)
+
+
+LIBRARY_TOOL = ("Busca en la librería de componentes del workspace (y en las fichas de los "
+                "paquetes) por tipo, texto y stock: cada ficha con sus valores, su estado de "
+                "verificación, su stock y cómo citarla (`cite_as`, kind \"ficha\").")
+LIBRARY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string",
+                 "description": "tipo de ficha (reducer, gripper, robot…); sin él, todos"},
+        "text": {"type": "string",
+                 "description": "palabras que tiene que tener: clave, fabricante, clase o notas"},
+        "con_stock": {"type": "boolean",
+                      "description": "true: solo lo que hay en stock (también con cantidad "
+                                     "desconocida); false: solo lo que no; sin él, todo"},
+    },
+}
+LIBRARY_NOTE = ("Una cifra de una ficha se cita con su `cite_as` (kind \"ficha\"). Una ficha "
+                "con status \"unverified\" no la ha revisado el ingeniero: dilo si la usas. "
+                "En `stock`, cantidad null es desconocida (no 0: puede que haya); sin `stock`, no "
+                "está apuntada. `origin` \"pack\" es una ficha de un paquete; `overrides`, la "
+                "del workspace que tapa la de ese paquete. `units` da la unidad de cada valor "
+                "que la declara el paquete (\"-\": sin dimensión).")
+
+
+def tool_buscar_libreria(board, args):
+    """`buscar_libreria` (PLAN_V020 V17): la librería del workspace y las fichas de los
+    paquetes cargados, por tipo, texto y stock, con la fuente `ficha` de cada una (D19). Solo
+    lee. Lo que no cabe en `TOOL_CHARS` sale sin sus valores (y lo dice)."""
+    from pizarra import library as library_mod
+    con = args.get("con_stock")
+    try:
+        lib = library_mod.WorkspaceLibrary(board.ws, library_mod.pack_libraries(board.registry))
+        results, total = lib.search(args.get("type") or None, args.get("text") or "",
+                                    con if isinstance(con, bool) else None)
+        types = lib.types()
+    except (OSError, ValueError, NotImplementedError) as exc:
+        return _error(f"No se puede leer la librería: {exc}")
+    out = {"results": results, "total": total, "types": types, "note": LIBRARY_NOTE}
+    if total > len(results):
+        out["more"] = (f"hay {total} y van {len(results)}: afina con `type` o `text`")
+    trimmed = 0
+    for r in reversed(results):
+        if len(json.dumps(out, ensure_ascii=False)) <= TOOL_CHARS:
+            break
+        r["values"] = r["units"] = {}
+        trimmed += 1
+    if trimmed:
+        out["trimmed"] = (f"{trimmed} sin sus valores (no caben): búscalas por su clave en "
+                          "`text` para verlos")
     return _ok(out)
 
 
@@ -330,10 +415,11 @@ ANIMATION_NOT_ASKED = ("Rechazado: el ingeniero ha desactivado las animaciones a
                        "y entonces con pedida_por_usuario=true.")
 
 
-def tool_crear_postit(board, args, auto_animations=True):
+def tool_crear_postit(board, args, auto_animations=True, author=AGENT):
     """Devuelve (resultado para el agente, elementos nuevos o []). Con `animacion` (D143,
     D175) el post-it la lleva encima de su texto; con `auto_animations` apagado (D144), solo si
-    va `pedida_por_usuario`. Un rechazo no crea nada: ni el post-it ni el archivo."""
+    va `pedida_por_usuario`. Un rechazo no crea nada: ni el post-it ni el archivo. `author` es
+    el agente que lo firma (el revisor, `agent:review`, FF 6.1); nunca lo que diga `args`."""
     animation = args.get("animacion")
     if animation is not None and not auto_animations \
             and args.get("pedida_por_usuario") is not True:
@@ -341,7 +427,7 @@ def tool_crear_postit(board, args, auto_animations=True):
     postit = {
         "text": args.get("text", ""),
         "kind": args.get("kind", "nota"),
-        "author": AGENT,
+        "author": author,
         "sources": args.get("sources") or [],
         "estimate": bool(args.get("estimate", False)),
         "anchor": args.get("anchor"),
@@ -551,7 +637,9 @@ class DesignAgent:
         self.on_elements = on_elements          # async (elementos) -> None: los pinta
         self.on_proposals = on_proposals        # async () -> None: avisa de una propuesta nueva
         self.cli_path = cli_path
-        self.model = model or os.environ.get("PIZARRA_MODEL", "opus")
+        # Uno dado manda; si no, el de los ajustes en cada mensaje (V7: `modelo_diseno`, con
+        # `PIZARRA_MODEL` por encima en desarrollo).
+        self.model = model
         self.session_id = None                  # se reanuda la conversación entre mensajes
         self.drafts = drafts                    # carpeta de borradores de paquetes (P99)
         # Del servidor (`agent_board_tools`): async (bloque) -> resumen de la ejecución, y
@@ -613,6 +701,10 @@ class DesignAgent:
             return await asyncio.to_thread(tool_leer_archivo, board, args,
                                            bool(agent.exclude_attachments()))
 
+        @tool("buscar_libreria", LIBRARY_TOOL, LIBRARY_SCHEMA)
+        async def buscar_lib(args):
+            return await asyncio.to_thread(tool_buscar_libreria, board, args)
+
         drafts = self.drafts
 
         def pack_tool(name):
@@ -641,15 +733,17 @@ class DesignAgent:
                 return await agent.decide(args)
             thread_tools = [decidir]
         server = create_sdk_mcp_server("pizarra", "0.0.1",
-                                       [leer, leer_blq, leer_arch, crear, proponer, *board_tools,
+                                       [leer, leer_blq, leer_arch, buscar_lib, crear, proponer,
+                                        *board_tools,
                                         *pack_tools, *guide_tools, *thread_tools])
         return ClaudeAgentOptions(
-            system_prompt=system_prompt(self.settings, board.registry)
+            system_prompt=system_prompt(self.settings, board.registry,
+                                        manufacturing_profile(board))
             + ("\n\n" + agent_threads.THREAD_PROMPT if in_thread else ""),
             tools=[],
             mcp_servers={"pizarra": server},
             allowed_tools=["mcp__pizarra__leer_pizarra", "mcp__pizarra__leer_bloque",
-                           "mcp__pizarra__leer_archivo",
+                           "mcp__pizarra__leer_archivo", "mcp__pizarra__buscar_libreria",
                            "mcp__pizarra__crear_postit", "mcp__pizarra__proponer_cambio",
                            *(f"mcp__pizarra__{n}" for n in agent_board_tools.NAMES),
                            *(f"mcp__pizarra__{n}" for n in agent_office_tools.NAMES),
@@ -661,7 +755,7 @@ class DesignAgent:
             cwd=str(board.dir),
             cli_path=self.cli_path,
             env=api_key.agent_env(self.settings),   # la clave, solo al proceso del agente (O9)
-            model=self.model,
+            model=agent_model(self.model, self.settings, "diseno"),
             resume=self.session_id,
             max_turns=40,               # hacer un paquete lleva más vueltas (P99)
             max_budget_usd=self.max_budget_usd,     # el SDK corta dentro del mensaje (D168)

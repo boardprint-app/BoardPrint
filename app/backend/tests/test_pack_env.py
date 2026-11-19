@@ -23,7 +23,7 @@ import unittest
 from pathlib import Path
 
 from pizarra import pack_data, pack_env, packs
-from tests.helpers import necesita_paquetes
+from tests.helpers import PACKS_PRUEBA
 
 BACKEND = Path(__file__).resolve().parents[1]
 REPO = BACKEND.parents[1]
@@ -46,26 +46,24 @@ def write_pack(root, pack_id, body, extra_toml=""):
 
 
 class TestTrabajador(unittest.TestCase):
-    @necesita_paquetes
     def test_registro_igual_que_en_proceso(self):
-        dirs = [str(REPO / "packs")]
+        dirs = [str(PACKS_PRUEBA)]
         with worker() as w:
             r = w.request({"op": "register", "dirs": dirs})
         self.assertTrue(r["ok"], r)
         here = json.loads(json.dumps(packs.load(dirs, log=lambda _m: None).describe()))
         self.assertEqual(pack_data.from_data(r["registry"]).describe(), here)
-        self.assertIn("demo.tubo", r["registry"]["blocks"])
+        self.assertIn("prueba.tubo", r["registry"]["blocks"])
 
-    @necesita_paquetes
     def test_ejecuta_un_bloque_como_en_proceso(self):
-        dirs = [str(REPO / "packs")]
+        dirs = [str(PACKS_PRUEBA)]
         with worker() as w:
             w.request({"op": "register", "dirs": dirs})
             reg = packs.load(dirs, log=lambda _m: None)
-            params = {**reg.default_params("demo.tubo"), "od": 50}
-            r = w.request({"op": "run", "step": {"block_id": "b", "kind": "demo.tubo",
+            params = {**reg.default_params("prueba.tubo"), "od": 50}
+            r = w.request({"op": "run", "step": {"block_id": "b", "kind": "prueba.tubo",
                                                  "params": params, "inputs": {}}})
-        here = reg["demo.tubo"].run(params, {}, packs.RunContext(block_id="b"))
+        here = reg["prueba.tubo"].run(params, {}, packs.RunContext(block_id="b"))
         self.assertTrue(r["ok"], r)
         self.assertEqual(r["outcome"], ["ok", json.loads(json.dumps(here))])
 
@@ -99,7 +97,7 @@ class TestTrabajador(unittest.TestCase):
 
     def test_un_error_vuelve_y_el_trabajador_sigue(self):
         with worker() as w:
-            bad = w.request({"op": "run", "step": {"kind": "demo.tubo"}})    # sin registrar
+            bad = w.request({"op": "run", "step": {"kind": "prueba.tubo"}})    # sin registrar
             unknown = w.request({"op": "nada"})
             ok = w.request({"op": "register", "dirs": [str(REPO / "packs")]})
         self.assertFalse(bad["ok"])

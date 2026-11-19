@@ -46,9 +46,16 @@ cliente -> servidor
                                                        la guarda el usuario (D19: con cifras,
                                                        fuentes o estimate; si no, error)
     {"type": "thread_reopen", "id"} | {"type": "thread_delete", "id"}   en revisión | del todo
+  Revisor (`agent_review.py`, FF 6.1). Comparte con el de diseño una pregunta a la vez por
+  proyecto (`agent_busy`), la privacidad, el tope y `agent_stop`; nunca su chat ni su sesión.
+    {"type": "review_ask", "foco"?, "once"?}           una revisión (con la intrusividad en
+                                                       `apagado`, error); `foco`: en qué fijarse
+    {"type": "review_cancel"}                          parar la revisión en curso
+    {"type": "review_history"}                         pedir su conversación (agent/review.jsonl)
 servidor -> cliente
-    {"type": "init", "project", "elements", "blocks", "types", "agent", "threads"}
-                                                       `agent`: agent_state; `threads`, la lista
+    {"type": "init", "project", "elements", "blocks", "types", "agent", "review", "threads"}
+                                                       `agent`: agent_state; `review`: review_state
+                                                       sin `type`; `threads`, la lista
     {"type": "elements", "elements": [...]}            cambios de otra ventana del mismo
                                                        proyecto o del backend (agente, bloques)
     {"type": "saved", "at"}                            guardado (la píldora lo enseña)
@@ -68,7 +75,16 @@ Restaurar una versión manda otra vez `init` (la escena entera) a todas las vent
                                                        a quien preguntó, privacy y limit
     {"type": "agent_history", "events", "state"}       el chat guardado, a quien lo pidió
     {"type": "agent_state", ...}                       consumo, tope y ajustes (`agent_chat.state`);
-                                                       `thread`: el hilo en curso o null
+                                                       `thread`: el hilo en curso o null;
+                                                       `busy_agent`: diseno | revisor | null
+    Los eventos `agent` del revisor llevan `"agent": "revisor"` (también sus tarjetas privacy y
+    limit, con `foco` para reenviarlas con review_ask); su `user` lleva `foco` o `milestone`
+    {version, name, previous: {id, name} | null, changes} si es de un hito.
+    {"type": "review_history", "events", "state", "agent"}   a quien lo pidió (`state`: el
+                                                       review_state; `agent`: el agent_state)
+    {"type": "review_state", "intrusiveness", "model", "running", "postits"}   al acabar cada
+                                                       revisión; postits: {abierto, aceptado,
+                                                       descartado, total} de los del revisor
     Los eventos `agent` de un hilo llevan `"thread": <id>` (también sus tarjetas privacy y
     limit, que se reenvían con thread_ask o, con `close_request`, thread_close_request), y
     además: decision_proposal {decision} (`proponer_decision`), closed {decision}, reopened.
@@ -115,7 +131,15 @@ REST:
     GET    /packs/<id>/ui/<ruta>               interfaz propia de un paquete, sin token y con
                                                la CSP sin red (`pack_ui`, P24)
     POST   /api/projects/<id>/templates        poner una plantilla {template, x?, y?} (D91)
-    GET|POST /api/projects/<id>/versions       versiones (D76): lista | guardar {name}
+    GET|PUT /api/workspace/fabricacion          perfil de fabricación (V8): {texto, guardado,
+                                               plantilla} | {texto} (422 si no vale)
+    GET    /api/library…, POST /api/library/import/…   la librería del workspace y su stock
+                                               (V14-V16): la lista, en `library_api`
+    POST   /api/profile/export, /api/profile/import/…   exportar e importar el perfil .zip
+                                               (PLAN_LIBRERIA L8-L10): en `profile_api`
+    GET|POST /api/projects/<id>/versions       versiones (D76): lista | guardar {name}; con la
+                                               intrusividad en `hitos`, una con nombre lanza
+                                               una revisión (V5)
     PATCH|DELETE /api/projects/<id>/versions/<v>   renombrar {name} | a la Papelera
     GET    /api/projects/<id>/versions/<v>/thumbnail
     POST   /api/projects/<id>/versions/<v>/restore   guarda antes la actual y restaura
@@ -139,6 +163,7 @@ from urllib.parse import urlparse
 import asyncio
 import hmac
 import json
+import logging
 import os
 import re
 import sys
@@ -150,10 +175,10 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from pizarra import agent_chat, agent_threads, blocks as blocks_mod
+from pizarra import agent_chat, agent_review, agent_threads, blocks as blocks_mod
 from pizarra import connectors as connectors_mod, desktop, execution, files_api, graph, scene, watchdog
 from pizarra import agent_packs, pack_env, pack_host, pack_install, pack_install_api, pack_ui
-from pizarra import i18n, settings_api, welcome, workspace_api
+from pizarra import i18n, library_api, profile_api, settings_api, update_api, welcome, workspace_api
 from pizarra import packs as packs_mod
 from pizarra.board import Board
 from pizarra.config import AGENT_AUTHORS, APP_NAME
@@ -164,6 +189,7 @@ from pizarra.storage import Conflict, InvalidName, NotFound, StorageError
 from pizarra.validation import ValidationError
 
 PROBE_EVERY = 5               # s entre sondeos de las tarjetas de archivo (D134)
+log = logging.getLogger(__name__)
 
 FROZEN = getattr(sys, "frozen", False)
 BUNDLE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
@@ -349,6 +375,35 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
                 finished=lambda: sessions.agent_finished(session))
         return session.chat
 
+    def review_for(session):
+        """El revisor del proyecto (`agent_review`, FF 6.1), con la conversación de `chat_for`:
+        comparte con el de diseño las puertas, el tope y `agent_busy` (V6), nunca su chat ni
+        su sesión (V3)."""
+        if session.review is None:
+            def make_agent():
+                async def on_elements(new):
+                    await board_changed(session.board, session, new)
+
+                async def request_zone(payload):
+                    return await session.zones.request(session.clients, payload,
+                                                       prefer=session.chat.asker)
+                return agent_review.ReviewAgent(session.board, on_elements, cli_path=claude_cli,
+                                                request_zone=request_zone, settings=settings)
+
+            session.review = agent_review.AgentReview(
+                chat_for(session), make_agent, lambda m: broadcast(session, m))
+        return session.review
+
+    async def version_saved(session, info):
+        """Un hito (V5): guardar una versión con nombre con la intrusividad en `hitos` lanza
+        una revisión. Un fallo aquí nunca deshace la versión: queda en el registro."""
+        if session is None:
+            return
+        try:
+            await review_for(session).milestone(info)
+        except Exception as exc:              # noqa: BLE001 la versión ya está guardada
+            log.warning("el hito de la versión %s no lanzó la revisión: %s", info.get("id"), exc)
+
     def threads_for(session):
         """Los hilos del proyecto (`agent_threads`, D165), con la conversación de `chat_for`."""
         if session.threads is None:
@@ -495,6 +550,9 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
                     elif str(msg["type"]).startswith("thread_"):
                         await threads_for(session).handle(ws, msg)
                         continue
+                    elif str(msg["type"]).startswith("review_"):
+                        await review_for(session).handle(ws, msg)
+                        continue
                     elif msg["type"] == "zone_image":
                         session.zones.answer(msg)     # la que llega tarde se descarta
                         continue
@@ -525,6 +583,7 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
                 **board.blocks_view(),
                 "proposals": board.proposals_view(),
                 "agent": chat_for(sessions.get(pid)).state(),
+                "review": review_for(sessions.get(pid)).state(),
                 "threads": threads_for(sessions.get(pid)).list()}
 
     def board_for(pid):
@@ -560,9 +619,15 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
     workspace_api.register(app, start=start, settings=settings, workspace=workspace,
                            sessions=sessions, need_workspace=need_workspace, board_for=board_for,
                            broadcast=broadcast, close_sessions=close_sessions,
-                           project_dict=project_dict, init_msg=init_msg)
+                           project_dict=project_dict, init_msg=init_msg,
+                           version_saved=version_saved)
     settings_api.register(app, settings=settings, workspace=workspace, sessions=sessions,
                           broadcast=broadcast)
+    update_api.register(app, settings=settings)   # el actualizador (PLAN_V020 §4)
+    library_api.register(app, need_workspace=need_workspace,      # la librería (PLAN_V020 §5)
+                         registry=lambda: blocks_mod.REGISTRY)
+    profile_api.register(app, need_workspace=need_workspace,      # el perfil .zip (PLAN_LIBRERIA §5)
+                         settings=settings)
     welcome.register(app, settings=settings, workspace=workspace, claude_cli=claude_cli,
                      restart=restart)
     agent_chat.register(app, need_workspace, settings, sessions)

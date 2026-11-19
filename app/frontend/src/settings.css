@@ -135,3 +135,31 @@
 .st-access { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .st-key { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .st-key input { width: 220px; max-width: 100%; font-family: var(--font-numbers, ui-monospace, monospace); }
+/* La intrusividad del revisor (PLAN_V020 V5): cada opción con su frase */
+.st-choices { display: grid; gap: 6px; width: 100%; }
+.st-choice { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.st-choice input { margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+.st-choice span { display: grid; gap: 1px; min-width: 0; }
+.st-choice small { color: var(--ui-muted); font-size: 12px; overflow-wrap: anywhere; }
+/* El perfil de fabricación del workspace (V8): la fila a todo el ancho, con su texto */
+.st-row.st-wide { grid-template-columns: 1fr; }
+.st-profile { width: 100%; display: grid; gap: 8px; }
+.st-profile textarea { width: 100%; box-sizing: border-box; min-height: 260px; resize: vertical; padding: 8px 10px;
+  font: 12.5px/1.5 ui-monospace, Consolas, monospace; color: var(--ui-fg); background: var(--ui-bg);
+  border: 1px solid var(--ui-line); border-radius: 6px; }
+.st-profile textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.st-profile-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.st-profile-state { flex: 1; min-width: 0; font-size: 12px; color: var(--ui-muted); }
+.st-profile-state.dirty { color: var(--ag-warn, #a65200); font-weight: 600; }
+.st-profile-state.ok { color: var(--ag-ok, #2b8a3e); }
+/* Exportar e importar el perfil .zip (PLAN_LIBRERIA §5): el resumen, a todo el ancho de la fila */
+.st-pz-wide { grid-column: 1 / -1; margin: 0; }
+.st-pz-ctl { justify-content: flex-end; }
+.st-pz-summary { display: flex; flex-direction: column; gap: 8px; }
+.st-pz-summary h4 { margin: 0; font-size: 14px; }
+.st-pz-summary p { margin: 0; }
+.st-pz-rows { margin: 0; display: grid; gap: 4px; }
+.st-pz-rows > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.st-pz-rows dt { color: var(--ui-muted); }
+.st-pz-rows dd { margin: 0; overflow-wrap: anywhere; }
+.st-pz-summary .st-breaks code { overflow-wrap: anywhere; }

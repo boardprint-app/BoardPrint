@@ -52,11 +52,11 @@ export const threadCtx = (id: string): CardCtx => ({
 /** Lo que se escribe en un hilo: la caja, *Cerrar con decisión* y Enviar o *Parar*. Un hilo
  *  decidido no admite preguntas (R43): enseña su decisión y *Reabrir*. */
 export function ThreadComposer({ th, big = false }: { th: ThreadInfo; big?: boolean }) {
-  const { threadBusy, agentBusy, threadFocus } = useStore();
+  const { threadBusy, agentBusy, threadFocus, reviewBusy } = useStore();
   const [text, setText] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
   const here = threadBusy === th.id;
-  const elsewhere = !here && (agentBusy || !!threadBusy);
+  const elsewhere = !here && (agentBusy || !!threadBusy || reviewBusy);   // el revisor también (V6)
 
   useEffect(() => {
     if (threadFocus !== th.id) return;

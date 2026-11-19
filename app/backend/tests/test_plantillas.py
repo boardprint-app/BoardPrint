@@ -43,16 +43,15 @@ class Plantillas(unittest.TestCase):
 
     @necesita_paquetes
     def test_nunca_cae_encima_de_lo_que_ya_hay(self):
-        tubo = scene.block_element("demo.tubo", 300, 100)
+        tubo = scene.block_element("prueba.tubo", 300, 100)
         self.b.apply_client_elements([tubo])
         new = self.b.add_template("robotica.brazo", x=0, y=0)       # pedida encima del tubo
         for e in new:
             if e["type"] == "embeddable":
                 self.assertFalse(overlaps(e, tubo), e["customData"]["blockType"])
 
-    @necesita_paquetes
     def test_donde_se_pide_si_cabe(self):
-        new = self.b.add_template("demo.cadena", x=500, y=-200)
+        new = self.b.add_template("prueba.cadena", x=500, y=-200)
         self.assertEqual(min(e["x"] for e in new if e["type"] == "embeddable"), 500)
 
     def test_una_que_no_existe_es_un_error_y_no_deja_nada(self):

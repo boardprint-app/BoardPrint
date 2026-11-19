@@ -68,6 +68,7 @@ import { boardFontId } from "./fonts";
 import { getLanguage, t } from "./i18n";
 import { barDensity, type BarDensity } from "./toolbar";
 import { localizeCatalog, type CatalogParts } from "./packI18n";
+import { designBusy, reviewerBusy } from "./review";
 
 const THUMB_DELAY = 5000; // ms sin cambios antes de rehacer la miniatura
 
@@ -239,9 +240,11 @@ export function ProjectBoard({ projectId, onHome, skin, onSkin }: Props) {
                    proposals: msg.proposals ?? [], compare: null,
                    compareFocus: null, sources: msg.sources ?? {}, folderView: null, preview: null,
                    agentState: msg.agent ?? null, threads: msg.threads ?? [],
+                   reviewState: msg.review ?? null, reviewBusy: !!msg.review?.running,
                    threadBusy: msg.agent?.busy && msg.agent?.thread ? msg.agent.thread : null });
         applyFromServer(msg.elements, true);
         send({ type: "agent_history" });     // el chat guardado del proyecto (D164)
+        send({ type: "review_history" });    // y la conversación del revisor (FF 6.1)
         // Un proyecto sin miniatura (p. ej. el spike importado) la tiene al poco de abrirlo.
         if (!msg.thumbnail && msg.elements.length) {
           thumbDirty.current = true;
@@ -284,12 +287,21 @@ export function ProjectBoard({ projectId, onHome, skin, onSkin }: Props) {
         pushAgentEvent(msg);
       } else if (msg.type === "agent_history") {
         setStore({ agentLog: msg.events ?? [], agentState: msg.state ?? getStore().agentState,
-                   agentBusy: !!msg.state?.busy && !msg.state?.thread });
+                   agentBusy: designBusy(msg.state) });
       } else if (msg.type === "agent_state") {
         // Consumo y ajustes (D168, D169); al acabar un mensaje también libera el chat.
         const { type: _t, ...state } = msg;
-        setStore({ agentState: state, agentBusy: getStore().agentBusy && !!state.busy && !state.thread,
+        setStore({ agentState: state, agentBusy: getStore().agentBusy && designBusy(state),
+                   reviewBusy: getStore().reviewBusy && reviewerBusy(state),
                    threadBusy: state.busy && state.thread ? state.thread : null });
+      } else if (msg.type === "review_history") {
+        // La conversación del revisor (FF 6.1), su estado y el del agente del proyecto.
+        setStore({ reviewLog: msg.events ?? [], reviewState: msg.state ?? getStore().reviewState,
+                   agentState: msg.agent ?? getStore().agentState, reviewBusy: !!msg.state?.running });
+      } else if (msg.type === "review_state") {
+        // Al acabar cada revisión: sus post-its aceptados, descartados y abiertos (§9).
+        const { type: _r, ...review } = msg;
+        setStore({ reviewState: review, reviewBusy: getStore().reviewBusy && !!review.running });
       } else if (handleThreadMessage(msg)) {
         // los hilos (`threads`, `thread_*`): threadActions.ts
       } else if (msg.type === "settings") {

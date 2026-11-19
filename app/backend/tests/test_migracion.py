@@ -88,7 +88,7 @@ class Migracion(unittest.TestCase):
     def test_lo_que_no_es_un_post_it_de_r2_no_se_toca(self):
         other = [{"id": "r", "type": "rectangle", "version": 1, "x": 0, "y": 0},
                  {"id": "t", "type": "text", "version": 1, "text": "suelto", "x": 0, "y": 0},
-                 scene.block_element("demo.tubo", 0, 0)]
+                 scene.block_element("prueba.tubo", 0, 0)]
         els, changed = scene.migrate_postits(copy.deepcopy(other))
         self.assertFalse(changed)
         self.assertEqual(els, other)
@@ -129,12 +129,12 @@ class BloqueComoTarjeta(unittest.TestCase):
     Excalidraw, que asomarían por el borde y el tema oscuro invertiría."""
 
     def old_block(self):
-        e = scene.block_element("demo.tubo", 40, 60)
+        e = scene.block_element("prueba.tubo", 40, 60)
         return {**e, "strokeColor": "#1e1e1e", "backgroundColor": "#ffffff", "version": 3,
                 "index": "a0"}
 
     def test_el_bloque_nuevo_nace_sin_trazo_y_con_relleno_casi_invisible(self):
-        e = scene.block_element("demo.tubo", 0, 0)
+        e = scene.block_element("prueba.tubo", 0, 0)
         self.assertEqual((e["strokeColor"], e["backgroundColor"]), ("transparent", scene.CARD_FILL))
 
     def test_un_bloque_de_antes_solo_cambia_sus_colores_y_sube_de_version(self):

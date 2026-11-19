@@ -205,7 +205,7 @@ class Trabajador(Base):
         w.close()
 
     def test_si_el_caliente_muere_vuelve_a_arrancar(self):
-        self.host._proc.kill()
+        self.host._lanes[pack_host.LOCAL].proc.kill()
         self.assertEqual(self.host.preview("w.b", {"a": 1.0}, {}), {"doble": 2.0})
 
 
@@ -308,7 +308,6 @@ except ImportError:                     # job básico del CI: solo biblioteca es
     DEPS = False
 
 
-@unittest.skipUnless(DEPS, "faltan fastapi/uvicorn/websockets")
 class _ProcesoLento:
     """Un trabajador caliente falso: `action` espera a `suelta`; `connector` contesta al momento."""
     def __init__(self):
@@ -329,21 +328,36 @@ class _ProcesoLento:
         pass
 
 
+def _host_con_carriles():
+    """Un `WorkerHost` con un trabajador falso en cada carril y un registro con el conector
+    `fusion` (del paquete `fusion`) y una acción de otro paquete."""
+    from types import SimpleNamespace
+    host = pack_host.WorkerHost(pack_host.WorkerSpec(python="x", worker_dir="x"), [])
+    host.registry = SimpleNamespace(
+        connectors={"fusion": SimpleNamespace(id="fusion", pack="fusion")},
+        actions={"fusion.destinos": SimpleNamespace(pack="fusion"),
+                 "terminales.proponer": SimpleNamespace(pack="terminales")},
+        host=host)
+    externo, local = _ProcesoLento(), _ProcesoLento()
+    host._lanes[pack_host.EXTERNAL].proc = externo
+    host._lanes[pack_host.LOCAL].proc = local
+    return host, externo, local
+
+
 class DisponibleNuncaEspera(unittest.TestCase):
-    """`available` se pregunta desde el bucle del servidor: con el trabajador ocupado en otra
-    petición (una acción contra un Fusion con un diálogo abierto tarda un minuto) contesta al
-    momento con lo último que se supo. Antes la app entera se paraba (e2e de v0.1.0)."""
+    """`available` se pregunta desde el bucle del servidor: con el trabajador del conector
+    ocupado en otra petición (una acción contra un Fusion con un diálogo abierto tarda un
+    minuto) contesta al momento con lo último que se supo. Antes la app entera se paraba (e2e
+    de v0.1.0)."""
 
     def test_con_el_trabajador_ocupado_contesta_al_momento_con_lo_ultimo(self):
-        from types import SimpleNamespace
         from pizarra import connectors
-        host = pack_host.WorkerHost(pack_host.WorkerSpec(python="x", worker_dir="x"), [])
-        host._proc = lento = _ProcesoLento()
-        reg = SimpleNamespace(connectors={"fusion": SimpleNamespace(id="fusion")}, host=host)
+        host, lento, _ = _host_con_carriles()
+        reg = host.registry
         connectors._cache.update(at=-1e9, value=frozenset(), registry=None)
         self.addCleanup(connectors._cache.update, at=-1e9, value=frozenset(), registry=None)
         self.assertEqual(connectors.available(reg, ttl=0), {"fusion"})
-        hilo = threading.Thread(target=host.action, args=("a.b", {}, {}, {}, {}))
+        hilo = threading.Thread(target=host.action, args=("fusion.destinos", {}, {}, {}, {}))
         hilo.start()
         self.addCleanup(hilo.join, 10)
         self.addCleanup(lento.suelta.set)
@@ -358,6 +372,61 @@ class DisponibleNuncaEspera(unittest.TestCase):
         self.assertEqual(connectors.available(reg, ttl=0), {"fusion"})
 
 
+class UnProgramaColgadoNoParaLoDemas(unittest.TestCase):
+    """Lo que habla con un programa externo (los conectores y las acciones del paquete de un
+    conector) va a un trabajador propio: con Fusion colgado o con un diálogo abierto, la vista
+    previa y las acciones de los demás paquetes contestan igual. Antes esperaban detrás, hasta
+    el límite de espera de Fusion (e2e de v0.1.0)."""
+
+    def test_la_vista_previa_y_las_acciones_de_otro_paquete_no_esperan_al_conector(self):
+        host, externo, local = _host_con_carriles()
+        local.suelta.set()                          # el carril local contesta al momento
+        hilo = threading.Thread(target=host.action, args=("fusion.destinos", {}, {}, {}, {}))
+        hilo.start()
+        self.addCleanup(hilo.join, 10)
+        self.addCleanup(externo.suelta.set)
+        self.assertTrue(externo.dentro.wait(5))
+        t0 = time.monotonic()
+        host.preview("terminales.diseno", {}, {})
+        host.action("terminales.proponer", {}, {}, {}, {})
+        self.assertLess(time.monotonic() - t0, 0.5)
+        self.assertTrue(hilo.is_alive())            # la de Fusion sigue colgada
+
+    def test_las_del_conector_van_una_detras_de_otra_en_su_trabajador(self):
+        host, externo, local = _host_con_carriles()
+        self.assertIs(host._lane_for_action("fusion.destinos"), host._lanes[pack_host.EXTERNAL])
+        self.assertIs(host._lane_for_action("terminales.proponer"), host._lanes[pack_host.LOCAL])
+        self.assertIs(host._lane_for_action("no.existe"), host._lanes[pack_host.LOCAL])
+
+    def test_available_no_espera_a_que_arranque_el_trabajador_del_conector(self):
+        class _Arranque:                 # arrancar y cargar los paquetes tarda
+            def __init__(self):
+                self.suelta = threading.Event()
+
+            def start(self):
+                self.suelta.wait(10)
+                return _ProcesoLento()
+
+        host, _, _ = _host_con_carriles()
+        host._lanes[pack_host.EXTERNAL].proc = None
+        host.spec = arranque = _Arranque()
+        self.addCleanup(arranque.suelta.set)
+        t0 = time.monotonic()
+        with self.assertRaises(pack_host.HostBusy):
+            host.connector("fusion", "available")
+        self.assertLess(time.monotonic() - t0, 0.5)
+        arranque.suelta.set()
+        for _ in range(100):             # ya arrancado, contesta
+            try:
+                self.assertIs(host.connector("fusion", "available"), True)
+                break
+            except pack_host.HostBusy:
+                time.sleep(0.05)
+        else:
+            self.fail("el trabajador del conector no llegó a arrancar")
+
+
+@unittest.skipUnless(DEPS, "faltan fastapi/uvicorn/websockets")
 class AppConTrabajador(unittest.TestCase):
     """La app entera con los paquetes en el trabajador (P89): el backend no importa ninguno y
     ejecutar, la vista previa, una acción y los conectores van al trabajador."""

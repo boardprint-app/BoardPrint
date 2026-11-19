@@ -53,6 +53,11 @@ jobs:
             app/frontend/package-lock.json
             app/shell/package-lock.json
 
+      # Una sola fuente de versión (PLAN_V020 V12): la de la entrada, en todos los manifiestos.
+      - name: Versión
+        if: inputs.version != ''
+        run: python scripts/set_version.py "${{ inputs.version }}"
+
       - name: Interfaz
         working-directory: app/frontend
         run: |
@@ -83,8 +88,13 @@ jobs:
         with:
           workspaces: app/shell/src-tauri
 
+      # Con la clave del actualizador (PLAN_V020 V11), `tauri build` firma cada instalador
+      # (`<nombre>.sig`) para el `latest.json`. La clave vive en los secretos del repo.
       - name: Instalador (Tauri)
         working-directory: app/shell
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         run: |
           npm ci --no-audit --no-fund
           npx tauri build
@@ -100,7 +110,10 @@ jobs:
           name: instalador-${{ matrix.os }}
           path: |
             app/shell/src-tauri/target/release/bundle/nsis/*.exe
+            app/shell/src-tauri/target/release/bundle/nsis/*.exe.sig
             app/shell/src-tauri/target/release/bundle/dmg/*.dmg
+            app/shell/src-tauri/target/release/bundle/macos/*.app.tar.gz
+            app/shell/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
           retention-days: 3
 
@@ -120,12 +133,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
       # Solo los instaladores: los .bppack (artefacto `paquetes`) no van al Release.
       - uses: actions/download-artifact@v4
         with:
           path: release
           pattern: instalador-*
           merge-multiple: true
+      # El actualizador busca el último Release y su latest.json (PLAN_V020 §4).
+      - name: latest.json
+        run: python3 scripts/latest_json.py release "${{ inputs.version }}"
       - name: Release v${{ inputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -135,6 +152,11 @@ jobs:
             echo "La versión tiene que ser X.Y.Z (es «$VERSION»)"; exit 1
           fi
           ls -l release
+          # las notas, de docs/releases/v<versión>.md si existe (no está en el repo público, O20: se ponen luego con gh release edit)
+          NOTES="docs/releases/v$VERSION.md"
+          if [ ! -f "$NOTES" ]; then
+            echo "BoardPrint installer. The app ships without packs: install one (a folder or a .bppack) from Settings, Packs." > /tmp/notes.md
+            NOTES=/tmp/notes.md
+          fi
           gh release create "v$VERSION" release/* --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --title "BoardPrint $VERSION" \
-            --notes "Instalador de BoardPrint. La app llega sin paquetes: un paquete (una carpeta o un .bppack) se instala desde Ajustes → Paquetes."
+            --target "$GITHUB_SHA" --title "BoardPrint $VERSION" --notes-file "$NOTES"

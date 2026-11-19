@@ -55,6 +55,7 @@ class Session:
         self.agent = None              # DesignAgent, se crea con la primera pregunta
         self.chat = None               # agent_chat.AgentChat: su conversación en disco (D164)
         self.threads = None            # agent_threads.AgentThreads: sus hilos (D165)
+        self.review = None             # agent_review.AgentReview: el revisor (FF 6.1)
         self.agent_busy = False        # nunca dos preguntas a la vez (R6)
         self.tasks = set()             # tareas del agente y de la ejecución: que el GC no las recoja
         self.worker = None             # proceso de cálculo de la ejecución en curso (D92)

@@ -3,6 +3,7 @@ paquete puede usar.
 
 - `boardprint_sdk.packs`: lo de `register(pack)` y los bloques (`Param`, `Fix`, `Pull`,
   `ConfirmRequired`, `RunContext`, `PackBuilder`…).
+- `boardprint_sdk.library`: la librería de componentes del workspace (`ctx.library`, 1.5).
 - El lado común (`pizarra_engine.core`: parámetros, unidades, informe, `fusion_io`) sigue en el
   motor, que también va a Fusion (§6).
 
@@ -28,5 +29,9 @@ Changelog:
   delante: el terminal lo escribe en su árbol, docs/PLAN_TERMINALES.md T28).
 - 1.4.0 (FF 4.7 paso 4): `Param(choices={valor: etiqueta})` y `Param.choice_labels` (lo que
   enseña la interfaz de cada opción; se guarda el valor, D181).
+- 1.5.0 (FF 7.1, PLAN_V020 V15): la librería del workspace, `boardprint_sdk.library`
+  (`Library` con `records(type)`, `load(key)` y `stock(key)`, `Ficha`, y `current()` para lo
+  que no recibe `ctx`, como una vista previa), y `RunContext.library`. Sin workspace, vacía.
+  El plan la llamaba 1.3.0: la 1.3 y la 1.4 ya estaban publicadas.
 """
-__version__ = "1.4.0"
+__version__ = "1.5.0"

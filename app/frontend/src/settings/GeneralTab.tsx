@@ -1,17 +1,25 @@
 // *Ajustes → General* (plan D179): idioma (D180), unidades en pantalla (D182, del workspace),
 // modo de ventana y escala (D183, los aplica el shell), dónde se guarda el workspace (D186,
-// solo lectura aquí: se cambia en la bienvenida) y volver a ver la bienvenida.
+// solo lectura aquí: se cambia en la bienvenida), su perfil de fabricación (PLAN_V020 V8,
+// `ProfileRow`), exportar e importar el perfil .zip (PLAN_LIBRERIA §5, `ProfileZipRow`), volver
+// a ver la bienvenida y las actualizaciones (PLAN_V020 §4, `UpdateRow`).
+import { useState } from "react";
 import type { AppSettings } from "../appSettings";
 import { desktop } from "../packsApi";
 import { LANGUAGE_NAMES, t } from "../i18n";
 import { IMPERIAL, SI, UNIT_CHOICES, type Magnitude, type UnitPrefs } from "../units";
 import { openWelcome } from "../welcome";
 import { Row, rowLabel, TabHead, useSaver } from "./common";
+import { ProfileRow } from "./ProfileRow";
+import { ProfileZipRow } from "./ProfileZipRow";
+import { UpdateRow } from "./UpdateRow";
 
 const MAGNITUDES = Object.keys(SI) as Magnitude[];
 
 export function GeneralTab({ app }: { app: AppSettings }) {
   const { save, errors, busy } = useSaver();
+  // tras importar un perfil, la fila del perfil de fabricación se vuelve a leer
+  const [profileRev, setProfileRev] = useState(0);
   const units = app.unidades;
   const same = (p: UnitPrefs) => MAGNITUDES.every((m) => units[m] === p[m]);
   const { min, max, paso } = app.opciones.escala;
@@ -78,12 +86,15 @@ export function GeneralTab({ app }: { app: AppSettings }) {
           : <span className="st-muted">{t("ajustes.workspace.sin_ruta")}</span>}
         {ws?.nube && <p className="st-warn st-cloud" role="note">{t("ajustes.workspace.nube", { servicio: ws.nube })}</p>}
       </Row>
+      {ws && <ProfileRow key={profileRev} />}
+      {ws && <ProfileZipRow onImported={() => setProfileRev((n) => n + 1)} />}
       <Row id="bienvenida" title={t("ajustes.bienvenida")} hint={t("ajustes.bienvenida.nota")} error={errors.bienvenida}>
         <button className="pull-btn" disabled={busy === "bienvenida"}
                 onClick={async () => { if (await save("bienvenida", { bienvenida_vista: false })) openWelcome(); }}>
           {t("ajustes.bienvenida.boton")}
         </button>
       </Row>
+      <UpdateRow />
     </>
   );
 }

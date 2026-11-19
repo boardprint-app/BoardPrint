@@ -3,6 +3,7 @@
 import { EN_AGENTE } from "./agente";
 import { EN_BLOQUES } from "./bloques";
 import { EN_LIENZO } from "./lienzo";
+import { EN_LIBRERIA } from "./libreria";
 
 export const EN: Record<string, string> = {
   // unidades (D182)
@@ -55,6 +56,19 @@ export const EN: Record<string, string> = {
   "ajustes.bienvenida": "Welcome",
   "ajustes.bienvenida.nota": "The first steps: language and units, the Claude Code session, the programs (like Fusion) and where it's saved.",
   "ajustes.bienvenida.boton": "Show the welcome again",
+  "actualizar.titulo": "Updates",
+  "actualizar.nota": "The app looks for a new version when it starts and lets you know; you decide when to install it.",
+  "actualizar.buscar": "Check for updates",
+  "actualizar.buscando": "Checking…",
+  "actualizar.instalar": "Install and restart",
+  "actualizar.ahora_no": "Not now",
+  "actualizar.aviso": "BoardPrint {version} is available.",
+  "actualizar.disponible": "A new version is available: {version} (you have {actual}).",
+  "actualizar.al_dia": "You have the latest version ({actual}).",
+  "actualizar.instalando": "Installing {version}: the app will restart by itself.",
+  "actualizar.error": "Could not check: {motivo}",
+  "actualizar.desconocido": "Not checked yet.",
+  "actualizar.solo_escritorio": "Updates are installed by the desktop app.",
 
   // La bienvenida (D186)
   "bienvenida.titulo": "Welcome to BoardPrint",
@@ -229,6 +243,59 @@ export const EN: Record<string, string> = {
   "ajustes.agentes.clave_guardar": "Save key",
   "ajustes.agentes.clave_guardada": "Key saved in the system.",
   "ajustes.agentes.clave_borrar": "Delete key",
+  // the reviewer and each agent's model (FF 6.1, PLAN_V020 V5, V7)
+  "ajustes.agentes.intrusividad": "When the reviewer reviews",
+  "ajustes.agentes.intrusividad_nota": "A second agent, isolated from the design one, that looks for what can go wrong and leaves it in sticky notes. What it spends counts toward the project limit.",
+  "ajustes.agentes.intrusividad.apagado": "Off",
+  "ajustes.agentes.intrusividad.apagado_nota": "It never reviews.",
+  "ajustes.agentes.intrusividad.a_demanda": "On demand",
+  "ajustes.agentes.intrusividad.a_demanda_nota": "Only when you press Review in its panel tab.",
+  "ajustes.agentes.intrusividad.hitos": "At milestones",
+  "ajustes.agentes.intrusividad.hitos_nota": "Also when you save a named version: it goes over what changed since the previous one.",
+  "ajustes.agentes.modelo_diseno": "Design agent model",
+  "ajustes.agentes.modelo_revisor": "Reviewer model",
+  "ajustes.agentes.modelo_nota": "Opus is the most capable; Sonnet is cheaper.",
+  "ajustes.agentes.modelo.opus": "Opus",
+  "ajustes.agentes.modelo.sonnet": "Sonnet: cheaper",
+  // the workspace manufacturing profile (V8, ProfileRow)
+  "ajustes.perfil": "Manufacturing profile",
+  "ajustes.perfil.nota": "What your shop has: machines, materials, tolerances, and what is outsourced and to whom. It belongs to the workspace (it applies to all its projects) and both agents read it.",
+  "ajustes.perfil.guardar": "Save",
+  "ajustes.perfil.guardado": "Saved",
+  "ajustes.perfil.sin_guardar": "Unsaved changes",
+  "ajustes.perfil.plantilla": "This is the template: the agents don't read it until you save it",
+  "ajustes.perfil.plantilla_boton": "Back to the template",
+  // el perfil .zip (PLAN_LIBRERIA §5)
+  "ajustes.perfil_zip": "Export and import the profile",
+  "ajustes.perfil_zip.nota": "A .zip with the manufacturing profile and the library's records, to take it to another computer or hand it to someone else. It never holds settings, keys, sessions, projects or paths on your disk.",
+  "ajustes.perfil_zip.con_stock": "Include the stock",
+  "ajustes.perfil_zip.exportar": "Export profile…",
+  "ajustes.perfil_zip.importar": "Import profile…",
+  "ajustes.perfil_zip.exportado": "Profile saved to {ruta}",
+  "ajustes.perfil_zip.omitidas": "Records that cannot be read are left out: {claves}",
+  "ajustes.perfil_zip.titulo": "Import {nombre}",
+  "ajustes.perfil_zip.aviso": "It replaces this workspace's profile. Whatever the file does not bring stays as it is.",
+  "ajustes.perfil_zip.origen": "Exported on {fecha} with version {app}",
+  "ajustes.perfil_zip.origen_fecha": "Exported on {fecha}",
+  "ajustes.perfil_zip.r.fichas": "Records",
+  "ajustes.perfil_zip.r.libreria": "Library",
+  "ajustes.perfil_zip.r.quitadas": "Removed",
+  "ajustes.perfil_zip.r.fabricacion": "Manufacturing",
+  "ajustes.perfil_zip.r.stock": "Stock",
+  "ajustes.perfil_zip.r.copia": "Copy",
+  "ajustes.perfil_zip.fichas_tipos": "{n} ({tipos})",
+  "ajustes.perfil_zip.libreria": "replaces the current one (records now: {n})",
+  "ajustes.perfil_zip.fab_si": "included",
+  "ajustes.perfil_zip.fab_sustituye": "included: it replaces the current one",
+  "ajustes.perfil_zip.fab_no": "not included: the current one stays",
+  "ajustes.perfil_zip.stock_si": "included (keys: {n})",
+  "ajustes.perfil_zip.stock_sustituye": "included (keys: {n}): it replaces the current one (keys: {ahora})",
+  "ajustes.perfil_zip.stock_no": "not included: the current one stays",
+  "ajustes.perfil_zip.copia": "before writing anything, the current profile is saved to {ruta}",
+  "ajustes.perfil_zip.no_valen": "Not imported (not valid):",
+  "ajustes.perfil_zip.aceptar": "Import",
+  "ajustes.perfil_zip.cancelar": "Cancel",
+  "ajustes.perfil_zip.importado": "Profile imported. The copy of the previous one is in {ruta}",
 
   // El aviso de la primera animación (D187)
   "aviso_animacion.texto": "Automatic animations can be turned off in Settings.",
@@ -295,4 +362,5 @@ export const EN: Record<string, string> = {
   ...EN_LIENZO,
   ...EN_AGENTE,
   ...EN_BLOQUES,
+  ...EN_LIBRERIA,
 };

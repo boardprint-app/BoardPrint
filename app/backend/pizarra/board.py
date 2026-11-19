@@ -530,10 +530,11 @@ class Board:
         if btype.preview is None:
             raise validation.ValidationError(i18n.t("bloque.sin_vista_previa", bloque=btype.title))
         host = self.registry.host
+        env = self.run_env(block_id)    # con la carpeta de la librería del workspace (V15)
 
         def job():
             try:                        # en el trabajador, en la app (PLAN_PAQUETES P89)
-                return host.preview(kind, params, inputs)
+                return host.preview(kind, params, inputs, env)
             except (ValueError, TypeError, KeyError) as exc:
                 raise validation.ValidationError(str(exc)) from None
         return job
@@ -594,10 +595,14 @@ class Board:
 
     def run_env(self, block_id):
         """Lo que un bloque necesita del entorno al ejecutarse (plan §7): el nombre del
-        proyecto, su registro de sincronización y la configuración de los conectores."""
+        proyecto, su registro de sincronización, la configuración de los conectores y la
+        carpeta de la librería del workspace (`library_dir`, PLAN_V020 V15; "" si el
+        almacenamiento no tiene carpeta local)."""
+        lib = self.ws.library_dir()
         return {"project_name": self.ws.project(self.project_id).name,
                 "sync_file": str(self.ws.sync_file(self.project_id, block_id)),
-                "connectors": connectors_mod.config(self.registry)}
+                "connectors": connectors_mod.config(self.registry),
+                "library_dir": str(lib) if lib is not None else ""}
 
     def run(self, block_id=None, options=None):
         """Ejecuta el bloque y, antes, lo que tenga delante que no esté al día; sin bloque, todo

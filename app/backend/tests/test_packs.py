@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 from pizarra import packs
-from tests.helpers import new_board, reopen, necesita_paquetes
+from tests.helpers import new_board, reopen
 from pizarra import scene
 
 OK_BLOCK = '''
@@ -246,29 +246,27 @@ class Dependencias(unittest.TestCase):
         self.assertIn("cad.b", reg)
 
 
-@necesita_paquetes
 class PaquetesDeLaApp(unittest.TestCase):
-    """Los paquetes que vienen con la app cargan sin errores."""
+    """El paquete de prueba de los tests carga sin errores, con los puertos del núcleo."""
 
-    def test_demo_carga_con_sus_bloques_puertos_y_plantilla(self):
+    def test_prueba_carga_con_sus_bloques_puertos_y_plantilla(self):
         reg = packs.load()
         info = {p.id: p for p in reg.packs}
-        self.assertIsNone(info["demo"].error)
-        self.assertEqual(reg["demo.voladizo"].inputs, {"tubo": "demo.tubo"})
-        self.assertIn("demo.cadena", reg.templates)
+        self.assertIsNone(info["prueba"].error)
+        self.assertEqual(reg["prueba.voladizo"].inputs, {"tubo": "prueba.tubo"})
+        self.assertIn("prueba.cadena", reg.templates)
         d = reg.describe()
-        self.assertEqual(d["blocks"]["demo.tubo"]["outputs"], {"tubo": "demo.tubo"})
+        self.assertEqual(d["blocks"]["prueba.tubo"]["outputs"], {"tubo": "prueba.tubo"})
         self.assertIn("cad.modelo", d["ports"])
 
 
-@necesita_paquetes
 class SalidasDelSpike(unittest.TestCase):
     """Unas salidas guardadas sin puerto (spike) no se leen con el contrato nuevo: el bloque
     vuelve a «nunca» y conserva sus parámetros."""
 
     def test_salidas_sin_puerto_se_descartan_al_abrir(self):
         b = new_board()
-        el = scene.block_element("demo.tubo", 0, 0)
+        el = scene.block_element("prueba.tubo", 0, 0)
         b.apply_client_elements([el])
         b.set_params(el["id"], {"L": 450})
         b.state[el["id"]].update(outputs={"masa": {"value": 1.2, "unit": "kg"}},

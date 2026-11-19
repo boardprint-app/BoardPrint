@@ -6,7 +6,7 @@ Reglas:
   un tono que no existe) es un **ValueError**: el bloque acaba en error con el motivo, nunca
   con un dibujo a medias.
 - `pack.view` acepta los dos controles en la tarjeta y en el panel.
-- En el `demo`, la gráfica dice lo mismo que los números: la elástica del voladizo **acaba en
+- En el paquete de prueba, la gráfica dice lo mismo que los números: la elástica del voladizo **acaba en
   su flecha de punta** y empieza en cero en el empotramiento; la vista previa del panel da lo
   mismo que ejecutarlo.
 
@@ -19,7 +19,7 @@ from pathlib import Path
 
 from boardprint_sdk.packs import box, chart, line, point, view2d
 from pizarra import scene
-from tests.helpers import new_board, necesita_paquetes
+from tests.helpers import new_board
 from tests.test_pack_ui import load, write
 
 
@@ -84,11 +84,10 @@ class Declaracion(unittest.TestCase):
                              {"card": ["params", "chart"], "panel": ["view2d", "results"]})
 
 
-@necesita_paquetes
 class Demo(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
-        t, v = scene.block_element("demo.tubo", 0, 0), scene.block_element("demo.voladizo", 400, 0)
+        t, v = scene.block_element("prueba.tubo", 0, 0), scene.block_element("prueba.voladizo", 400, 0)
         self.b.apply_client_elements([t, v, {"id": "a", "type": "arrow", "version": 1,
                                               "startBinding": {"elementId": t["id"]},
                                               "endBinding": {"elementId": v["id"]}}])

@@ -7,7 +7,7 @@ import unittest
 
 from pizarra import graph, scene, validation
 from pizarra.blocks import REGISTRY
-from tests.helpers import new_board, reopen, necesita_paquetes
+from tests.helpers import new_board, reopen
 from pizarra.validation import ValidationError
 
 
@@ -90,31 +90,27 @@ class Autoria(unittest.TestCase):
 class Grafo(unittest.TestCase):
     """Nunca se acepta una conexión incompatible ni una que cierre un ciclo."""
 
-    @necesita_paquetes
     def test_tipos_incompatibles_no_conectan(self):
-        b, (t, v) = _board("demo.tubo", "demo.voladizo")
+        b, (t, v) = _board("prueba.tubo", "prueba.voladizo")
         edges, problems = graph.build(b.elements + [_arrow("a", v, t)], REGISTRY)
         self.assertEqual(edges, {})
         self.assertEqual(len(problems), 1)
 
-    @necesita_paquetes
     def test_conexion_compatible_ocupa_el_puerto_por_tipo(self):
-        b, (t, v) = _board("demo.tubo", "demo.voladizo")
+        b, (t, v) = _board("prueba.tubo", "prueba.voladizo")
         edges, problems = graph.build(b.elements + [_arrow("a", t, v)], REGISTRY)
         self.assertEqual(edges, {v: {"tubo": (t, "tubo")}})
         self.assertEqual(problems, [])
 
-    @necesita_paquetes
     def test_segunda_flecha_al_mismo_puerto_se_rechaza(self):
-        b, (t1, t2, v) = _board("demo.tubo", "demo.tubo", "demo.voladizo")
+        b, (t1, t2, v) = _board("prueba.tubo", "prueba.tubo", "prueba.voladizo")
         edges, problems = graph.build(
             b.elements + [_arrow("a", t1, v), _arrow("b", t2, v)], REGISTRY)
         self.assertEqual(edges, {v: {"tubo": (t1, "tubo")}})
         self.assertEqual(len(problems), 1)
 
-    @necesita_paquetes
     def test_ciclo_se_rechaza(self):
-        fake = {"x.a": REGISTRY["demo.voladizo"].__class__(
+        fake = {"x.a": REGISTRY["prueba.voladizo"].__class__(
             kind="x.a", title="A", params={}, inputs={"in": "t"}, outputs={"out": "t"},
             run=lambda p, i, c: {})}
         els = [scene.block_element("x.a", 0, 0), scene.block_element("x.a", 300, 0)]
@@ -124,17 +120,16 @@ class Grafo(unittest.TestCase):
         self.assertIn("ciclo", problems[0]["reason"])
 
     def test_flecha_libre_no_es_conexion_ni_problema(self):
-        b, (t,) = _board("demo.tubo")
+        b, (t,) = _board("prueba.tubo")
         edges, problems = graph.build(b.elements + [_arrow("a", t, None)], REGISTRY)
         self.assertEqual((edges, problems), ({}, []))
 
 
-@necesita_paquetes
 class Desactualizado(unittest.TestCase):
     """Cambiar una entrada marca lo de detrás y nada más; nunca ejecuta nada (D14)."""
 
     def setUp(self):
-        self.b, (self.t, self.v) = _board("demo.tubo", "demo.voladizo")
+        self.b, (self.t, self.v) = _board("prueba.tubo", "prueba.voladizo")
         self.b.apply_client_elements([_arrow("a", self.t, self.v)])
         self.b.run(self.v)
 
@@ -161,13 +156,13 @@ class Desactualizado(unittest.TestCase):
         self.assertEqual(self.b.statuses()[self.v], "al_dia")
 
     def test_bloque_no_conectado_no_se_entera(self):
-        self.b.apply_client_elements([scene.block_element("demo.tubo", 0, 500)])
+        self.b.apply_client_elements([scene.block_element("prueba.tubo", 0, 500)])
         other = [k for k in self.b.statuses() if k not in (self.t, self.v)][0]
         self.b.set_params(self.t, {"t": 4})
         self.assertEqual(self.b.statuses()[other], "nunca")
 
     def test_sin_entrada_conectada_queda_incompleto_y_no_se_ejecuta(self):
-        b, (v,) = _board("demo.voladizo")
+        b, (v,) = _board("prueba.voladizo")
         self.assertEqual(b.statuses()[v], "incompleto")
         with self.assertRaises(ValidationError):
             b.run(v)
@@ -191,10 +186,9 @@ class Fusion(unittest.TestCase):
         self.assertEqual([e["id"] for e in out], ["a", "agente"])
 
 
-@necesita_paquetes
 class Persistencia(unittest.TestCase):
     def test_la_pizarra_sobrevive_a_reabrir_el_proyecto(self):
-        b, (t,) = _board("demo.tubo")
+        b, (t,) = _board("prueba.tubo")
         b.run(t)
         b.save()
         b2 = reopen(b)

@@ -23,7 +23,7 @@ def anchored(el, anchor, up=1):
 class AnclajeDesdeElCliente(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
-        self.tubo = scene.block_element("demo.tubo", 0, 0)
+        self.tubo = scene.block_element("prueba.tubo", 0, 0)
         self.b.apply_client_elements([self.tubo])
         self.p1 = self.b.user_add_postit("nota", 0, 300)
         self.p2 = self.b.user_add_postit("nota", 300, 300)
@@ -71,7 +71,7 @@ class AnclajeDesdeElCliente(unittest.TestCase):
 class AnclajeDelAgente(unittest.TestCase):
     def setUp(self):
         self.b = new_board()
-        self.tubo = scene.block_element("demo.tubo", 0, 0)
+        self.tubo = scene.block_element("prueba.tubo", 0, 0)
         self.b.apply_client_elements([self.tubo])
 
     def test_el_agente_ancla_a_un_elemento_que_existe(self):
@@ -98,7 +98,7 @@ class AnclajeDeLaTinta(unittest.TestCase):
 
     def setUp(self):
         self.b = new_board()
-        self.tubo = scene.block_element("demo.tubo", 0, 0)
+        self.tubo = scene.block_element("prueba.tubo", 0, 0)
         self.p = self.b.user_add_postit("nota", 0, 300)
         self.ink = ink_stroke(20, 20)
         self.b.apply_client_elements([self.tubo, self.ink])

@@ -12,7 +12,7 @@ Protocolo v2 (docs/PLAN_PAQUETES.md §4, P90, P91): un JSON por línea en cada s
   propio id): la pide desde dentro de la llamada, en el mismo hilo (su cerrojo es reentrante;
   p. ej. si un conector responde). Se atiende entera y se sigue esperando (P109).
 
-Operaciones: `register {dirs, validated}`, `run {step}`, `preview {kind, params, inputs}`,
+Operaciones: `register {dirs, validated}`, `run {step}`, `preview {kind, params, inputs, env}`,
 `action {name, block_id, params, inputs, args, env, board}`, `connector {connector, method, args}` y
 `exit`.
 """
@@ -134,8 +134,9 @@ def _preview(registry, msg):
     btype = registry.get(msg["kind"])
     if btype is None or btype.preview is None:
         raise ValueError(f"el bloque {msg['kind']!r} no tiene vista previa")
-    try:
-        result = btype.preview(msg.get("params") or {}, msg.get("inputs") or {})
+    try:                # `env` (SDK 1.5): la librería del workspace para `library.current()`
+        with pack_data.using_library(pack_data.library_of(msg.get("env"))):
+            result = btype.preview(msg.get("params") or {}, msg.get("inputs") or {})
     except (ValueError, TypeError, KeyError) as exc:
         return {"ok": False, "error": str(exc)}
     return {"result": pack_data.as_json(result)}
@@ -151,7 +152,8 @@ def _action(ch, rid, registry, msg):
     if msg.get("board"):
         ctx._board = RemoteBoard(ch, rid, registry)
     try:
-        result = act.run(msg.get("params") or {}, msg.get("inputs") or {}, msg.get("args") or {}, ctx)
+        with pack_data.using_library(ctx.library):
+            result = act.run(msg.get("params") or {}, msg.get("inputs") or {}, msg.get("args") or {}, ctx)
     except Exception as exc:          # noqa: BLE001 el motivo vuelve al backend
         traceback.print_exc(file=sys.stderr)
         return {"ok": False, "error": packs.action_error(name, exc)}

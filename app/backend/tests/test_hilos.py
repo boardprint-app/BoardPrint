@@ -32,7 +32,6 @@ from pizarra.sessions import Session
 from pizarra.settings import Settings
 from pizarra.storage import LocalWorkspace
 from pizarra.validation import ValidationError
-from tests.helpers import necesita_paquetes
 
 try:
     import claude_agent_sdk as sdk
@@ -96,7 +95,7 @@ class _Base(unittest.IsolatedAsyncioTestCase):
         f = self.tmp / "ficha motor.pdf"
         f.write_bytes(b"%PDF-1.4")
         self.card = b.add_cards([f])[0]["id"]
-        self.block = b.add_block("demo.tubo", {"L": 250})["id"]
+        self.block = b.add_block("prueba.tubo", {"L": 250})["id"]
         b.elements = b.elements + [{"id": "foto", "type": "embeddable", "x": 900, "y": 900,
                                     "width": 100, "height": 80, "isDeleted": False,
                                     "customData": {"kind": "image", "image": {"file": "f.png"}}}]
@@ -151,7 +150,6 @@ class _Base(unittest.IsolatedAsyncioTestCase):
                 and m.get("thread") == thread]
 
 
-@necesita_paquetes
 class UnaSesionPorHilo(_Base):
     async def test_cada_hilo_sigue_su_sesion_y_nunca_la_del_chat_ni_la_de_otro(self):
         await self.send({"type": "agent_ask", "text": "chat uno"})        # ses-1, el chat
@@ -234,14 +232,13 @@ class UnaSesionPorHilo(_Base):
         self.assertEqual(self.preguntas, [])
 
 
-@necesita_paquetes
 class ElPrimerMensaje(_Base):
     async def test_lleva_lo_que_son_las_anclas_y_los_siguientes_no(self):
         f = self.board.card(self.card)["customData"]["path"]
         a = await self.crear([self.postit, self.block, self.card, "foto"], text="¿Aguanta?")
         primero = self.preguntas[0]["text"]
-        for trozo in ("La carga incluye la pinza", "pregunta", "abierto", "demo.tubo",
-                      self.board.registry["demo.tubo"].title, '"L": 250', "ficha motor.pdf",
+        for trozo in ("La carga incluye la pinza", "pregunta", "abierto", "prueba.tubo",
+                      self.board.registry["prueba.tubo"].title, '"L": 250', "ficha motor.pdf",
                       json.dumps(f, ensure_ascii=False), "imagen", "¿Aguanta?"):
             self.assertIn(trozo, primero)
         self.assertTrue(primero.endswith("¿Aguanta?"))
@@ -288,7 +285,6 @@ class ElPrimerMensaje(_Base):
         self.assertTrue(title.startswith("Sobre «“TCP por encima del suelo” sale"), title)
 
 
-@necesita_paquetes
 class LaDecision(_Base):
     async def test_proponer_decision_deja_la_propuesta_y_no_cierra(self):
         a = await self.crear(text="uno")
@@ -367,7 +363,6 @@ class LaDecision(_Base):
         self.assertEqual(t["messages"], 6)       # 3 preguntas (con *Cerrar*) y 3 respuestas
 
 
-@necesita_paquetes
 @unittest.skipUnless(SDK, "falta claude_agent_sdk")
 class ProponerDecisionSoloEnUnHilo(_Base):
     def herramientas(self, agent):
@@ -395,7 +390,6 @@ class ProponerDecisionSoloEnUnHilo(_Base):
         self.assertIn(agent_threads.THREAD_PROMPT, opts.system_prompt)
 
 
-@necesita_paquetes
 class SinAnclaje(_Base):
     async def test_un_hilo_con_sus_anclas_borradas_sigue_y_sale_sin_anclaje(self):
         a = await self.crear([self.postit, "foto"])
@@ -417,7 +411,6 @@ class SinAnclaje(_Base):
         self.assertFalse(next(t for t in self.threads.list() if t["id"] == a)["sin_anclaje"])
 
 
-@necesita_paquetes
 class ElChatVeLasDecisiones(_Base):
     async def test_leer_pizarra_da_las_decisiones_y_nunca_los_mensajes(self):
         a = await self.crear(text="secreto del hilo")
@@ -438,7 +431,6 @@ class ElChatVeLasDecisiones(_Base):
         self.assertEqual(data["decisions"][0]["state"], "en_revision")
 
 
-@necesita_paquetes
 class TamañoYBorrado(_Base):
     async def test_el_tamano_nunca_baja_del_minimo_y_va_a_las_otras_ventanas(self):
         a = await self.crear(layout={"size": "window", "x": 10, "y": 20, "w": 50, "h": 40})
@@ -487,7 +479,6 @@ if __name__ == "__main__":
     unittest.main()
 
 
-@necesita_paquetes
 class LasAnimacionesDesactivadasEnUnHilo(_Base):
     async def test_desactivadas_cada_pregunta_del_hilo_lo_recuerda(self):
         from pizarra import agent_prompt

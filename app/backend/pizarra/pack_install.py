@@ -71,15 +71,25 @@ def export(folder, dest_dir, find=None):
                                 problemas="; ".join(problems[:packs.MAX_SHOWN])))
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / archive_name(m)
+    return write_zip(dest_dir / archive_name(m),
+                     ((f"{m.id}/{rel}", (folder / rel).read_bytes())
+                      for rel in packs.pack_files(folder)))
+
+
+def write_zip(dest, entries):
+    """Escribe el zip `dest` con `entries` (`[(ruta dentro, bytes)]`, en ese orden) y la fecha
+    fija `ZIP_DATE`: lo mismo da los mismos bytes. Va a un temporal y se pone en su sitio al
+    final, así que nunca queda un zip a medias. Lo usan el `.bppack` y el perfil
+    (`profile_zip`). Devuelve `dest`."""
+    dest = Path(dest)
     tmp = dest.with_name(f"{dest.name}.{os.getpid()}.tmp")
     try:
         with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
-            for rel in packs.pack_files(folder):
-                zi = zipfile.ZipInfo(f"{m.id}/{rel}", date_time=ZIP_DATE)
+            for name, data in entries:
+                zi = zipfile.ZipInfo(name, date_time=ZIP_DATE)
                 zi.external_attr = 0o644 << 16
                 zi.compress_type = zipfile.ZIP_DEFLATED
-                z.writestr(zi, (folder / rel).read_bytes())
+                z.writestr(zi, data)
         os.replace(tmp, dest)
     finally:
         tmp.unlink(missing_ok=True)
@@ -93,53 +103,68 @@ def _skipped(rel):
     return any(p in packs.SKIP_DIRS for p in rel[:-1]) or rel[-1].endswith((".pyc", ".pyo"))
 
 
-def open_archive(archive, into):
+# Las claves de `i18n` de los motivos de `open_archive`; el perfil (`profile_zip`) pasa las suyas.
+ARCHIVE_TEXTS = {
+    "no_es_zip": "paquete.no_es_bppack", "demasiados": "paquete.demasiados_ficheros",
+    "ruta_fuera": "paquete.ruta_fuera", "enlace": "paquete.enlace",
+    "fuera_de_carpeta": "paquete.fuera_de_carpeta", "repetido": "paquete.repetido",
+    "grande": "paquete.demasiado_grande", "una_carpeta": "paquete.una_carpeta",
+    "ninguna": "paquete.ninguna", "id_no_valido": "paquete.id_no_valido",
+}
+
+
+def open_archive(archive, into, texts=None, top_re=packs.ID_RE):
     """Saca el paquete de `archive` en `<into>/<id>/` y devuelve esa carpeta. `ValueError`, sin
     escribir nada, si el archivo no es un zip, lleva una ruta que sale de su carpeta (absoluta,
     con `..`, `\\` o `:`), un enlace, más de una carpeta, una ruta repetida (también sin mirar
-    mayúsculas: Windows las juntaría) o más de `pack_validate.MAX_BYTES`."""
+    mayúsculas: Windows las juntaría) o más de `pack_validate.MAX_BYTES`.
+
+    `texts` cambia las claves de `i18n` de los motivos (las de `ARCHIVE_TEXTS`), y `top_re` es
+    lo que tiene que cumplir el nombre de la carpeta (None: cualquiera que no salga del zip).
+    Sin ellos, los de un `.bppack`."""
     from pizarra import pack_validate
+    tx = {**ARCHIVE_TEXTS, **(texts or {})}
     archive = Path(archive)
     try:
         z = zipfile.ZipFile(archive)
     except (OSError, zipfile.BadZipFile) as exc:
-        raise ValueError(i18n.t("paquete.no_es_bppack", archivo=archive.name, motivo=exc)) from None
+        raise ValueError(i18n.t(tx["no_es_zip"], archivo=archive.name, motivo=exc)) from None
     with z:
         entries = z.infolist()
         if len(entries) > MAX_ENTRIES:
-            raise ValueError(i18n.t("paquete.demasiados_ficheros", archivo=archive.name, max=MAX_ENTRIES))
+            raise ValueError(i18n.t(tx["demasiados"], archivo=archive.name, max=MAX_ENTRIES))
         tops, seen, size, todo = set(), set(), 0, []
         for zi in entries:
             name = zi.filename
             parts = name.rstrip("/").split("/") if zi.is_dir() else name.split("/")
             if (not name or name.startswith("/") or "\\" in name or ":" in name
                     or any(p in ("", ".", "..") for p in parts)):
-                raise ValueError(i18n.t("paquete.ruta_fuera", archivo=archive.name, ruta=repr(name)))
+                raise ValueError(i18n.t(tx["ruta_fuera"], archivo=archive.name, ruta=repr(name)))
             if stat.S_ISLNK(zi.external_attr >> 16):
-                raise ValueError(i18n.t("paquete.enlace", archivo=archive.name, ruta=repr(name)))
+                raise ValueError(i18n.t(tx["enlace"], archivo=archive.name, ruta=repr(name)))
             tops.add(parts[0])
             if zi.is_dir():
                 continue
             if len(parts) == 1:
-                raise ValueError(i18n.t("paquete.fuera_de_carpeta", archivo=archive.name, ruta=repr(name)))
+                raise ValueError(i18n.t(tx["fuera_de_carpeta"], archivo=archive.name, ruta=repr(name)))
             rel = parts[1:]
             if _skipped(rel):
                 continue
             low = name.lower()
             if low in seen:
-                raise ValueError(i18n.t("paquete.repetido", archivo=archive.name, ruta=repr(name)))
+                raise ValueError(i18n.t(tx["repetido"], archivo=archive.name, ruta=repr(name)))
             seen.add(low)
             size += zi.file_size
             if size > pack_validate.MAX_BYTES:
-                raise ValueError(i18n.t("paquete.demasiado_grande", archivo=archive.name,
+                raise ValueError(i18n.t(tx["grande"], archivo=archive.name,
                                         mb=pack_validate.MAX_BYTES // 2**20))
             todo.append((zi, rel))
         if len(tops) != 1:
-            raise ValueError(i18n.t("paquete.una_carpeta", archivo=archive.name,
-                                    carpetas=", ".join(sorted(tops)) or i18n.t("paquete.ninguna")))
+            raise ValueError(i18n.t(tx["una_carpeta"], archivo=archive.name,
+                                    carpetas=", ".join(sorted(tops)) or i18n.t(tx["ninguna"])))
         top = tops.pop()
-        if not packs.ID_RE.match(top):
-            raise ValueError(i18n.t("paquete.id_no_valido", archivo=archive.name, id=repr(top)))
+        if top_re is not None and not top_re.match(top):
+            raise ValueError(i18n.t(tx["id_no_valido"], archivo=archive.name, id=repr(top)))
         dest = Path(into) / top
         dest.mkdir(parents=True)
         for zi, rel in todo:

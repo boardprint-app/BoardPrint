@@ -12,6 +12,7 @@ import { splitDrop } from "./packs";
 import { openInstall } from "./settings";
 import { SettingsDialog } from "./SettingsDialog";
 import { skinOf, type SkinId } from "./skins";
+import { UpdateBanner } from "./UpdateBanner";
 import { WelcomeDialog } from "./WelcomeDialog";
 import { openWelcome, readyToShow, welcomeOnLoad } from "./welcome";
 
@@ -124,6 +125,7 @@ export default function Root() {
         : <Home missing={view.missing} problem={view.problem} onOpen={open} />}
       <SettingsDialog skin={skin} onSkin={setSkin} />
       <WelcomeDialog />
+      <UpdateBanner />
     </>
   );
 }

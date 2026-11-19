@@ -605,6 +605,11 @@ html, body, #root, .app { height: 100%; margin: 0; }
 .pull-apply { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 .pull-apply:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
 .pull-error { color: var(--b-err); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* El aviso de versión nueva (PLAN_V020 §4): arriba, en el centro, por encima de todo. */
+.update-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1000;
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 16px; border-radius: 8px;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line);
+  box-shadow: 0 6px 24px rgba(0,0,0,.35); font: 13px var(--f-ui); max-width: calc(100vw - 32px); }
 .pull-error button { display: block; margin-top: 6px; }
 
 /* La barra de herramientas de Excalidraw va abajo, en el centro (R37): arriba la tapaba la

@@ -13,9 +13,10 @@ Entre el WebSocket (`server.py`) y el agente (`agent.DesignAgent`):
   **una sola pregunta a la vez por proyecto**, contando chat e hilos (`agent_busy`): el
   agente de un hilo trabaja sobre la misma pizarra, y dos a la vez se pisarían.
 - **Consumo y tope** (D168): lo que da el `ResultMessage` de cada mensaje se suma en
-  `agent/usage.json` por agente (`"diseno"`; los hilos cuentan en él), y el proyecto es la
-  suma de sus agentes. El tope es en dólares equivalentes, el del proyecto (`project.toml`) o
-  el de los ajustes (`[agentes] tope_proyecto_usd`, 5). Con el consumo en el tope no empieza
+  `agent/usage.json` por agente (`"diseno"`, y los hilos cuentan en él; `"revisor"`, el
+  revisor, `agent_review.py`), y el proyecto es la suma de sus agentes. El tope es en
+  dólares equivalentes, el del proyecto (`project.toml`) o el de los ajustes (`[agentes]
+  tope_proyecto_usd`, 5). Con el consumo en el tope no empieza
   ningún mensaje; dentro de uno, `max_budget_usd` es lo que queda.
 - **Parar**: corta el mensaje en curso con `interrupt()` del SDK; si el SDK no acaba en
   `STOP_GRACE` s, se cancela la tarea. Lo hecho (post-its, propuestas) se queda.
@@ -36,9 +37,11 @@ Lo que sale por el WebSocket (la lista corta está en `server.py`):
     {"type": "agent", "kind": "limit", "text", "used", "limit"}        tope alcanzado
     {"type": "agent_history", "events": [...], "state": {...}}         lo de `agent/chat.jsonl`
     {"type": "agent_state", "usage": {"agents": {"diseno": {...}}, "total": {...}}, "limit",
-     "limit_own", "remaining", "exclude_attachments", "privacy_seen", "busy", "thread"}
-                            thread: el hilo con el que está el agente (null: el chat o nada)
-Los eventos de un hilo (y sus tarjetas de privacidad y tope) llevan además `"thread": <id>`.
+     "limit_own", "remaining", "exclude_attachments", "privacy_seen", "busy", "thread",
+     "busy_agent"}          thread: el hilo con el que está el agente (null: el chat o nada);
+                            busy_agent: diseno | revisor | null, el que trabaja (V6)
+Los eventos de un hilo (y sus tarjetas de privacidad y tope) llevan además `"thread": <id>`;
+los del revisor, `"agent": "revisor"` (`agent_review.py`).
 """
 import asyncio
 import logging
@@ -54,6 +57,7 @@ log = logging.getLogger(__name__)
 
 DESIGN = "diseno"              # el agente de diseño en usage.json (los hilos también, D168)
 MAIN_CHAT = "chat"             # la conversación principal en sessions.json
+CHAT_FILE = "chat"             # y en `agent/` (`chat.jsonl`); el revisor, `review` (V3)
 TOKENS = {"input": "input_tokens", "output": "output_tokens",
           "cache_creation": "cache_creation_input_tokens",
           "cache_read": "cache_read_input_tokens"}       # nuestro nombre: el del SDK
@@ -97,12 +101,14 @@ class AgentStore:
         self.ws, self.pid = workspace, project_id
 
     # ------------------------------------------------------------------ chat
-    def history(self):
-        return self.ws.load_agent_chat(self.pid)[-HISTORY_MAX:]
+    def history(self, name=CHAT_FILE):
+        """Los últimos eventos de la conversación `name` (`chat`, el de diseño; `review`, el
+        revisor: nunca se mezclan, PLAN_V020 V3)."""
+        return self.ws.load_agent_chat(self.pid, name)[-HISTORY_MAX:]
 
-    def append(self, event):
+    def append(self, event, name=CHAT_FILE):
         try:
-            self.ws.append_agent_chat(self.pid, [event])
+            self.ws.append_agent_chat(self.pid, [event], name)
         except (StorageError, OSError) as exc:    # el chat sigue; se queda en el registro
             log.warning("no se pudo guardar el chat del proyecto %s: %s", self.pid, exc)
 
@@ -198,9 +204,12 @@ def budget_for(used, limit, once=False):
 class Conversation:
     """Una conversación con el agente de diseño: dónde van sus eventos, qué sesión del SDK
     sigue (`key` en `sessions.json`) y qué agente la lleva. Esta es la principal; cada hilo
-    es una `agent_threads.ThreadConversation` (D165)."""
+    es una `agent_threads.ThreadConversation` (D165), y la del revisor, una
+    `agent_review.ReviewConversation` (PLAN_V020 V3)."""
     key = MAIN_CHAT
     thread = None                 # el id del hilo, que llevan sus eventos por el WebSocket
+    usage_agent = DESIGN          # a quién se suma su consumo en usage.json (D168)
+    animated = True               # su agente puede hacer animaciones (D144): el revisor, no
 
     def tag(self):
         return {"thread": self.thread} if self.thread else {}
@@ -238,11 +247,17 @@ class AgentChat:
         self._conv = None                     # la conversación del mensaje en curso
         self._agent = None                    # y su agente (para *Parar* y el consumo)
         self.asker = None                     # la ventana de la última pregunta
+        # async () -> None que empieza cuando acaba el mensaje en curso (un hito del revisor
+        # que llegó con el agente ocupado, V6); uno solo: el último que llega manda
+        self.queued = None
 
     def state(self):
         busy = self.session.agent_busy
+        conv = self._conv if busy else None
         return {**state(self.store, self.settings, busy),
-                "thread": self._conv.thread if busy and self._conv is not None else None}
+                "thread": conv.thread if conv is not None else None,
+                # qué agente trabaja (V6: uno a la vez por proyecto): diseno | revisor | null
+                "busy_agent": conv.usage_agent if conv is not None else None}
 
     async def send_state(self):
         await self.broadcast({"type": "agent_state", **self.state()})
@@ -301,13 +316,17 @@ class AgentChat:
         if s.agent_busy:
             raise ValidationError(i18n.t("agente.ocupado"))
         card = {"type": "agent", **conv.tag(), **(extra or {}), "text": text}
+        # sin ventana (un hito del revisor, V5), la tarjeta no va a nadie: no empieza y ya está
         if not self.settings.privacy_seen:
-            await ws.send_json({**card, "kind": "privacy", "notice": i18n.t("agente.privacidad", self.settings.language)})
+            if ws is not None:
+                await ws.send_json({**card, "kind": "privacy",
+                                    "notice": i18n.t("agente.privacidad", self.settings.language)})
             return False
         used = self.store.usage()["total"]["usd"]
         limit, _own = limit_of(self.store, self.settings)
         if used >= limit and not once:
-            await ws.send_json({**card, "kind": "limit", "used": used, "limit": limit})
+            if ws is not None:
+                await ws.send_json({**card, "kind": "limit", "used": used, "limit": limit})
             return False
         # Ocupado ANTES de crear la tarea: así no caben dos preguntas a la vez aunque lleguen
         # seguidas desde dos ventanas (R6).
@@ -336,7 +355,7 @@ class AgentChat:
             agent = self._agent = conv.agent(self)
             agent.max_budget_usd = budget
             message = prompt if prompt is not None else conv.prompt(self, text)
-            if not self.settings.animations_auto:
+            if not self.settings.animations_auto and conv.animated:
                 message = agent_prompt.ANIMATIONS_OFF_NOTE + "\n\n" + message
             await self.emit({"kind": "user", "text": text, **(extra or {})}, conv)
             await agent.ask(message, lambda ev: self._on_event(ev, conv))
@@ -365,6 +384,19 @@ class AgentChat:
                 await self.send_state()
             except Exception:                 # noqa: BLE001 sin ventanas a las que avisar
                 pass
+            await self._run_queued()
+
+    async def _run_queued(self):
+        """Lo que esperaba a que acabase este mensaje (un hito del revisor con el agente
+        ocupado, V5, V6): empieza ahora si el proyecto sigue abierto en alguna ventana."""
+        nxt, self.queued = self.queued, None
+        if nxt is None or not self.session.clients or self.session.agent_busy:
+            return
+        try:
+            await nxt()
+        except Exception as exc:              # noqa: BLE001 lo de después no tumba este
+            log.warning("lo que esperaba al agente en %s no empezó: %s",
+                        self.session.project_id, exc)
 
     def _keep_session(self, agent, conversation=MAIN_CHAT):
         try:
@@ -392,8 +424,8 @@ class AgentChat:
             cost = cumulative
         used = message_usage(event.pop("usage", None), cost)
         self._keep_session(agent, conv.key)
-        try:                                  # los hilos también son el de diseño (D168)
-            usage = self.store.add_usage(DESIGN, used)
+        try:                                  # los hilos, al de diseño (D168); el revisor, al suyo
+            usage = self.store.add_usage(conv.usage_agent, used)
         except (StorageError, OSError) as exc:
             log.warning("no se pudo guardar el consumo: %s", exc)
             usage = self.store.usage()

@@ -15,6 +15,9 @@ from dataclasses import dataclass, field
 # Los ficheros de `agent/` aparte del chat (D164, D165): la sesión de cada conversación, el
 # consumo y los hilos (estos, desde el paso 3 de FF 4.6; sus mensajes, en un fichero por hilo).
 AGENT_FILES = ("sessions", "usage", "threads")
+# Las conversaciones de `agent/` (un `.jsonl` cada una): `chat`, la del agente de diseño, y
+# `review`, la del revisor (FF 6.1, PLAN_V020 V3), que nunca se mezclan.
+AGENT_CHATS = ("chat", "review")
 
 
 class StorageError(ValueError):
@@ -197,15 +200,17 @@ class Workspace(ABC):
 
     # La conversación con los agentes (D164): `agent/` en local, fuera de `board/` y `blocks/`,
     # así que ni las versiones la copian ni restaurar la toca. `chat.jsonl` son los eventos del
-    # chat, uno por línea; los demás son un JSON cada uno (`AGENT_FILES`).
+    # chat, uno por línea; `review.jsonl`, los del revisor (`AGENT_CHATS`); los demás son un
+    # JSON cada uno (`AGENT_FILES`).
     @abstractmethod
-    def load_agent_chat(self, project_id: str) -> list:
-        """Los eventos del chat en orden; [] si no hay. Una línea que no se puede leer (la
-        última, cortada por un apagón a mitad de escribirla) se salta: nunca impide abrir."""
+    def load_agent_chat(self, project_id: str, name: str = "chat") -> list:
+        """Los eventos de la conversación `name` (una de `AGENT_CHATS`; si no, `InvalidName`)
+        en orden; [] si no hay. Una línea que no se puede leer (la última, cortada por un
+        apagón a mitad de escribirla) se salta: nunca impide abrir."""
 
     @abstractmethod
-    def append_agent_chat(self, project_id: str, events: list) -> None:
-        """Añade eventos al final del chat; nunca reescribe los de antes."""
+    def append_agent_chat(self, project_id: str, events: list, name: str = "chat") -> None:
+        """Añade eventos al final de la conversación `name`; nunca reescribe los de antes."""
 
     @abstractmethod
     def load_agent_file(self, project_id: str, name: str) -> dict:
@@ -245,6 +250,62 @@ class Workspace(ABC):
 
     @abstractmethod
     def save_units(self, units: dict) -> None: ...
+
+    # ------------------------------------------- perfil de fabricación (D31, PLAN_V020 V8)
+    # Un Markdown del workspace (`profile/fabricacion.md` en local) con lo que el ingeniero
+    # puede fabricar: máquinas, materiales, tolerancias, qué se externaliza y a quién. Lo leen
+    # los agentes en su prompt; ningún cálculo lo lee aún.
+    @abstractmethod
+    def load_manufacturing_profile(self) -> str | None:
+        """El texto guardado, o None si no hay ninguno."""
+
+    @abstractmethod
+    def save_manufacturing_profile(self, text: str) -> None: ...
+
+    # ----------------------------------------- librería del workspace (PLAN_V020 V14, V15)
+    # Las fichas de componentes del usuario, en el formato de las de los paquetes (TOML), por
+    # su clave (`names.check_ficha_key`; otra es `InvalidName`); en local,
+    # `library/<tipo>s/<clave>.toml`. El almacenamiento guarda el texto tal cual: lo que valida
+    # el núcleo (`[meta]`) es de `pizarra.library`. El stock va aparte, por clave (una ficha de
+    # un paquete también puede tenerlo); `cantidad` None es «desconocida», nunca 0 (D33).
+    @abstractmethod
+    def library_dir(self):
+        """Carpeta local de la librería, la que lee un paquete (`ctx.library`), o None si el
+        almacenamiento no la tiene. Puede no existir aún."""
+
+    @abstractmethod
+    def list_library_fichas(self) -> dict:
+        """{clave: texto TOML} de todas las fichas; {} si no hay ninguna."""
+
+    @abstractmethod
+    def load_library_ficha(self, key: str) -> str | None:
+        """El texto de la ficha, o None si no está."""
+
+    @abstractmethod
+    def save_library_ficha(self, key: str, type_: str, text: str) -> None:
+        """Guarda la ficha con su tipo (`names.check_ficha_type`). Si estaba con otro tipo,
+        la de antes se va a la papelera: una clave, una ficha."""
+
+    @abstractmethod
+    def trash_library_ficha(self, key: str) -> None:
+        """La ficha a la papelera (D66); `NotFound` si no está. Su stock se queda."""
+
+    @abstractmethod
+    def load_stock(self) -> dict:
+        """{clave: {cantidad, ubicacion, fecha, nota}}; {} si no hay stock."""
+
+    @abstractmethod
+    def save_stock(self, stock: dict) -> None:
+        """Lo guarda entero, con el formato de `load_stock` (lo que falte de una entrada,
+        vacío)."""
+
+    # ------------------------- copias del perfil al importar otro (PLAN_LIBRERIA L9, D27)
+    @abstractmethod
+    def profile_copy_dir(self):
+        """Carpeta local donde `profile_zip` deja la copia del perfil antes de sustituirlo por
+        uno importado, o None si el almacenamiento no la tiene (entonces no se importa: nunca
+        se pisa un perfil sin copia). Puede no existir aún. Lo que haya dentro nunca sale como
+        carpeta del workspace ni como ficha de la librería."""
 
     # ---------------------------------------------------------------- versiones (D76)
     # Una versión es una copia de la escena, el estado de los bloques y la miniatura. Se nombra

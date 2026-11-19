@@ -1,7 +1,7 @@
 // Panel derecho definitivo (plan D56, D174): con el skin, redimensionable por su borde
 // izquierdo (mínimo 320 px, máximo el 60 % de la ventana, `panel.ts`; el ancho en
 // `settings.toml`, `[paneles] derecho`), con las pestañas *Agente de diseño* (el chat, D173),
-// *Hilos* (la lista, `ThreadsTab`; los hilos en sí van sobre la pizarra, `ThreadLayer`) y
+// *Revisor* (FF 6.1, `ReviewTab`), *Hilos* (la lista, `ThreadsTab`; los hilos en sí van sobre la pizarra, `ThreadLayer`) y
 // *Versiones* (D76). Plegado, deja el botón flotante. Abierto, la pizarra se estrecha a su
 // lado (`--rp-w` en `.app`), como en el prototipo: no tapa los controles de Excalidraw de la
 // derecha.
@@ -12,10 +12,11 @@ import { useStore } from "./store";
 import { VersionsTab } from "./VersionsTab";
 import { AgentChat } from "./AgentChat";
 import { ThreadsTab } from "./ThreadsTab";
+import { ReviewTab } from "./ReviewTab";
 import { clampPanel, PANEL_DEFAULT, PANEL_MIN } from "./panel";
 import { t } from "./i18n";
 
-type Tab = "agent" | "threads" | "versions";
+type Tab = "agent" | "review" | "threads" | "versions";
 
 type Props = { projectId: string; api: ExcalidrawImperativeAPI | null; beforeSave: () => Promise<void> };
 
@@ -99,11 +100,12 @@ export function AgentPanel({ projectId, api, beforeSave }: Props) {
       </div>
       <div className="ag-tabs" role="tablist">
         {tabBtn("agent", t("agente.panel.agente"))}
+        {tabBtn("review", t("agente.panel.revisor"))}
         {tabBtn("threads", t("agente.panel.hilos"), threads.length ? String(threads.length) : undefined)}
         {tabBtn("versions", t("agente.panel.versiones"))}
       </div>
       {tab === "versions" ? <VersionsTab projectId={projectId} api={api} beforeSave={beforeSave} />
-        : tab === "threads" ? <ThreadsTab api={api} /> : <AgentChat />}
+        : tab === "threads" ? <ThreadsTab api={api} /> : tab === "review" ? <ReviewTab /> : <AgentChat />}
     </aside>
   );
 }

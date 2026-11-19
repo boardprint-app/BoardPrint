@@ -6,9 +6,11 @@ from pathlib import Path
 from pizarra.board import Board
 from pizarra.storage import LocalWorkspace
 
-# Los paquetes del repo (`demo`, `robotica`...), que estos tests cargan por defecto (`__init__.py`).
+# Los paquetes del repo (`robotica`, `fusion`...), que estos tests cargan por defecto (`__init__.py`).
 # El repo público no los lleva: lo que los necesita se salta allí, y aquí corre igual que siempre.
+# Las reglas del núcleo usan el paquete de prueba (`prueba`, en `PACKS_PRUEBA`), que va en los dos.
 REPO_PACKS = Path(__file__).resolve().parents[3] / "packs"
+PACKS_PRUEBA = Path(__file__).resolve().parent / "packs_prueba"
 necesita_paquetes = unittest.skipUnless(REPO_PACKS.is_dir(), "sin packs/: necesita los paquetes del repo")
 
 

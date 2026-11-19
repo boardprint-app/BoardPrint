@@ -12,6 +12,7 @@ import { getStore, setStore, useStore, type AgentEvent, type PackProposal, type 
 import { Markdown } from "./ChatMarkdown";
 import { AgentUsageBar, decimal, usd } from "./AgentUsage";
 import { t } from "./i18n";
+import { isReviewEvent, milestoneDetail, reviewUserText } from "./review";
 
 /** El nombre legible de cada herramienta, en el idioma de la interfaz (se calcula al pintar). */
 const toolLabels = (): Record<string, string> => ({
@@ -25,6 +26,7 @@ const toolLabels = (): Record<string, string> => ({
   poner_plantilla: t("agente.herramienta.poner_plantilla"),
   ejecutar_bloque: t("agente.herramienta.ejecutar_bloque"),
   ver_zona: t("agente.herramienta.ver_zona"),
+  calcular: t("agente.herramienta.calcular"),
   guia_animacion: t("agente.herramienta.guia_animacion"),
   proponer_decision: t("agente.herramienta.proponer_decision"),
   crear_archivo: t("agente.herramienta.crear_archivo"),
@@ -61,6 +63,7 @@ function toolHint(name: string, input: Input | undefined): string {
     case "conectar": return input.desde && input.hasta ? `${input.desde} → ${input.hasta}` : "";
     case "leer_bloque": return blockName(input.block) + (input.port ? ` · ${input.port}` : "");
     case "ejecutar_bloque": return blockName(input.bloque);
+    case "calcular": return blockName(input.bloque);
     case "leer_archivo": return input.file ?? "";
     case "crear_archivo": return input.nombre ?? "";
     default: return typeof input.id === "string" ? input.id : "";
@@ -265,7 +268,14 @@ export function sourceLine(s: Record<string, any>): string {
 function Line({ ev, result, ctx }: { ev: AgentEvent; result?: AgentEvent; ctx: CardCtx }) {
   switch (ev.kind) {
     case "user":
-      return <div className="ag-user">{ev.text}</div>;
+      // el del revisor, en el idioma de la interfaz; el de un hito, con su versión (V5)
+      if (!isReviewEvent(ev)) return <div className="ag-user">{ev.text}</div>;
+      return (
+        <div className={ev.milestone ? "ag-user ag-milestone" : "ag-user"}>
+          {reviewUserText(ev)}
+          {ev.milestone && <small>{milestoneDetail(ev.milestone)}</small>}
+        </div>
+      );
     case "text":
       return <div className="ag-text"><Markdown text={ev.text ?? ""} /></div>;
     case "tool":
@@ -339,10 +349,12 @@ export function ChatLog({ log, busy, ctx = MAIN_CTX, empty, className = "ag-log"
 }
 
 export function AgentChat() {
-  const { agentLog, agentBusy, agentState, threadBusy } = useStore();
+  const { agentLog, agentBusy, agentState, threadBusy, reviewBusy } = useStore();
   const [text, setText] = useState("");
   // Otro agente (un hilo) con su mensaje: aquí no se puede preguntar hasta que acabe (R43).
-  const elsewhere = !!threadBusy || (!!agentState?.busy && !!agentState.thread);
+  // El revisor, igual: uno a la vez por proyecto (V6).
+  const reviewing = reviewBusy || agentState?.busy_agent === "revisor";
+  const elsewhere = !!threadBusy || (!!agentState?.busy && !!agentState.thread) || reviewing;
 
   const submit = () => {
     const v = text.trim();
@@ -370,7 +382,7 @@ export function AgentChat() {
           }}
         />
         <div className="ag-row">
-          <span className="ag-note">{elsewhere ? t("agente.chat.ocupado_hilo") : t("agente.chat.atajos")}</span>
+          <span className="ag-note">{reviewing ? t("agente.chat.ocupado_revisor") : elsewhere ? t("agente.chat.ocupado_hilo") : t("agente.chat.atajos")}</span>
           {agentBusy
             ? <button type="button" className="ag-btn" onClick={() => send({ type: "agent_stop" })}>{t("agente.chat.parar")}</button>
             : <button type="submit" className="ag-btn primary" disabled={elsewhere || !text.trim()}>{t("agente.chat.enviar")}</button>}

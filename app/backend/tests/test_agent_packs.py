@@ -18,7 +18,7 @@ import unittest
 from pathlib import Path
 
 from pizarra import agent_packs as ap, pack_install, packs
-from tests.helpers import necesita_paquetes
+from tests.helpers import PACKS_PRUEBA
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -144,14 +144,17 @@ class Proponer(Base):
         self.assertTrue(plan.ok, plan.view())
 
 
-@necesita_paquetes
 class Duplicar(Base):
+    def setUp(self):
+        super().setUp()
+        self.origins = [("desarrollo", PACKS_PRUEBA)]       # también en el repo público
+
     def test_copia_con_el_id_nuevo_y_dice_donde_sale_el_viejo(self):
-        got = ap.duplicate(self.root, self.origins, "demo", "mi_demo")
-        toml = ap.read(self.root, "mi_demo", "pack.toml")
-        self.assertIn('id = "mi_demo"', toml)
+        got = ap.duplicate(self.root, self.origins, "prueba", "mi_prueba")
+        toml = ap.read(self.root, "mi_prueba", "pack.toml")
+        self.assertIn('id = "mi_prueba"', toml)
         self.assertIn('version = "0.1.0"', toml)
-        self.assertTrue(any(p["file"] == "blocks.py" and "demo.tubo" in p["text"]
+        self.assertTrue(any(p["file"] == "blocks.py" and "prueba.tubo" in p["text"]
                             for p in got["replace"]), got)
         self.assertFalse(any(p["file"] == "pack.toml" and p["text"].startswith("id")
                              for p in got["replace"]))

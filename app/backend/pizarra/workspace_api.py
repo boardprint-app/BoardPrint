@@ -6,11 +6,11 @@ la app con las utilidades del servidor. La lista de rutas está en el docstring 
 """
 from dataclasses import asdict
 
-from fastapi import HTTPException, Request
+from fastapi import Body, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from pizarra import desktop
+from pizarra import desktop, i18n, profile_zip
 from pizarra.config import APP_NAME
 from pizarra.settings import RIGHT_PANEL_MIN
 from pizarra.startup import StartState, start_view
@@ -19,6 +19,7 @@ from pizarra.validation import ValidationError
 
 MAX_THUMBNAIL = 2 * 1024 * 1024
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PROFILE_MAX = profile_zip.FABRICACION_MAX   # caracteres del perfil de fabricación (V8); al agente, menos
 
 
 class FolderIn(BaseModel):
@@ -68,10 +69,20 @@ def _node(n):
     return out
 
 
+def profile_view(ws):
+    """El perfil de fabricación (V8) para *Ajustes → General*: el guardado o, si no hay
+    ninguno, la plantilla (que los agentes no leen hasta que se guarda)."""
+    text = ws.load_manufacturing_profile()
+    template = i18n.t("perfil.plantilla")
+    return {"texto": template if text is None else text, "guardado": text is not None,
+            "plantilla": template}
+
+
 def register(app, *, start, settings, workspace, sessions, need_workspace, board_for, broadcast,
-             close_sessions, project_dict, init_msg):
+             close_sessions, project_dict, init_msg, version_saved=None):
     """Añade las rutas a `app`. `workspace` y `sessions` son None si no hay workspace abierto
-    (entonces `need_workspace` contesta 503)."""
+    (entonces `need_workspace` contesta 503). `version_saved(sesión, versión)`, si se da, se
+    llama tras guardar una versión de un proyecto abierto (el hito del revisor, V5)."""
     # ------------------------------------------------- workspace, carpetas, proyectos
     @app.get("/api/start")
     def get_start():
@@ -128,6 +139,22 @@ def register(app, *, start, settings, workspace, sessions, need_workspace, board
                 recent.append({**r, "exists": False})
         return {"app": APP_NAME, "workspace": {**asdict(ws.info()), "path": str(ws.root)},
                 "tree": _node(tree), "recent": recent, "problem": start.problem}
+
+    # Perfil de fabricación del workspace (D31, PLAN_V020 V8): lo leen los dos agentes.
+    @app.get("/api/workspace/fabricacion")
+    def get_profile():
+        return profile_view(need_workspace())
+
+    @app.put("/api/workspace/fabricacion")
+    def put_profile(p: dict = Body(...)):
+        ws = need_workspace()
+        text = p.get("texto") if isinstance(p, dict) else None
+        if not isinstance(text, str):
+            raise HTTPException(422, i18n.t("perfil.no_texto"))
+        if len(text) > PROFILE_MAX:
+            raise HTTPException(422, i18n.t("perfil.largo", max=PROFILE_MAX))
+        ws.save_manufacturing_profile(text)
+        return profile_view(ws)
 
     @app.post("/api/folders")
     def post_folder(f: FolderIn):
@@ -227,6 +254,8 @@ def register(app, *, start, settings, workspace, sessions, need_workspace, board
         board, session = board_for(pid)
         info = board.save_version(v.name)
         await versions_changed(session)
+        if version_saved is not None and session is not None and not info.get("auto"):
+            await version_saved(session, info)
         return info
 
     @app.patch("/api/projects/{pid}/versions/{vid}")
