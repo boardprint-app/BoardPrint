@@ -2,8 +2,9 @@
 // modo de ventana y escala (D183, los aplica el shell), dónde se guarda el workspace (D186,
 // solo lectura aquí: se cambia en la bienvenida), su perfil de fabricación (PLAN_V020 V8,
 // `ProfileRow`), exportar e importar el perfil .zip (PLAN_LIBRERIA §5, `ProfileZipRow`), volver
-// a ver la bienvenida y las actualizaciones (PLAN_V020 §4, `UpdateRow`).
-import { useState } from "react";
+// a ver la bienvenida y las actualizaciones (PLAN_V020 §4, `UpdateRow`). Desde FF 8.1, la
+// caducidad de las ofertas de la Librería (PLAN_APROVISIONAMIENTO A10, `ExpiryRow`).
+import { useEffect, useState } from "react";
 import type { AppSettings } from "../appSettings";
 import { desktop } from "../packsApi";
 import { LANGUAGE_NAMES, t } from "../i18n";
@@ -88,6 +89,7 @@ export function GeneralTab({ app }: { app: AppSettings }) {
       </Row>
       {ws && <ProfileRow key={profileRev} />}
       {ws && <ProfileZipRow onImported={() => setProfileRev((n) => n + 1)} />}
+      <ExpiryRow app={app} />
       <Row id="bienvenida" title={t("ajustes.bienvenida")} hint={t("ajustes.bienvenida.nota")} error={errors.bienvenida}>
         <button className="pull-btn" disabled={busy === "bienvenida"}
                 onClick={async () => { if (await save("bienvenida", { bienvenida_vista: false })) openWelcome(); }}>
@@ -96,5 +98,32 @@ export function GeneralTab({ app }: { app: AppSettings }) {
       </Row>
       <UpdateRow />
     </>
+  );
+}
+
+/** Los días hasta que caduca una oferta (A10): un número entero de `min` a `max`; se guarda al
+ *  salir del campo o con Enter, y lo que no vale lo rechaza el backend con su motivo. */
+function ExpiryRow({ app }: { app: AppSettings }) {
+  const { save, errors, busy } = useSaver();
+  const saved = app.ofertas_caducidad_dias ?? 7;
+  const { min, max } = app.opciones.caducidad_ofertas ?? { min: 1, max: 90 };
+  const [days, setDays] = useState(String(saved));
+  useEffect(() => setDays(String(saved)), [saved]);
+  const commit = () => {
+    if (days.trim() === String(saved) && !errors.ofertas_caducidad_dias) return;
+    const n = Number(days.trim());
+    void save("ofertas_caducidad_dias", { ofertas_caducidad_dias: Number.isFinite(n) && days.trim() ? n : days });
+  };
+  return (
+    <Row id="ofertas_caducidad_dias" title={t("ajustes.ofertas.caducidad")}
+         hint={t("ajustes.ofertas.caducidad_nota", { min, max })} error={errors.ofertas_caducidad_dias}>
+      <label className="st-money">
+        <input type="number" min={min} max={max} step="1" inputMode="numeric" value={days}
+               aria-labelledby={rowLabel("ofertas_caducidad_dias")} disabled={busy === "ofertas_caducidad_dias"}
+               onChange={(e) => setDays(e.target.value)} onBlur={commit}
+               onKeyDown={(e) => { if (e.key === "Enter") commit(); }} />
+        <span>{t("ajustes.ofertas.dias")}</span>
+      </label>
+    </Row>
   );
 }

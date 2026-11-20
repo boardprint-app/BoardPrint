@@ -262,6 +262,24 @@ class Workspace(ABC):
     @abstractmethod
     def save_manufacturing_profile(self, text: str) -> None: ...
 
+    # ------------------------------------- proveedores y ofertas (PLAN_APROVISIONAMIENTO A2, A8)
+    # Dos textos del workspace: la lista de proveedores en TOML (`profile/proveedores.toml` en
+    # local, que viaja en el perfil .zip) y la caché de ofertas en JSON (`profile/ofertas.json`,
+    # que no viaja). El almacenamiento los guarda tal cual; lo que valen es de `pizarra.supply`.
+    @abstractmethod
+    def load_providers_text(self) -> str | None:
+        """El TOML guardado, o None si no hay lista."""
+
+    @abstractmethod
+    def save_providers_text(self, text: str) -> None: ...
+
+    @abstractmethod
+    def load_offers_text(self) -> str | None:
+        """El JSON guardado, o None si aún no hay ofertas."""
+
+    @abstractmethod
+    def save_offers_text(self, text: str) -> None: ...
+
     # ----------------------------------------- librería del workspace (PLAN_V020 V14, V15)
     # Las fichas de componentes del usuario, en el formato de las de los paquetes (TOML), por
     # su clave (`names.check_ficha_key`; otra es `InvalidName`); en local,

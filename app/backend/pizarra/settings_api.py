@@ -18,10 +18,11 @@ from pizarra import api_key, i18n, units, welcome
 from pizarra.settings import (AGENT_MODELS, FONT_CHOICES, LANGUAGES, MODEL_KEYS,
                               REVIEW_INTRUSIVENESS, SCALE_MAX, SCALE_MIN, SCALE_STEP, SKINS,
                               WINDOW_MODES, positive_usd)
+from pizarra.supply import EXPIRY_MAX, EXPIRY_MIN
 from pizarra.storage import StorageError
 
 KEYS = ("idioma", "unidades", "ventana", "fuentes", "atajos", "atajos_por_defecto",
-        "agentes", "skin", "bienvenida_vista")
+        "agentes", "skin", "bienvenida_vista", "ofertas_caducidad_dias")
 
 
 def view(settings, workspace, key_store=None):
@@ -39,7 +40,10 @@ def view(settings, workspace, key_store=None):
                     "api_key_guardada": api_key.saved(key_store),
                     "intrusividad_revisor": settings.review_intrusiveness,     # PLAN_V020 V5
                     "modelo_diseno": settings.saved_model("diseno"),           # V7
-                    "modelo_revisor": settings.saved_model("revisor")},
+                    "modelo_revisor": settings.saved_model("revisor"),
+                    "modelo_proveedores": settings.saved_model("proveedores"),  # A5
+                    "tope_busqueda_usd": settings.search_limit_usd},
+        "ofertas_caducidad_dias": settings.offers_expiry_days,          # A10
         "skin": settings.skin,
         "bienvenida_vista": settings.welcome_seen,
         "workspace": welcome.location(workspace),       # dónde se guarda (D186)
@@ -53,6 +57,7 @@ def view(settings, workspace, key_store=None):
             "skins": list(SKINS),
             "intrusividades_revisor": list(REVIEW_INTRUSIVENESS),
             "modelos": list(AGENT_MODELS),
+            "caducidad_ofertas": {"min": EXPIRY_MIN, "max": EXPIRY_MAX},
         },
     }
 
@@ -94,11 +99,17 @@ def apply(settings, workspace, changes):
             if a["acceso"] not in api_key.ACCESS:
                 raise ValueError(i18n.t("ajustes.acceso_no_valido"))
             settings.agent_access = a["acceso"]
+        if "tope_busqueda_usd" in a:
+            if positive_usd(a["tope_busqueda_usd"]) is None:
+                raise ValueError(i18n.t("ajustes.tope_no_valido"))
+            settings.search_limit_usd = a["tope_busqueda_usd"]
         if "intrusividad_revisor" in a:
             settings.review_intrusiveness = a["intrusividad_revisor"]
         for agent, key in MODEL_KEYS.items():
             if key in a:
                 settings.set_agent_model(agent, a[key])
+    if "ofertas_caducidad_dias" in changes:
+        settings.offers_expiry_days = changes["ofertas_caducidad_dias"]
     if "skin" in changes:
         settings.skin = changes["skin"]
     if "bienvenida_vista" in changes:

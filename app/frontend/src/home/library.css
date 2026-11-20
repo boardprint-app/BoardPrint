@@ -37,7 +37,8 @@
 
 /* La tabla y, a su lado, la ficha */
 .lb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 0 18px; }
-.lb-main.with-ficha { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
+/* la ficha, algo más ancha desde que lleva *Dónde comprar* (PLAN_APROVISIONAMIENTO §5) */
+.lb-main.with-ficha { grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); }
 .lb-table-wrap { min-height: 0; overflow: auto; border: 1px solid var(--ui-line); border-radius: 8px; }
 .lb-empty { margin: 0; padding: 24px; }
 .lb-empty p { margin: 0 0 4px; }
@@ -157,6 +158,93 @@
 .lb-reason { color: var(--b-err); display: block; }
 .lb-warn { display: block; color: #c2410c; }
 .lb-warn::before { content: "⚠ "; }
+
+/* Fichas | Proveedores, en la cabecera */
+.lb-views { display: flex; gap: 4px; align-self: center; }
+
+/* *Dónde comprar* en la ficha (PLAN_APROVISIONAMIENTO §5): cada oferta, una tarjeta */
+.lb-supply { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.lb-supply-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.lb-ficha .lb-supply-head h4 { margin: 0; flex: 1 1 auto; }
+.lb-small { font-size: 12px; }
+.lb-offers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.lb-offer { border: 1px solid var(--ui-line); border-radius: 8px; padding: 6px 8px 7px; display: flex; flex-direction: column; gap: 2px; }
+.lb-offer-top { display: flex; align-items: baseline; gap: 8px; }
+.lb-offer-prov { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.lb-offer-price { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lb-offer-top .lb-icon { align-self: center; margin: -4px -4px -4px 0; }
+.lb-offer-ref { font: 12px ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.lb-offer-meta { font-size: 12px; }
+.lb-offer-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; }
+.lb-b-old { border-color: var(--ui-muted); color: var(--ui-muted); }
+.lb-b-warn { border-color: #e8590c; color: #c2410c; white-space: normal; }
+.lb-offer-link { all: unset; cursor: pointer; align-self: flex-start; font-size: 12px; color: var(--accent); text-decoration: underline;
+  overflow-wrap: anywhere; }
+.lb-offer-link:hover { text-decoration-thickness: 2px; }
+.lb-offer-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+.lb-offer-quote { margin: 2px 0 0; font-size: 12px; font-style: italic; color: var(--ui-muted); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* la nota del agente puede ser larga: tres líneas, y entera al pasar por encima */
+.lb-offer-note { font-size: 12px; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* caducada: atenuada y el precio tachado, pero se lee (orden de magnitud, A10) */
+.lb-offer.lb-expired { background: var(--ui-hover); border-style: dashed; }
+.lb-offer.lb-expired .lb-offer-prov, .lb-offer.lb-expired .lb-offer-ref, .lb-offer.lb-expired .lb-offer-meta { color: var(--ui-muted); }
+.lb-offer.lb-expired .lb-offer-price { text-decoration: line-through; color: var(--ui-muted); font-weight: 400; }
+.lb-offer-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; padding: 6px 8px; border-radius: 6px;
+  background: var(--ui-hover); }
+.lb-offer-confirm span { flex: 1; font-weight: 600; }
+.lb-equiv { border: 1px solid var(--ui-line); border-radius: 8px; padding: 6px 8px; }
+.lb-equiv summary { cursor: pointer; font-weight: 600; }
+.lb-equiv[open] summary { margin-bottom: 6px; }
+.lb-equiv .lb-small { margin-bottom: 6px; }
+
+/* la búsqueda en curso */
+.lb-search { padding: 6px 10px; border-radius: 6px; background: var(--ui-hover); box-shadow: inset 3px 0 0 var(--accent);
+  display: flex; flex-direction: column; gap: 4px; }
+.lb-search-head { display: flex; align-items: center; gap: 8px; }
+.lb-search-head b { flex: 1; }
+.lb-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ui-line); border-top-color: var(--accent);
+  animation: lb-spin .8s linear infinite; flex: none; }
+@keyframes lb-spin { to { transform: rotate(360deg); } }
+.lb-search-log { margin: 0; padding: 0 0 0 18px; max-height: 132px; overflow-y: auto; font-size: 12px; color: var(--ui-muted); }
+.lb-search-log li { overflow-wrap: anywhere; }
+.lb-search-log li.now { color: var(--ui-fg); font-weight: 600; }
+
+/* *Añadir oferta* */
+.lb-form { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--accent); }
+.lb-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+.lb-form-f { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; font-weight: 600; }
+.lb-form-f.wide { grid-column: 1 / -1; }
+.lb-form-f small { font-weight: 400; }
+.lb-form-f input { width: 100%; }
+.lb-form-f input::placeholder { color: var(--ui-muted); opacity: 1; font-weight: 400; }
+.lb-form-f input.bad { border-color: var(--b-err); box-shadow: inset 0 0 0 1px var(--b-err); }
+.lb-form-match { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.lb-form-match legend { padding: 0; margin-bottom: 2px; font-weight: 600; }
+.lb-form .st-row-btns { justify-content: flex-end; }
+
+/* La pestaña *Proveedores* */
+.lb-prov { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 0 18px; }
+.lb-prov[hidden] { display: none; }
+.lb-prov p { margin: 0; }
+.lb-prov .lb-dirty, .lb-prov .lb-msg { margin: 0; }
+.lb-prov-intro { max-width: 900px; }
+.lb-prov .lb-info { max-width: 900px; }
+.lb-prov-wrap { flex: 0 1 auto; }
+.lb-prov-table tbody tr { cursor: default; }
+.lb-prov-table tbody tr:hover { background: transparent; }
+.lb-prov-table td { vertical-align: top; }
+.lb-prov-table td.lb-prov-n { width: 48px; font-variant-numeric: tabular-nums; padding-top: 9px; font-weight: 600; color: var(--ui-muted); }
+.lb-prov-table td input { border-color: var(--ui-line); }
+.lb-prov-table td input.lb-prov-name { min-width: 160px; }
+.lb-prov-table td input.lb-prov-domain { min-width: 220px; font-family: ui-monospace, Consolas, monospace; }
+.lb-prov-types { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 0; }
+.lb-prov-types .lb-tab { font-size: 12px; padding: 2px 10px; }
+.lb-prov-act { width: 96px; white-space: nowrap; }
+.lb-icon:disabled { opacity: .35; cursor: default; background: transparent; }
+.lb-prov-empty td { padding: 14px 8px; }
+.lb-prov-usage { font-size: 12px; }
 
 @media (max-width: 900px) {
   .lb-main.with-ficha { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }

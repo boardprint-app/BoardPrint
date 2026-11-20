@@ -1,8 +1,10 @@
-// Las llamadas de la *Librería* a `/api/library` (backend: pizarra/library_api.py). Lo puro,
-// en `library.ts`.
+// Las llamadas de la *Librería* a `/api/library` (backend: pizarra/library_api.py) y a
+// `/api/supply` (proveedores y ofertas, pizarra/supply_api.py). Lo puro, en `library.ts` y
+// `supply.ts`.
 import { apiFetch } from "./auth";
 import { t } from "./i18n";
 import type { FieldInfo, Ficha, ImportPlan, LibraryItem, StockEntry } from "./library";
+import type { Offer, OffersView, Provider, SearchJob } from "./supply";
 
 /** Un error del backend, con su código (409 = el resumen de importar ya no vale). */
 export class ApiError extends Error {
@@ -63,3 +65,27 @@ export const planImport = (body: { path: string; sheet: string; type: string; ma
 export const applyImport = (token: string) =>
   call<{ created: number; updated: number; unchanged: number; invalid: number; fichas: number; stock: number }>(
     "/api/library/import/apply", "POST", { token });
+
+// ------------------------------------------------- proveedores y ofertas (PLAN_APROVISIONAMIENTO)
+export const fetchProviders = () => call<{ proveedores: Provider[]; tipos: string[] }>("/api/supply/providers");
+
+export const saveProviders = (proveedores: Provider[]) =>
+  call<{ proveedores: Provider[] }>("/api/supply/providers", "PUT", { proveedores });
+
+/** Con `clave` vacía no hay ofertas, pero sí `consumo` (lo gastado desde la Librería). */
+export const fetchOffers = (clave: string) => call<OffersView>(`/api/supply/offers?clave=${q(clave)}`);
+
+export const addOffer = (clave: string, oferta: Record<string, unknown>) =>
+  call<Offer>("/api/supply/offers", "POST", { clave, oferta });
+
+export const deleteOffer = (id: string) => call<{ ok: boolean }>(`/api/supply/offers/${q(id)}`, "DELETE");
+
+/** Abre la URL guardada de la oferta en el navegador del sistema (la pone el backend, nunca la
+ *  interfaz, como los enlaces de la pizarra). */
+export const openOffer = (id: string) => call<{ ok: boolean }>(`/api/supply/offers/${q(id)}/open`, "POST", {});
+
+export const startSearch = (clave: string) => call<{ job: string }>("/api/supply/search", "POST", { clave });
+
+export const fetchSearch = (job: string) => call<SearchJob>(`/api/supply/search/${q(job)}`);
+
+export const cancelSearch = (job: string) => call<SearchJob>(`/api/supply/search/${q(job)}/cancel`, "POST", {});

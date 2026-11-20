@@ -60,9 +60,13 @@ DEFAULT_PROJECT_LIMIT_USD = 5.0  # dólares equivalentes por proyecto (D168)
 REVIEW_INTRUSIVENESS = ("apagado", "a_demanda", "hitos")
 DEFAULT_REVIEW_INTRUSIVENESS = "a_demanda"
 # El modelo de cada agente (V7, D7): el alias que entiende el CLI de Claude Code.
-AGENT_MODELS = ("opus", "sonnet")
+AGENT_MODELS = ("opus", "sonnet", "haiku")
 DEFAULT_AGENT_MODEL = "opus"
-MODEL_KEYS = {"diseno": "modelo_diseno", "revisor": "modelo_revisor"}
+MODEL_KEYS = {"diseno": "modelo_diseno", "revisor": "modelo_revisor",
+              "proveedores": "modelo_proveedores"}
+# El de proveedores lee fichas de producto: le basta Haiku (PLAN_APROVISIONAMIENTO A5).
+DEFAULT_MODELS = {"proveedores": "haiku"}
+OFFERS = "ofertas"              # la tabla de la caducidad de las ofertas (A10)
 PANELS = "paneles"              # la tabla de los tamaños de los paneles (D60)
 RIGHT_PANEL_MIN = 320           # px: el panel derecho nunca es más estrecho (D174)
 RIGHT_PANEL_DEFAULT = 420       # px: el del prototipo
@@ -330,6 +334,33 @@ class Settings:
         self._agents()["tope_proyecto_usd"] = float(value)
 
     @property
+    def search_limit_usd(self):
+        """El tope de una búsqueda en proveedores (A5); uno que no es un importe vale 0,25."""
+        from pizarra.supply import DEFAULT_SEARCH_BUDGET_USD
+        value = positive_usd(self._read(AGENTS, "tope_busqueda_usd"))
+        return value or DEFAULT_SEARCH_BUDGET_USD
+
+    @search_limit_usd.setter
+    def search_limit_usd(self, value):
+        if positive_usd(value) is None:
+            raise ValueError(i18n.t("ajustes.tope_valor_no_valido", valor=repr(value)))
+        self._agents()["tope_busqueda_usd"] = float(value)
+
+    @property
+    def offers_expiry_days(self):
+        """Los días que vale una oferta (A10): uno que no vale, 7."""
+        from pizarra import supply
+        try:
+            return supply.check_expiry_days(self._read(OFFERS, "caducidad_dias"))
+        except ValueError:
+            return supply.DEFAULT_EXPIRY_DAYS
+
+    @offers_expiry_days.setter
+    def offers_expiry_days(self, value):
+        from pizarra import supply
+        self._table(OFFERS)["caducidad_dias"] = supply.check_expiry_days(value)
+
+    @property
     def privacy_seen(self):
         agents = self.data.get(AGENTS)
         return isinstance(agents, dict) and agents.get("privacidad_vista") is True
@@ -385,7 +416,7 @@ class Settings:
     def saved_model(self, agent):
         """El del ajuste, sin mirar el entorno (lo que enseña *Ajustes*)."""
         value = self._read(AGENTS, MODEL_KEYS[agent])
-        return value if value in AGENT_MODELS else DEFAULT_AGENT_MODEL
+        return value if value in AGENT_MODELS else DEFAULT_MODELS.get(agent, DEFAULT_AGENT_MODEL)
 
     def set_agent_model(self, agent, value):
         if agent not in MODEL_KEYS:

@@ -586,7 +586,7 @@ class LosAjustesDeLosAgentes(unittest.TestCase):
         self.assertEqual((v["agentes"]["intrusividad_revisor"], v["agentes"]["modelo_diseno"],
                           v["agentes"]["modelo_revisor"]), ("hitos", "sonnet", "opus"))
         self.assertEqual(v["opciones"]["intrusividades_revisor"], ["apagado", "a_demanda", "hitos"])
-        self.assertEqual(v["opciones"]["modelos"], ["opus", "sonnet"])
+        self.assertEqual(v["opciones"]["modelos"], ["opus", "sonnet", "haiku"])
 
     def test_uno_que_no_vale_se_rechaza_con_su_motivo(self):
         s = Settings.load(self.path)

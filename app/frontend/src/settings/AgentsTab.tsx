@@ -3,7 +3,8 @@
 // proyecto por defecto, en dólares equivalentes (cada proyecto lo cambia en su panel). Y cómo
 // entra el agente (PLAN_PUBLICACION O9): la sesión de Claude Code o una API key de Anthropic,
 // que se guarda en el almacén del sistema y nunca vuelve a la interfaz. Desde FF 6.1, la
-// intrusividad del revisor (PLAN_V020 V5) y el modelo de cada agente (V7).
+// intrusividad del revisor (PLAN_V020 V5) y el modelo de cada agente (V7). Desde FF 8.1, el
+// agente de proveedores: su modelo y el tope de cada búsqueda (PLAN_APROVISIONAMIENTO A5).
 import { useEffect, useState } from "react";
 import { saveApiKey, type AppSettings } from "../appSettings";
 import { t } from "../i18n";
@@ -12,16 +13,6 @@ import { Row, rowLabel, TabHead, useSaver } from "./common";
 
 export function AgentsTab({ app }: { app: AppSettings }) {
   const { save, errors, busy } = useSaver();
-  const saved = app.agentes.tope_proyecto_usd;
-  const [limit, setLimit] = useState(String(saved));
-  useEffect(() => setLimit(String(saved)), [saved]);
-  const commitLimit = () => {
-    const n = Number(limit.replace(",", "."));
-    // Sin cambios no se guarda, salvo para quitar el error de un intento anterior.
-    if (limit.trim() === String(saved) && !errors.tope_proyecto_usd) return;
-    // Un número que no vale lo rechaza el backend con su motivo, junto a la fila.
-    void save("tope_proyecto_usd", { agentes: { tope_proyecto_usd: Number.isFinite(n) && limit.trim() ? n : limit } });
-  };
 
   return (
     <>
@@ -37,20 +28,44 @@ export function AgentsTab({ app }: { app: AppSettings }) {
           <span>{app.agentes.animaciones_automaticas ? t("ajustes.activadas") : t("ajustes.desactivadas")}</span>
         </label>
       </Row>
-      <Row id="tope_proyecto_usd" title={t("ajustes.agentes.tope")} hint={t("ajustes.agentes.tope_nota")}
-           error={errors.tope_proyecto_usd}>
-        <label className="st-money">
-          <input type="number" min="0" step="0.5" inputMode="decimal" value={limit}
-                 aria-labelledby={rowLabel("tope_proyecto_usd")} disabled={busy === "tope_proyecto_usd"}
-                 onChange={(e) => setLimit(e.target.value)} onBlur={commitLimit}
-                 onKeyDown={(e) => { if (e.key === "Enter") commitLimit(); }} />
-          <span>{t("ajustes.agentes.usd")}</span>
-        </label>
-      </Row>
+      <LimitRow id="tope_proyecto_usd" saved={app.agentes.tope_proyecto_usd} step="0.5"
+                title={t("ajustes.agentes.tope")} hint={t("ajustes.agentes.tope_nota")} />
       <ReviewerRow app={app} />
       <ModelRow app={app} agent="diseno" title={t("ajustes.agentes.modelo_diseno")} />
       <ModelRow app={app} agent="revisor" title={t("ajustes.agentes.modelo_revisor")} />
+      <ModelRow app={app} agent="proveedores" title={t("ajustes.agentes.modelo_proveedores")}
+                hint={t("ajustes.agentes.modelo_proveedores_nota")} />
+      <LimitRow id="tope_busqueda_usd" saved={app.agentes.tope_busqueda_usd ?? 0.25} step="0.05"
+                title={t("ajustes.agentes.tope_busqueda")} hint={t("ajustes.agentes.tope_busqueda_nota")} />
     </>
+  );
+}
+
+/** Un tope en dólares equivalentes de `agentes` (el del proyecto, D168; el de cada búsqueda en
+ *  proveedores, A5): se guarda al salir del campo o con Enter. */
+function LimitRow({ id, saved, step, title, hint }: {
+  id: "tope_proyecto_usd" | "tope_busqueda_usd"; saved: number; step: string; title: string; hint: string;
+}) {
+  const { save, errors, busy } = useSaver();
+  const [limit, setLimit] = useState(String(saved));
+  useEffect(() => setLimit(String(saved)), [saved]);
+  const commitLimit = () => {
+    const n = Number(limit.replace(",", "."));
+    // Sin cambios no se guarda, salvo para quitar el error de un intento anterior.
+    if (limit.trim() === String(saved) && !errors[id]) return;
+    // Un número que no vale lo rechaza el backend con su motivo, junto a la fila.
+    void save(id, { agentes: { [id]: Number.isFinite(n) && limit.trim() ? n : limit } });
+  };
+  return (
+    <Row id={id} title={title} hint={hint} error={errors[id]}>
+      <label className="st-money">
+        <input type="number" min="0" step={step} inputMode="decimal" value={limit}
+               aria-labelledby={rowLabel(id)} disabled={busy === id}
+               onChange={(e) => setLimit(e.target.value)} onBlur={commitLimit}
+               onKeyDown={(e) => { if (e.key === "Enter") commitLimit(); }} />
+        <span>{t("ajustes.agentes.usd")}</span>
+      </label>
+    </Row>
   );
 }
 
@@ -84,16 +99,20 @@ function ReviewerRow({ app }: { app: AppSettings }) {
   );
 }
 
-/** El modelo de un agente (V7): Opus, o Sonnet, más barato. */
-function ModelRow({ app, agent, title }: { app: AppSettings; agent: "diseno" | "revisor"; title: string }) {
+/** El modelo de un agente (V7): Opus, Sonnet, más barato, o Haiku, el que menos (el de
+ *  proveedores, Haiku por defecto, A5). */
+function ModelRow({ app, agent, title, hint }: {
+  app: AppSettings; agent: "diseno" | "revisor" | "proveedores"; title: string; hint?: string;
+}) {
   const { save, errors, busy } = useSaver();
-  const id = `modelo_${agent}`;
-  const value = (agent === "diseno" ? app.agentes.modelo_diseno : app.agentes.modelo_revisor) ?? "opus";
+  const id = `modelo_${agent}` as const;
+  const value = app.agentes[id] ?? (agent === "proveedores" ? "haiku" : "opus");
   const label: Record<string, string> = {
     opus: t("ajustes.agentes.modelo.opus"), sonnet: t("ajustes.agentes.modelo.sonnet"),
+    haiku: t("ajustes.agentes.modelo.haiku"),
   };
   return (
-    <Row id={id} title={title} hint={t("ajustes.agentes.modelo_nota")} error={errors[id]}>
+    <Row id={id} title={title} hint={hint ?? t("ajustes.agentes.modelo_nota")} error={errors[id]}>
       <select aria-labelledby={rowLabel(id)} value={value} disabled={busy === id}
               onChange={(e) => save(id, { agentes: { [id]: e.target.value } })}>
         {(app.opciones.modelos ?? ["opus", "sonnet"]).map((m) => <option key={m} value={m}>{label[m] ?? m}</option>)}

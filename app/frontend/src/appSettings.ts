@@ -18,8 +18,13 @@ export type AppSettings = {
              acceso: "sesion" | "api_key"; api_key_guardada: boolean;
              /** El revisor (PLAN_V020 V5): apagado | a_demanda | hitos. */
              intrusividad_revisor?: string;
-             /** El modelo de cada agente (V7): opus | sonnet. */
-             modelo_diseno?: string; modelo_revisor?: string };
+             /** El modelo de cada agente (V7): opus | sonnet | haiku. */
+             modelo_diseno?: string; modelo_revisor?: string;
+             /** El agente de proveedores (PLAN_APROVISIONAMIENTO A5): haiku por defecto, y lo
+              *  que puede gastar cada búsqueda. */
+             modelo_proveedores?: string; tope_busqueda_usd?: number };
+  /** Días hasta que una oferta caduca (A10, de 1 a 90). */
+  ofertas_caducidad_dias?: number;
   skin: string;
   bienvenida_vista: boolean;
   workspace: { nombre: string; ruta: string | null; nube: string | null } | null;
@@ -33,6 +38,7 @@ export type AppSettings = {
     skins: string[];
     intrusividades_revisor?: string[];
     modelos?: string[];
+    caducidad_ofertas?: { min: number; max: number };
   };
 };
 

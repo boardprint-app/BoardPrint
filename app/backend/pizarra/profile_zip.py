@@ -6,6 +6,8 @@ descomprimirlo, y se abre con `pack_install.open_archive`, como un `.bppack`):
 
     perfil/manifest.toml            esquema = 1, app (versión), fecha y [lleva]
     perfil/fabricacion.md           el perfil de fabricación, si hay uno guardado
+    perfil/proveedores.toml         los proveedores, si hay lista (PLAN_APROVISIONAMIENTO A2);
+                                    las ofertas (`ofertas.json`) nunca: caducan (A8)
     perfil/library/<tipo>s/<clave>.toml   las fichas del workspace (las de `[meta]` válido)
     perfil/library/stock.csv        el stock, **solo si se pide** (desmarcado por defecto)
 
@@ -21,7 +23,8 @@ de ahora entero (con el stock y las fichas que no valen) en `profile_copy_dir()`
 (`profile/.copias/<fecha>.zip` en local): sin esa carpeta no se importa.
 
 Aplicar sustituye `library/` entera (las fichas que no vienen en el zip se van a la papelera)
-y, **solo si el zip los trae**, `fabricacion.md` y `stock.csv`: lo que no trae se queda.
+y, **solo si el zip los trae**, `fabricacion.md`, `proveedores.toml` y `stock.csv`: lo que
+no trae se queda.
 
 **Lo que se valida** (L10): el zip como un `.bppack` (rutas dentro, sin enlaces, cuántos
 ficheros y cuánto pesan) y el `esquema` del manifiesto (uno mayor que `ESQUEMA` no se importa);
@@ -43,7 +46,7 @@ from pathlib import Path
 import tomli_w
 
 from boardprint_sdk.library import STOCK_FILE, _read_stock
-from pizarra import i18n, pack_install
+from pizarra import i18n, pack_install, supply
 from pizarra.library import check as check_ficha, meta_errors, parse
 from pizarra.storage import Conflict, InvalidName
 from pizarra.storage.local import stock_csv
@@ -54,6 +57,7 @@ ESQUEMA = 1                      # el formato que escribe y lee esta app
 TOP = "perfil"
 MANIFEST = "manifest.toml"
 MANUFACTURING = "fabricacion.md"
+PROVIDERS = "proveedores.toml"   # A2: viaja con el perfil; las ofertas no (A8)
 LIBRARY = "library"
 BROKEN = ".ilegibles"            # en la copia de antes de importar: las fichas que no valen
 FABRICACION_MAX = 20_000         # caracteres del perfil de fabricación (V8, `workspace_api`)
@@ -73,6 +77,9 @@ def _entries(ws, con_stock, broken=False, app=""):
     fab = ws.load_manufacturing_profile()
     if fab is not None:
         files.append((MANUFACTURING, fab.encode("utf-8")))
+    provs = ws.load_providers_text()
+    if provs is not None:
+        files.append((PROVIDERS, provs.encode("utf-8")))
     for key, text in sorted(ws.list_library_fichas().items(), key=lambda kv: kv[0].casefold()):
         try:
             data = parse(text)
@@ -91,10 +98,11 @@ def _entries(ws, con_stock, broken=False, app=""):
     if stock:
         files.append((f"{LIBRARY}/{STOCK_FILE}", stock_csv(stock).encode("utf-8")))
     info = {"fabricacion": fab is not None, "fichas": sum(tipos.values()), "tipos": tipos,
-            "stock": len(stock) if stock else None, "omitidas": omitidas}
+            "stock": len(stock) if stock else None, "omitidas": omitidas,
+            "proveedores": provs is not None}
     manifest = {"esquema": ESQUEMA, "app": app or "", "fecha": datetime.date.today().isoformat(),
                 "lleva": {"fabricacion": info["fabricacion"], "fichas": info["fichas"],
-                          "stock": bool(stock)}}
+                          "stock": bool(stock), "proveedores": info["proveedores"]}}
     files.insert(0, (MANIFEST, tomli_w.dumps(manifest).encode("utf-8")))
     return [(f"{TOP}/{rel}", data) for rel, data in files], info
 
@@ -146,7 +154,7 @@ def read(path):
     sha = hashlib.sha256(path.read_bytes()).hexdigest()
     manifest = _manifest(path.name, files.pop(MANIFEST, None))
     out = {"manifest": manifest, "fabricacion": None, "fichas": {}, "stock": None,
-           "invalid": [], "ignored": [], "sha256": sha}
+           "proveedores": None, "invalid": [], "ignored": [], "sha256": sha}
 
     def bad(ruta, motivo, clave=None):
         out["invalid"].append({"ruta": ruta, "clave": clave, "motivo": motivo})
@@ -159,6 +167,16 @@ def read(path):
             bad(MANUFACTURING, i18n.t("perfil_zip.fabricacion_larga", max=FABRICACION_MAX))
         else:
             out["fabricacion"] = text
+    if PROVIDERS in files:
+        text = _text(files.pop(PROVIDERS))
+        if text is None:
+            bad(PROVIDERS, i18n.t("perfil_zip.no_utf8"))
+        else:
+            try:
+                supply.parse_providers(text)
+                out["proveedores"] = text
+            except ValidationError as exc:
+                bad(PROVIDERS, str(exc))
     stock_rel = f"{LIBRARY}/{STOCK_FILE}"
     if stock_rel in files:
         text = _text(files.pop(stock_rel))
@@ -254,6 +272,7 @@ def _compute(ws, path):
         "file": str(path), "nombre": Path(str(path)).name, "manifest": prof["manifest"],
         "fichas": len(prof["fichas"]), "tipos": dict(sorted(tipos.items())),
         "fabricacion": prof["fabricacion"] is not None,
+        "proveedores": prof["proveedores"] is not None,
         "stock": None if prof["stock"] is None else len(prof["stock"]),
         "invalid": prof["invalid"], "ignored": prof["ignored"],
         # lo que hay ahora y se va (la copia lo guarda antes)
@@ -318,6 +337,8 @@ def apply(ws, token):
     copia = write_copy(ws)
     if prof["fabricacion"] is not None:
         ws.save_manufacturing_profile(prof["fabricacion"])
+    if prof["proveedores"] is not None:
+        ws.save_providers_text(prof["proveedores"])
     # fuera las que no vienen tal cual (también la `abc` de una `ABC` que viene: en Windows
     # serían el mismo fichero), y después las del zip
     for key in [k for k in ws.list_library_fichas() if k not in prof["fichas"]]:
@@ -328,4 +349,5 @@ def apply(ws, token):
         ws.save_stock(prof["stock"])
     return {"copia": str(copia), "fichas": len(prof["fichas"]),
             "quitadas": len(summary["sustituye"]["quitadas"]),
-            "fabricacion": prof["fabricacion"] is not None, "stock": summary["stock"]}
+            "fabricacion": prof["fabricacion"] is not None,
+            "proveedores": prof["proveedores"] is not None, "stock": summary["stock"]}

@@ -137,6 +137,9 @@ REST:
                                                (V14-V16): la lista, en `library_api`
     POST   /api/profile/export, /api/profile/import/…   exportar e importar el perfil .zip
                                                (PLAN_LIBRERIA L8-L10): en `profile_api`
+    GET|PUT /api/supply/providers, /api/supply/offers…, /api/supply/search…   proveedores,
+                                               ofertas y buscar (PLAN_APROVISIONAMIENTO): en
+                                               `supply_api`
     GET|POST /api/projects/<id>/versions       versiones (D76): lista | guardar {name}; con la
                                                intrusividad en `hitos`, una con nombre lanza
                                                una revisión (V5)
@@ -178,7 +181,8 @@ from pydantic import BaseModel
 from pizarra import agent_chat, agent_review, agent_threads, blocks as blocks_mod
 from pizarra import connectors as connectors_mod, desktop, execution, files_api, graph, scene, watchdog
 from pizarra import agent_packs, pack_env, pack_host, pack_install, pack_install_api, pack_ui
-from pizarra import i18n, library_api, profile_api, settings_api, update_api, welcome, workspace_api
+from pizarra import (i18n, library_api, profile_api, settings_api, supply_api, update_api,
+                     welcome, workspace_api)
 from pizarra import packs as packs_mod
 from pizarra.board import Board
 from pizarra.config import AGENT_AUTHORS, APP_NAME
@@ -628,6 +632,9 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
                          registry=lambda: blocks_mod.REGISTRY)
     profile_api.register(app, need_workspace=need_workspace,      # el perfil .zip (PLAN_LIBRERIA §5)
                          settings=settings)
+    supply_api.register(app, need_workspace=need_workspace,       # proveedores (PLAN_APROVISIONAMIENTO)
+                        settings=settings, registry=lambda: blocks_mod.REGISTRY,
+                        cli_path=claude_cli)
     welcome.register(app, settings=settings, workspace=workspace, claude_cli=claude_cli,
                      restart=restart)
     agent_chat.register(app, need_workspace, settings, sessions)

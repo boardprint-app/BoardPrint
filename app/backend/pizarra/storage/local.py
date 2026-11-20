@@ -42,6 +42,8 @@ PROJECT_FILE = "project.toml"
 WORKSPACE_FILE = "workspace.toml"
 PROFILE_DIR = "profile"                 # reservada en la raíz (`names.ROOT_RESERVED`)
 MANUFACTURING_FILE = "fabricacion.md"   # el perfil de fabricación (D31, PLAN_V020 V8)
+PROVIDERS_FILE = "proveedores.toml"     # los proveedores, en orden (PLAN_APROVISIONAMIENTO A2)
+OFFERS_FILE = "ofertas.json"           # la caché de ofertas, fuera del perfil .zip (A8)
 LIBRARY_DIR = "library"                 # la librería (V14), dentro de `profile/`: el perfil la lleva (D26)
 PROFILE_COPIES = ".copias"              # `profile/.copias/<fecha>.zip`, antes de importar un perfil (L9)
 INDEX_DIR = f".{APP_ID}"
@@ -766,6 +768,24 @@ class LocalWorkspace(Workspace):
 
     def save_manufacturing_profile(self, text):
         atomic_write(self._profile_path(), str(text).encode("utf-8"))
+
+    def _profile_text(self, name):
+        try:
+            return (self.root / PROFILE_DIR / name).read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            return None
+
+    def load_providers_text(self):
+        return self._profile_text(PROVIDERS_FILE)
+
+    def save_providers_text(self, text):
+        atomic_write(self.root / PROFILE_DIR / PROVIDERS_FILE, str(text).encode("utf-8"))
+
+    def load_offers_text(self):
+        return self._profile_text(OFFERS_FILE)
+
+    def save_offers_text(self, text):
+        atomic_write(self.root / PROFILE_DIR / OFFERS_FILE, str(text).encode("utf-8"))
 
     # ----------------------------------------- librería del workspace (V14, V15)
     def library_dir(self):

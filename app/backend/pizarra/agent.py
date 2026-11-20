@@ -317,7 +317,8 @@ def tool_leer_bloque(board, args):
 
 LIBRARY_TOOL = ("Busca en la librería de componentes del workspace (y en las fichas de los "
                 "paquetes) por tipo, texto y stock: cada ficha con sus valores, su estado de "
-                "verificación, su stock y cómo citarla (`cite_as`, kind \"ficha\").")
+                "verificación, su stock, su mejor oferta de proveedor vigente (`oferta`) y "
+                "cómo citarla (`cite_as`, kind \"ficha\").")
 LIBRARY_SCHEMA = {
     "type": "object",
     "properties": {
@@ -335,10 +336,30 @@ LIBRARY_NOTE = ("Una cifra de una ficha se cita con su `cite_as` (kind \"ficha\"
                 "En `stock`, cantidad null es desconocida (no 0: puede que haya); sin `stock`, no "
                 "está apuntada. `origin` \"pack\" es una ficha de un paquete; `overrides`, la "
                 "del workspace que tapa la de ese paquete. `units` da la unidad de cada valor "
-                "que la declara el paquete (\"-\": sin dimensión).")
+                "que la declara el paquete (\"-\": sin dimensión). `oferta` es la mejor "
+                "exacta vigente de un proveedor (precio, moneda, plazo, url, fecha de "
+                "consulta y `via`: «buscador» es lo que dijo el buscador sin abrir la página, "
+                "dilo así); sin `oferta`, no hay ninguna vigente.")
 
 
-def tool_buscar_libreria(board, args):
+def _with_offers(ws, results, days):
+    """`oferta` en cada ficha con una exacta vigente (PLAN_APROVISIONAMIENTO A6, A10). Un
+    equivalente o una caducada nunca salen aquí."""
+    from pizarra import supply
+    try:
+        offers = supply.parse_offers(ws.load_offers_text())["ofertas"]
+        providers = supply.parse_providers(ws.load_providers_text())
+    except (OSError, ValueError, NotImplementedError, AttributeError):
+        return
+    keep = ("proveedor", "referencia", "precio", "moneda", "por_cantidad", "plazo_dias",
+            "disponibilidad", "url", "via", "fecha", "nota")
+    for r in results:
+        best = supply.best_offer(offers, r.get("key"), providers, days)
+        if best is not None:
+            r["oferta"] = {k: best.get(k) for k in keep}
+
+
+def tool_buscar_libreria(board, args, days=None):
     """`buscar_libreria` (PLAN_V020 V17): la librería del workspace y las fichas de los
     paquetes cargados, por tipo, texto y stock, con la fuente `ficha` de cada una (D19). Solo
     lee. Lo que no cabe en `TOOL_CHARS` sale sin sus valores (y lo dice)."""
@@ -351,6 +372,8 @@ def tool_buscar_libreria(board, args):
         types = lib.types()
     except (OSError, ValueError, NotImplementedError) as exc:
         return _error(f"No se puede leer la librería: {exc}")
+    from pizarra.supply import DEFAULT_EXPIRY_DAYS
+    _with_offers(board.ws, results, days or DEFAULT_EXPIRY_DAYS)
     out = {"results": results, "total": total, "types": types, "note": LIBRARY_NOTE}
     if total > len(results):
         out["more"] = (f"hay {total} y van {len(results)}: afina con `type` o `text`")
@@ -359,11 +382,71 @@ def tool_buscar_libreria(board, args):
         if len(json.dumps(out, ensure_ascii=False)) <= TOOL_CHARS:
             break
         r["values"] = r["units"] = {}
+        r.pop("oferta", None)
         trimmed += 1
     if trimmed:
         out["trimmed"] = (f"{trimmed} sin sus valores (no caben): búscalas por su clave en "
                           "`text` para verlos")
     return _ok(out)
+
+
+SUPPLY_TOOL = ("Busca dónde comprar fichas de la librería en los proveedores del ingeniero, "
+               "por su orden (PLAN_APROVISIONAMIENTO A6). Hasta 5 claves por mensaje en total; "
+               "una con oferta exacta vigente no se vuelve a buscar. Cada búsqueda gasta del "
+               "tope del proyecto: úsala cuando te pregunten dónde comprar o el precio.")
+SUPPLY_SCHEMA = {
+    "type": "object",
+    "properties": {"claves": {"type": "array", "items": {"type": "string"}, "minItems": 1,
+                              "maxItems": 5, "description": "claves de ficha de la librería"}},
+    "required": ["claves"],
+}
+
+
+class SupplySearches:
+    """`buscar_proveedores` del agente de diseño (A6, A11): como mucho `SEARCHES_PER_MESSAGE`
+    búsquedas por mensaje, ninguna de una clave con exacta vigente, y cada una con lo que queda
+    del tope del proyecto. Lo que gasta, a `usage.json` del proyecto como el agente
+    «proveedores» (`record_cost`)."""
+
+    def __init__(self, service, record_cost, budget_left=lambda: None):
+        from pizarra.supply import SEARCHES_PER_MESSAGE
+        self.service = service
+        self.record_cost = record_cost      # (usd, usage) -> None
+        self.budget_left = budget_left      # () -> USD que quedan del tope, o None
+        self.left = SEARCHES_PER_MESSAGE
+        self.spent = 0.0
+
+    async def run(self, args):
+        from pizarra.supply_api import Busy
+        claves = [c for c in dict.fromkeys(args.get("claves") or []) if isinstance(c, str)]
+        out = []
+        for clave in claves:
+            best = self.service.best(clave)
+            if best is not None:
+                out.append({"clave": clave, "buscada": False, "mejor": best})
+                continue
+            if self.left <= 0:
+                out.append({"clave": clave, "error": "ya van 5 búsquedas en este mensaje"})
+                continue
+            left = self.budget_left()
+            budget = None if left is None else left - self.spent
+            if budget is not None and budget <= 0.01:
+                out.append({"clave": clave, "error": "no queda tope del proyecto para buscar"})
+                continue
+            self.left -= 1
+            try:
+                r = await self.service.search_now(clave, on_cost=self._cost, budget_usd=budget)
+            except (ValidationError, Busy) as exc:
+                out.append({"clave": clave, "error": str(exc)})
+                continue
+            row = {k: r.get(k) for k in ("clave", "buscada", "mejor", "cost_usd")}
+            row["apuntadas"] = len(r.get("ofertas") or [])
+            out.append(row)
+        return _ok({"resultados": out, "quedan": self.left})
+
+    def _cost(self, usd, usage=None):
+        self.spent += float(usd or 0.0)
+        self.record_cost(usd, usage)
 
 
 # Lo que recibe el agente si el proyecto tiene *Excluir adjuntos* (D169).
@@ -701,9 +784,17 @@ class DesignAgent:
             return await asyncio.to_thread(tool_leer_archivo, board, args,
                                            bool(agent.exclude_attachments()))
 
+        days = self.settings.offers_expiry_days if self.settings is not None else None
+
         @tool("buscar_libreria", LIBRARY_TOOL, LIBRARY_SCHEMA)
         async def buscar_lib(args):
-            return await asyncio.to_thread(tool_buscar_libreria, board, args)
+            return await asyncio.to_thread(tool_buscar_libreria, board, args, days)
+
+        searches = self.supply_searches()      # una por mensaje: el límite de 5 es por mensaje
+
+        @tool("buscar_proveedores", SUPPLY_TOOL, SUPPLY_SCHEMA)
+        async def buscar_prov(args):
+            return await searches.run(args)
 
         drafts = self.drafts
 
@@ -733,7 +824,8 @@ class DesignAgent:
                 return await agent.decide(args)
             thread_tools = [decidir]
         server = create_sdk_mcp_server("pizarra", "0.0.1",
-                                       [leer, leer_blq, leer_arch, buscar_lib, crear, proponer,
+                                       [leer, leer_blq, leer_arch, buscar_lib, buscar_prov,
+                                        crear, proponer,
                                         *board_tools,
                                         *pack_tools, *guide_tools, *thread_tools])
         return ClaudeAgentOptions(
@@ -744,6 +836,7 @@ class DesignAgent:
             mcp_servers={"pizarra": server},
             allowed_tools=["mcp__pizarra__leer_pizarra", "mcp__pizarra__leer_bloque",
                            "mcp__pizarra__leer_archivo", "mcp__pizarra__buscar_libreria",
+                           "mcp__pizarra__buscar_proveedores",
                            "mcp__pizarra__crear_postit", "mcp__pizarra__proponer_cambio",
                            *(f"mcp__pizarra__{n}" for n in agent_board_tools.NAMES),
                            *(f"mcp__pizarra__{n}" for n in agent_office_tools.NAMES),
@@ -760,6 +853,26 @@ class DesignAgent:
             max_turns=40,               # hacer un paquete lleva más vueltas (P99)
             max_budget_usd=self.max_budget_usd,     # el SDK corta dentro del mensaje (D168)
         )
+
+    def supply_searches(self):
+        """Las búsquedas en proveedores de este mensaje (A6): el servicio sobre el workspace de
+        la pizarra, y el gasto al proyecto (A11)."""
+        from pizarra import agent_chat
+        from pizarra import library as library_mod
+        from pizarra.agent_supply import SUPPLY
+        from pizarra.supply_api import SupplyService
+        board = self.board
+        service = SupplyService(
+            lambda: board.ws, self.settings,
+            lambda: library_mod.WorkspaceLibrary(board.ws,
+                                                 library_mod.pack_libraries(board.registry)),
+            cli_path=self.cli_path)
+
+        def record(usd, usage=None):
+            agent_chat.AgentStore(board.ws, board.project_id).add_usage(
+                SUPPLY, agent_chat.message_usage(usage, usd))
+
+        return SupplySearches(service, record, lambda: self.max_budget_usd)
 
     async def interrupt(self):
         """*Parar*: corta el mensaje en curso; lo que ya hizo se queda. `RuntimeError` si aún

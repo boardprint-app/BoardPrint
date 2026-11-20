@@ -1,7 +1,8 @@
 // *Librería* de la pantalla de inicio (docs/PLAN_V020.md §5, V14-V16): la tabla de fichas del
 // workspace y de los paquetes, por tipo, con su estado, de dónde salen y el stock editable en la
-// misma fila; la ficha en solo lectura al pulsar una fila, y *Importar CSV/Excel*
-// (`LibraryImport`). Lo puro (cantidades, qué stock ha cambiado), en `library.ts`.
+// misma fila; la ficha en solo lectura al pulsar una fila, con *Dónde comprar* (`OffersSection`), y
+// *Importar CSV/Excel* (`LibraryImport`). La pestaña *Proveedores* (`ProvidersTab`,
+// PLAN_APROVISIONAMIENTO §5). Lo puro (cantidades, qué stock ha cambiado), en `library.ts`.
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { fmtNumber, t } from "../i18n";
 import {
@@ -10,6 +11,8 @@ import {
 } from "../library";
 import { deleteFicha, fetchFicha, fetchFields, fetchLibrary, saveStock } from "../libraryApi";
 import { LibraryImport } from "./LibraryImport";
+import { OffersSection } from "./OffersSection";
+import { ProvidersTab } from "./ProvidersTab";
 import { usePackText, type PackText } from "./usePackText";
 import "./library.css";
 
@@ -28,6 +31,11 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [askClose, setAskClose] = useState(false);
+  // Fichas o Proveedores; la de proveedores, una vez abierta, se queda montada (sus cambios
+  // sin guardar no se pierden al volver a las fichas).
+  const [view, setView] = useState<"fichas" | "proveedores">("fichas");
+  const [provOpened, setProvOpened] = useState(false);
+  const [provDirty, setProvDirty] = useState(false);
   // Las filas *Añadir clave* (PLAN_LIBRERIA L2): stock a una clave que no está en la tabla.
   const [added, setAdded] = useState<NewStockRow[]>([]);
   const nextId = useRef(1);
@@ -57,21 +65,21 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
   const dirty = nChanges > 0 || Object.keys(errors).length > 0 || Object.keys(keyErrors).length > 0;
 
   const close = useCallback(() => {
-    if (dirty) setAskClose(true);
+    if (dirty || provDirty) setAskClose(true);
     else onClose();
-  }, [dirty, onClose]);
+  }, [dirty, provDirty, onClose]);
 
   // Escape cierra (o pregunta, con stock sin guardar); mientras se importa, lo usa el asistente.
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented || importing) return;
       if (askClose) setAskClose(false);
-      else if (selected) setSelected(null);
+      else if (selected && view === "fichas") setSelected(null);
       else close();
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [close, importing, askClose, selected]);
+  }, [close, importing, askClose, selected, view]);
 
   // Si la tabla ya no tiene el tipo elegido (se borró su última ficha), a «Todos».
   useEffect(() => {
@@ -138,6 +146,16 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
             <p>{importing ? t("libreria.importar.subtitulo") : t("libreria.subtitulo")}</p>
           </div>
           {!importing && (
+            <div className="lb-views" role="tablist" aria-label={t("libreria.vistas")}>
+              {(["fichas", "proveedores"] as const).map((v) => (
+                <button key={v} role="tab" aria-selected={view === v} className={view === v ? "lb-tab on" : "lb-tab"}
+                        onClick={() => { setView(v); if (v === "proveedores") setProvOpened(true); }}>
+                  {t(`libreria.vista.${v}`)}
+                </button>
+              ))}
+            </div>
+          )}
+          {!importing && view === "fichas" && (
             <button className="pull-btn" onClick={() => { setNotice(null); setImporting(true); }} disabled={dirty}
                     title={dirty ? t("libreria.importar.antes_guardar") : undefined}>
               {t("libreria.importar.abrir")}
@@ -150,7 +168,8 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
 
         {askClose && (
           <div className="lb-confirm" role="alertdialog" aria-label={t("libreria.sin_guardar_titulo")}>
-            <p>{t(nChanges === 1 ? "libreria.sin_guardar_uno" : "libreria.sin_guardar", { n: Math.max(nChanges, 1) })}</p>
+            <p>{!dirty && provDirty ? t("libreria.proveedores.sin_guardar")
+                : t(nChanges === 1 ? "libreria.sin_guardar_uno" : "libreria.sin_guardar", { n: Math.max(nChanges, 1) })}</p>
             <button className="pull-btn" onClick={() => setAskClose(false)} autoFocus>{t("libreria.seguir")}</button>
             <button className="pull-btn st-danger" onClick={onClose}>{t("libreria.descartar_cerrar")}</button>
           </div>
@@ -159,7 +178,9 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
         {importing ? (
           <LibraryImport types={types} packText={packText}
                          onDone={async (text) => { setImporting(false); setNotice(text); await load(); }} />
-        ) : (
+        ) : null}
+        {provOpened && <ProvidersTab hidden={importing || view !== "proveedores"} onDirty={setProvDirty} />}
+        {!importing && view === "fichas" && (
           <>
             <div className="lb-bar">
               <div className="lb-tabs" role="tablist" aria-label={t("libreria.tipos")}>
@@ -449,6 +470,7 @@ function FichaPanel({ itemKey, item, packText, onClose, onDeleted }: {
               </table>
             </>
           )}
+          <OffersSection clave={itemKey} />
           <h4>{t("libreria.ficha.toml")}</h4>
           <pre className="lb-toml">{ficha.toml}</pre>
           {ficha.editable ? (
