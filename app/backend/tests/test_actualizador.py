@@ -123,6 +123,34 @@ class LatestJson(unittest.TestCase):
         self.assertEqual(got["platforms"]["darwin-aarch64"]["signature"], "FIRMA-MAC")
         self.assertNotIn("huerfano", json.dumps(got))
 
+    def test_aplana_lo_que_llega_en_subcarpetas(self):
+        # Cómo llegan los artefactos de App desde el 20/11: cada uno bajo su carpeta de bundle/.
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            for rel, data in {"nsis/BoardPrint_0.2.2_x64-setup.exe": "x",
+                              "nsis/BoardPrint_0.2.2_x64-setup.exe.sig": "FIRMA-WIN",
+                              "dmg/BoardPrint_0.2.2_aarch64.dmg": "d",
+                              "macos/BoardPrint.app.tar.gz": "y",
+                              "macos/BoardPrint.app.tar.gz.sig": "FIRMA-MAC"}.items():
+                (d / rel).parent.mkdir(exist_ok=True)
+                (d / rel).write_text(data, encoding="utf-8")
+            latest_json.aplanar(d)
+            self.assertEqual(sorted(p.name for p in d.iterdir()), [
+                "BoardPrint.app.tar.gz", "BoardPrint.app.tar.gz.sig",
+                "BoardPrint_0.2.2_aarch64.dmg", "BoardPrint_0.2.2_x64-setup.exe",
+                "BoardPrint_0.2.2_x64-setup.exe.sig"])
+            got = latest_json.build(d, "0.2.2")
+        self.assertEqual(set(got["platforms"]), {"windows-x86_64", "darwin-aarch64"})
+
+    def test_aplanar_no_pisa_un_nombre_repetido(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            for sub in ("a", "b"):
+                (d / sub).mkdir()
+                (d / sub / "BoardPrint.app.tar.gz").write_text(sub, encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                latest_json.aplanar(d)
+
 
 if __name__ == "__main__":
     unittest.main()
