@@ -67,6 +67,18 @@ def _why_not(board, bid, status, blocks, reasons=None):
     return None
 
 
+def _down(edges, blocks, ids):
+    """Los bloques de detrás de `ids` (sin ellos), por cualquier entrada."""
+    out, todo = set(), list(ids)
+    while todo:
+        n = todo.pop()
+        for dst, ins in edges.items():
+            if dst in blocks and dst not in out and any(src == n for src, _ in ins.values()):
+                out.add(dst)
+                todo.append(dst)
+    return sorted(out)
+
+
 def _order(board, edges, req, blocks, sts, roots):
     """Orden de ejecución de `roots`: lo que tienen delante por entradas obligatorias y, por
     cada entrada opcional (D122), la cadena de su bloque si se puede ejecutar entera; si no
@@ -154,7 +166,15 @@ class Job:
                     i18n.t("ejecucion.todo_al_dia") if not skipped
                     else i18n.t("ejecucion.nada_ejecutable",
                                 motivos="; ".join(sorted({w for _, w in skipped}))))
-            job = cls(board, targets, _order(board, edges, req, blocks, sts, targets), skipped)
+            # Lo de detrás que ahora está al día también entra en el orden (e2e del 20/11): una
+            # entrada opcional cuenta por su hash y no por el estado de su bloque (D122), así
+            # que la lista que usa un Analizar en error sigue al día hasta que este da
+            # resultado, y se desactualiza a mitad de la ejecución. `next` lo salta si sigue
+            # al día.
+            later = [b for b in _down(edges, blocks, targets) if b not in targets and not any(
+                _why_not(board, u, sts[u], blocks, reasons) for u in _up(req, blocks, b))]
+            job = cls(board, targets, _order(board, edges, req, blocks, sts, targets + later),
+                      skipped)
         board.job = job
         return job
 

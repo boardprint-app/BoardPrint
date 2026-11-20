@@ -317,6 +317,27 @@ class EntradaOpcional(unittest.TestCase):
         b.run(m)
         self.assertEqual(b.statuses()[l], "desactualizado")
 
+    def test_ejecutar_lo_desactualizado_sigue_con_lo_que_su_opcional_desactualiza(self):
+        """e2e del 20/11: Analizar en error y la lista al día sin medir; al reintentar todo,
+        Analizar da resultado y la lista se quedaba desactualizada (no estaba en el plan)."""
+        b, f, m, l = self.chain()
+        b.run(l)                                  # sin Fusion: sin medir
+        b._connectors = frozenset({"cad"})        # se abre Fusion
+        self.calls.clear()
+        b.run()
+        self.assertEqual(self.calls, [m, l])
+        self.assertEqual(self.med(b, l), 1)
+        self.assertEqual(b.statuses()[l], "al_dia")
+
+    def test_lo_de_detras_que_sigue_al_dia_no_se_ejecuta(self):
+        b, f, m, l = self.chain(frozenset({"cad"}))
+        b.run(l)
+        b.set_params(m, {"k": 1})                 # el mismo valor: misma salida de Analizar
+        b.state[m]["error"] = "falló"             # y en error, para que sea objetivo
+        self.calls.clear()
+        b.run()
+        self.assertEqual(self.calls, [m], "la lista no se vuelve a ejecutar si sigue al día")
+
     def test_cerrar_fusion_no_desactualiza_lo_que_ya_uso_su_resultado(self):
         b, f, m, l = self.chain(frozenset({"cad"}))
         b.run(l)
