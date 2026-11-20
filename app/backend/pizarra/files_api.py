@@ -20,6 +20,12 @@ explorador las da el shell de Tauri.
     POST /api/projects/<id>/blocks/<b>/links {param,      *Tomar de Excel* (PLAN_EXCEL §3.2):
          card?, name?}                                    enlaza el parámetro a un nombre del
                                                           Excel; sin `card`, quita el enlace
+    POST /api/projects/<id>/cards/<c>/writes {name,       qué campo de salida va a un nombre
+         block?, port?, field?}                           del Excel (PLAN_EXCEL §3.3); sin
+                                                          `block`, nada
+    POST /api/projects/<id>/cards/<c>/write-copy          *Escribir copia*: la copia `_n` y su
+                                                          propuesta; las fórmulas se recalculan
+                                                          después y se añaden a la propuesta
     GET  /api/projects/<id>/cards/<c>/raw                 el archivo tal cual, para
                                                           *Previsualizar* (D135)
     GET|PUT /api/mesh/<hash>                              malla del visor STEP por hash del
@@ -45,7 +51,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from pizarra import connectors as connectors_mod, desktop, files, i18n, packs as packs_mod, pasted
+from pizarra import connectors as connectors_mod, desktop, excel_write, files, i18n, packs as packs_mod, pasted
 from pizarra.storage import StorageError
 from pizarra.validation import ValidationError
 
@@ -100,6 +106,13 @@ class LinkIn(BaseModel):
     param: str
     card: str | None = None         # sin tarjeta: quitar el enlace
     name: str | None = None
+
+
+class WriteIn(BaseModel):
+    name: str
+    block: str | None = None        # sin bloque: el nombre no recibe nada
+    port: str | None = None
+    field: str | None = None
 
 
 async def _in_thread(fn, *args):
@@ -313,6 +326,40 @@ def register(app, *, board_for, board_changed, probe_now, mesh_dir=None):
                              body.name or "")
         await board_changed(board, session, [])
         return {"links": board.blocks_view()["blocks"].get(bid, {}).get("links") or {}}
+
+    @app.post("/api/projects/{pid}/cards/{cid}/writes")
+    async def post_write(pid: str, cid: str, body: WriteIn):
+        """Elige el campo de salida que va a un nombre del Excel (o lo quita). Devuelve lo que
+        la tarjeta enseña para escribir; uno que no vale (la unidad, una fórmula…), un 422."""
+        board, session = board_for(pid)
+        card_of(board, cid)
+        new = await _in_thread(checked, excel_write.set_write, board, cid, body.name,
+                               body.block, body.port, body.field)
+        await board_changed(board, session, [new])
+        return {"write": board.sources_view().get(cid, {}).get("write")}
+
+    tasks = set()           # los recálculos de las copias en marcha (que no los recoja el GC)
+
+    @app.post("/api/projects/{pid}/cards/{cid}/write-copy")
+    async def write_copy(pid: str, cid: str):
+        """*Escribir copia* (PLAN_EXCEL §3.3): la propuesta sale ya con las celdas escritas; las
+        fórmulas con nombre de la copia se recalculan en un hilo y se añaden al acabar (R4)."""
+        board, session = board_for(pid)
+        card_of(board, cid)
+        p, finish = await _in_thread(checked, excel_write.write_copy, board, cid)
+        await board_changed(board, session, [])
+        if finish is not None:
+            async def complete():
+                try:
+                    result = await _in_thread(finish)
+                except Exception:       # noqa: BLE001 la copia ya no está (rechazada): nada
+                    return
+                if excel_write.apply_calc(board, p["id"], result):
+                    await board_changed(board, session, [])
+            task = asyncio.create_task(complete())
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
+        return {"proposal": p["id"], "nuevo": Path(p["change"]["file"]["nuevo"]).name}
 
     @app.post("/api/projects/{pid}/images")
     async def post_image(pid: str, request: Request):

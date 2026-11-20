@@ -84,6 +84,19 @@
   color: var(--paper-muted); }
 .fc-names-none { padding: 4px 12px 8px; border-top: 1px solid var(--b-line); font-size: 11.5px; color: var(--paper-muted); }
 .fk-notice { margin: 0 10px 8px; font-size: 11.5px; color: var(--b-err); overflow-wrap: anywhere; }
+/* Escribir en una copia (PLAN_EXCEL §3.3): bajo cada nombre donde se puede escribir, la salida
+   que va a él (un botón que abre su menú) y, abajo, *Escribir copia* con su motivo. */
+.fcn-x { grid-row: 3; grid-column: 1 / 3; min-width: 0; margin: 2px 0 3px; }
+.xw-pick { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+  padding: 1px 6px; border: 1px dashed var(--b-line); border-radius: 4px; background: transparent;
+  font: 11px var(--f-ui); color: var(--paper-muted); text-align: left; }
+.xw-pick.on { border-style: solid; color: var(--paper-fg); font-weight: 600; }
+.xw-pick.bad { border-color: var(--b-err); color: var(--b-err); }
+.fcn-f { font: italic 10.5px var(--f-ui); color: var(--paper-muted); }
+.xw-foot { display: grid; gap: 4px; padding: 6px 12px 10px; border-top: 1px solid var(--b-line); }
+.xw-foot .fbtn { justify-self: start; }
+.xw-why { font-size: 11px; color: var(--b-err); overflow-wrap: anywhere; }
+.xw-note { font-size: 10.5px; color: var(--paper-muted); }
 
 /* Carpeta (2A estrecha): la de verdad, con hasta tres papeles que asoman */
 .excalidraw__embeddable__outer > .fcard-folder { border-radius: 6px; }

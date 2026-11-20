@@ -9,7 +9,9 @@
 // (recibe salidas, D109) y de salida. Lo que no está lleva la banda roja «No encontrado» con
 // «Buscar de nuevo». Toda la tarjeta deja pasar el ratón al lienzo (se selecciona y se arrastra
 // como cualquier elemento), salvo sus botones y sus enchufes. *Previsualizar* (D135) sale en la
-// barra si el tipo se puede ver en la app; el doble clic hace lo mismo (App.tsx).
+// barra si el tipo se puede ver en la app; el doble clic hace lo mismo (App.tsx). Un Excel lleva
+// además un enchufe de entrada: la flecha de escritura de un bloque (PLAN_EXCEL §3.3), con lo
+// que va a cada nombre y *Escribir copia* (ExcelWrite.tsx).
 import { useLayoutEffect, useRef, type CSSProperties } from "react";
 import { setStore, useStore } from "./store";
 import { t } from "./i18n";
@@ -18,7 +20,8 @@ import { contentOf, fmtSize, folderChip, previewKind, typeFamily, typeLabel } fr
 import { CARD_SOCKET_Y } from "./connections";
 import { portColor, SOCKET_H } from "./ports";
 import { fmt } from "./BlockOutputs";
-import { nameState, type ExcelName } from "./excel";
+import { isExcelPath, nameState, writeTarget, type ExcelName, type ExcelWrite } from "./excel";
+import { WriteChooser, WriteFooter } from "./ExcelWrite";
 
 const OPEN_WITH = /Windows/.test(navigator.userAgent);   // «Abrir con» solo en Windows (D141)
 
@@ -81,7 +84,7 @@ export function FileCard({ id, kind, data, selected, height, onHeight, onMenu, o
       <b className="dot" />
       <span className="tip" role="tooltip">
         {side === "in"
-          ? <><b>{t("bloques.archivos.salidas_de_bloque")}</b> · {t("bloques.archivos.se_copian")}</>
+          ? <><b>{t("bloques.archivos.salidas_de_bloque")}</b> · {t(kind === "file" ? "bloques.archivos.se_escriben" : "bloques.archivos.se_copian")}</>
           : <><b>{port}</b> {t("bloques.tarjeta.salida")} · {ports[type]?.label ?? type}</>}
       </span>
     </div>
@@ -163,19 +166,21 @@ export function FileCard({ id, kind, data, selected, height, onHeight, onMenu, o
           <span className="fc-name" title={path}>{name}</span>
           {view?.ok && <span className="fc-ext">{fmtSize(view.size)}</span>}
         </div>
-        {view?.ok && view.names && <ExcelNames names={view.names} />}
+        {view?.ok && view.names && <ExcelNames id={id} names={view.names} write={view.write ?? null} />}
+        {view?.ok && view.names && view.write && <WriteFooter cardId={id} write={view.write} />}
         {view?.ok && view.names_error && <div className="fk-notice">⚠ {t("bloques.excel.ilegible", { error: view.names_error })}</div>}
         {unreadable && <div className="fk-notice">⚠ {view!.reason}</div>}
         {lost && lostBox}
       </div>
-      <div className="block-socks">{sock("out", "archivo")}</div>
+      <div className="block-socks">{isExcelPath(path) && sock("in", "escribir")}{sock("out", "archivo")}</div>
     </div>
   );
 }
 
 /** Los nombres definidos de un Excel (PLAN_EXCEL §3.5): el valor con su unidad y la celda. Lo
- *  no admitido va en gris y, con lo que no tiene valor, dice su motivo al pasar el ratón. */
-function ExcelNames({ names }: { names: ExcelName[] }) {
+ *  no admitido va en gris y, con lo que no tiene valor, dice su motivo al pasar el ratón. Con
+ *  flechas de escritura (`write`), cada nombre donde se puede escribir lleva su `← salida`. */
+function ExcelNames({ id, names, write }: { id: string; names: ExcelName[]; write: ExcelWrite | null }) {
   if (!names.length) return <div className="fc-names-none">{t("bloques.excel.sin_nombres")}</div>;
   return (
     <ul className="fc-names">
@@ -188,6 +193,8 @@ function ExcelNames({ names }: { names: ExcelName[] }) {
             <span className="fcn-n">{n.nombre}</span>
             <span className="fcn-w">{n.where ?? "—"}</span>
             <span className="fcn-v">{value}</span>
+            {write && (writeTarget(n) ? <span className="fcn-x"><WriteChooser cardId={id} n={n} write={write} /></span>
+              : n.formula !== null && state !== "no_admitido" && <span className="fcn-x fcn-f">{t("bloques.excel.escribir.formula")}</span>)}
           </li>
         );
       })}

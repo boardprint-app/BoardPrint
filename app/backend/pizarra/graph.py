@@ -12,7 +12,9 @@ Una tarjeta de archivo o de carpeta (`customData.kind` `file` o `folder`) es un 
 y entra aquí como `sources = {id: FileState}`. Los tipos casan iguales (D88), salvo los de
 archivo por prefijo (`accepts`, D132). Una flecha de un bloque a una carpeta no es una entrada
 sino un destino de sus salidas (D109): va en `copies`, y si la carpeta alimenta a ese bloque o a
-uno de delante, se rechaza como ciclo.
+uno de delante, se rechaza como ciclo. Una flecha de un bloque a un Excel (`.xlsx`, `.xlsm`) es de
+**escritura** (PLAN_EXCEL §3.3, X8): va en `writes_in`, y no entra en el orden de ejecución ni
+en los ciclos (un bloque puede leer parámetros de un Excel y escribir en el mismo).
 
 `edges` es `{destino: {puerto_de_entrada: (origen, puerto_de_salida)}}`. Las salidas de un
 bloque se guardan por puerto (`outputs[puerto] = {campo: {value, unit, source}}`) y su hash
@@ -133,12 +135,26 @@ def build(elements, registry):
     return edges, problems
 
 
+def writes_in(elements, registry):
+    """`{tarjeta de Excel: [(bloque, puerto_salida o None, flecha)]}`: las flechas de escritura
+    (PLAN_EXCEL §3.3). Ni son entradas ni copias: no entran en `edges`, ni en el orden de
+    ejecución ni en los ciclos (X8)."""
+    return _connect(elements, registry)[2]
+
+
 def connections(elements, registry):
-    """Devuelve (edges, copies, problems).
+    """Devuelve (edges, copies, problems); las escrituras a un Excel, en `writes_in`."""
+    edges, copies, _, problems = _connect(elements, registry)
+    return edges, copies, problems
+
+
+def _connect(elements, registry):
+    """Devuelve (edges, copies, writes, problems).
 
     edges: {destino: {puerto: (origen, puerto_salida)}}; el origen puede ser una tarjeta de
     archivo o de carpeta. copies: {carpeta: [(bloque, puerto_salida o None, flecha)]}, las
-    salidas que van a una carpeta (None: todas las del bloque). problems: lista de dicts
+    salidas que van a una carpeta (None: todas las del bloque). writes: lo mismo, de las flechas
+    de un bloque a un Excel (`writes_in`). problems: lista de dicts
     {arrow, reason}. Se rechazan las conexiones entre puertos que no casan o que no existen,
     las que dejan duda de qué puertos unen, las que ocupan una entrada ya ocupada, las que
     llevan algo a un archivo o de una tarjeta a otra, y las que cerrarían un ciclo (también a
@@ -147,7 +163,7 @@ def connections(elements, registry):
     blocks = blocks_in(elements, registry)
     srcs = sources_in(elements)
     nodes = {**blocks, **srcs}
-    edges, copies, problems = {}, {}, []
+    edges, copies, writes, problems = {}, {}, {}, []
     arrows = sorted((e for e in elements if e.get("type") == "arrow" and not e.get("isDeleted")),
                     key=lambda e: e["id"])
     for a in arrows:
@@ -157,6 +173,13 @@ def connections(elements, registry):
         src, dst = ends
         if src == dst:
             problems.append({"arrow": a["id"], "reason": i18n.t("conexion.consigo_mismo")})
+            continue
+        if dst in srcs and src in blocks and _is_excel(srcs[dst]):
+            reason = _copy_problem(a, src, srcs[dst], blocks, registry, write=True)                 or _repeated_copy(a, src, writes.get(dst, ()), "conexion.escritura_repetida")
+            if reason:
+                problems.append({"arrow": a["id"], "reason": reason})
+            else:               # X8: sin ciclo ni orden de ejecución
+                writes.setdefault(dst, []).append((src, arrow_ports(a)[0], a["id"]))
             continue
         if dst in srcs:
             reason = _copy_problem(a, src, srcs[dst], blocks, registry)
@@ -183,12 +206,20 @@ def connections(elements, registry):
             problems.append({"arrow": a["id"], "reason": i18n.t("conexion.ciclo")})
             continue
         edges.setdefault(dst, {})[ip] = (src, op)
-    return edges, copies, problems
+    return edges, copies, writes, problems
 
 
-def _copy_problem(arrow, src, card, blocks, registry):
-    """Motivo por el que una flecha a una tarjeta no es un destino de salidas, o None."""
-    if card["customData"]["kind"] != "folder":
+def _is_excel(card):
+    """¿Es la tarjeta de un archivo `.xlsx`/`.xlsm` (recibe flechas de escritura)?"""
+    cd = card.get("customData") or {}
+    return cd.get("kind") == "file" and PurePosixPath(
+        str(cd.get("path") or "").replace("\\", "/")).suffix.lower() in (".xlsx", ".xlsm")
+
+
+def _copy_problem(arrow, src, card, blocks, registry, write=False):
+    """Motivo por el que una flecha a una tarjeta no es un destino de salidas, o None. Con
+    `write`, la de un bloque a un Excel."""
+    if card["customData"]["kind"] != "folder" and not write:
         return i18n.t("conexion.archivo_no_recibe")
     if src not in blocks:
         return i18n.t("conexion.carpeta_solo_bloques")
@@ -199,13 +230,15 @@ def _copy_problem(arrow, src, card, blocks, registry):
     return None
 
 
-def _repeated_copy(arrow, src, links):
+def _repeated_copy(arrow, src, links, key="conexion.copia_repetida"):
     """Motivo si la flecha repite una salida que ya llega a esa carpeta por otra flecha (todas
-    las salidas, `None`, cubren cualquiera): cada ejecución la copiaría dos veces."""
+    las salidas, `None`, cubren cualquiera): cada ejecución la copiaría dos veces. A un Excel,
+    cualquier segunda flecha del mismo bloque (`key`): lo que escribe se elige en la tarjeta."""
     frm, _ = arrow_ports(arrow)
     for s, port, _ in links:
-        if s == src and (port is None or frm is None or port == frm):
-            return i18n.t("conexion.copia_repetida")
+        if s == src and (key != "conexion.copia_repetida" or port is None or frm is None
+                         or port == frm):
+            return i18n.t(key)
     return None
 
 

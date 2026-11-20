@@ -36,6 +36,9 @@
 .om-diff .al-id { font-weight: 600; color: var(--ui-muted); font-size: 11px; }
 .om-text { font: 12.5px/1.4 var(--f-ui); overflow-wrap: anywhere; white-space: pre-wrap; max-height: 120px; overflow-y: auto; }
 .om-note { font-size: 11px; color: var(--ui-muted); }
+.om-src { display: block; font-size: 10.5px; color: var(--ui-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.om-calc { font-size: 11.5px; color: var(--ui-muted); font-style: italic; }
+.om-calc.bad { color: var(--b-err, #c0392b); font-style: normal; }
 /* Dentro de la barra (.toolbar), sus reglas de botón no valen para el desplegable */
 .tb-new-menu { white-space: normal; }
 .tb-new-menu .om-edit textarea { white-space: pre-wrap; }

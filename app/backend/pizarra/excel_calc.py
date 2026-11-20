@@ -106,6 +106,14 @@ class Calculator:
         with self._lock:
             return self._failed.get(digest)
 
+    def wait(self, digest, timeout):
+        """Espera, como mucho `timeout` s, al cálculo de `digest` si está en marcha (la copia
+        escrita de una propuesta, PLAN_EXCEL §3.3)."""
+        with self._lock:
+            t = self._running.get(digest)
+        if t is not None:
+            t.join(timeout)
+
     def join(self, timeout=10):
         """Espera a los cálculos en curso (tests)."""
         for t in list(self._running.values()):

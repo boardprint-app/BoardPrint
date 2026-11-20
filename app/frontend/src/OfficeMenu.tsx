@@ -187,16 +187,22 @@ export function FileProposal({ p }: { p: Proposal }) {
       <ul>
         {shown.map((d) => (
           <li key={d.where} className="al-changed">
-            <span className="al-id">{d.where}</span>
+            <span className="al-id">{d.name ? <><b>{d.name}</b> {d.where}</> : d.where}</span>
             <div className="om-text">
               {wordDiff(d.before, d.after).map((s, i) => (
                 <span key={i} className={s.kind === "same" ? undefined : s.kind === "del" ? "old" : "new"}>{s.text}</span>
               ))}
+              {(d.source || d.formula) && <small className="om-src">{d.formula ? t("agente.office.formula") : `← ${d.source}`}</small>}
             </div>
           </li>
         ))}
       </ul>
       {f.diff.length > shown.length && <div className="al-head">{t("agente.office.mas", { n: f.diff.length - shown.length })}</div>}
+      {f.calc?.state === "calculando" && <div className="om-calc">{t("agente.office.calculando")}</div>}
+      {f.calc?.state === "sin_valor" && (
+        <div className="om-calc bad">{t("agente.office.sin_valor", { names: (f.calc.names ?? []).join(", "), motivo: f.calc.motivo ?? "" })}</div>
+      )}
+      {f.aviso && <div className="om-note">⚠ {f.aviso}</div>}
       <div className="om-note">{t("agente.office.diff_nota")}</div>
     </div>
   );

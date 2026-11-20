@@ -8,7 +8,9 @@
 // Las tarjetas de archivo y de carpeta (D131) tienen enchufes como los bloques: su salida va a
 // una entrada que la acepte (`archivo` acepta cualquier `archivo.*`, D132), y la entrada de una
 // carpeta recibe las salidas de un bloque (D109): desde un enchufe de salida, solo esa salida;
-// desde la carpeta soltada en un bloque, todas. Su etiqueta la pinta FolderArrows.
+// desde la carpeta soltada en un bloque, todas. Su etiqueta la pinta FolderArrows. La entrada de
+// un Excel recibe la flecha de escritura de un bloque (PLAN_EXCEL §3.3): qué campo va a cada
+// nombre se elige en la tarjeta.
 import { useEffect, useState, type CSSProperties } from "react";
 import { viewportCoordsToSceneCoords } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
@@ -16,7 +18,7 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { useSceneTick } from "./useSceneTick";
 import { useHoveredConnection } from "./useHoveredConnection";
 import { getStore, setStore, useStore } from "./store";
-import { addConnection, cardPort, isCardEl, isFolderEl, isNodeEl, isConnection } from "./connections";
+import { addConnection, cardPort, isCardEl, isExcelEl, isFolderEl, isNodeEl, isConnection } from "./connections";
 import { accepts } from "./cards";
 import { t } from "./i18n";
 import { tp } from "./packI18n";
@@ -55,6 +57,17 @@ export function ConnectLayer({ api }: { api: ExcalidrawImperativeAPI }) {
     const src = elById(blockId);
     if (src && folder) addConnection(api, types, src, port, folder, null);
   };
+  // La flecha de escritura de un bloque a un Excel (una sola por bloque: lo que va a cada
+  // nombre se elige en la tarjeta).
+  const toExcel = (blockId: string, kind: string, port: string | null, card: ExcalidrawElement | undefined) => {
+    if (kind !== "block") return setStore({ lastError: t("bloques.conexion.solo_bloques_a_excel") });
+    const src = elById(blockId);
+    const dup = api.getSceneElements().some((e) => isConnection(e)
+      && (e as { startBinding?: { elementId: string } | null }).startBinding?.elementId === blockId
+      && (e as { endBinding?: { elementId: string } | null }).endBinding?.elementId === card?.id);
+    if (dup) return setStore({ lastError: t("bloques.conexion.escritura_repetida") });
+    if (src && card) addConnection(api, types, src, port, card, null);
+  };
   const cardName = (el: ExcalidrawElement) =>
     String((el.customData as { path?: string })?.path ?? "").split(/[\\/]/).pop() ?? "";
 
@@ -63,6 +76,7 @@ export function ConnectLayer({ api }: { api: ExcalidrawImperativeAPI }) {
     const out = a.side === "out" ? a : b, inn = a.side === "in" ? a : b;
     if (b && b.side !== a.side && b.block !== a.block) {
       if (inn!.kind === "folder") return toFolder(out!.block, out!.kind, out!.port, elById(inn!.block));
+      if (inn!.kind === "file") return toExcel(out!.block, out!.kind, out!.port, elById(inn!.block));
       if (!accepts(inn!.type, out!.type)) {
         return setStore({ lastError: t("bloques.conexion.tipo_distinto", { a: out!.port, ta: out!.type, b: inn!.port, tb: inn!.type }) });
       }
@@ -78,9 +92,13 @@ export function ConnectLayer({ api }: { api: ExcalidrawImperativeAPI }) {
       return isCardEl(overBlock) ? setStore({ lastError: t("bloques.conexion.solo_bloques_a_carpeta") })
         : toFolder(overBlock.id, "block", null, elById(a.block));
     }
+    if (a.kind === "file" && a.side === "in") {                 // del Excel a un bloque
+      return toExcel(overBlock.id, isCardEl(overBlock) ? "card" : "block", null, elById(a.block));
+    }
     if (isCardEl(overBlock)) {
       if (a.side === "out") {
         return isFolderEl(overBlock) ? toFolder(a.block, a.kind, a.port, overBlock)
+          : isExcelEl(overBlock) ? toExcel(a.block, a.kind, a.port, overBlock)
           : setStore({ lastError: t("bloques.conexion.archivo_no_recibe") });
       }
       const ct = getStore().sources[overBlock.id]?.type ?? (isFolderEl(overBlock) ? "carpeta" : "archivo");

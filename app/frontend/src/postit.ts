@@ -38,6 +38,7 @@ export type PostitData = {
 };
 
 export const AUTHOR_LABEL: Record<string, string> = {
+  get user() { return t("lienzo.autor.tu"); },          // *Escribir copia* de un Excel (PLAN_EXCEL §3.3)
   get "agent:design"() { return t("lienzo.autor.diseno"); },
   get "agent:review"() { return t("lienzo.autor.revisor"); },
   get "agent:onboarding"() { return t("lienzo.autor.onboarding"); },

@@ -5,21 +5,27 @@
 //
 // Las tarjetas de archivo y de carpeta (D131) son nodos como los bloques: una salida (`archivo`
 // o `carpeta`) y, la carpeta, una entrada que recibe las salidas de un bloque (D109). Una flecha
-// a una carpeta lleva `to: null`; con `from: null` copia todas las salidas del bloque.
+// a una carpeta lleva `to: null`; con `from: null` copia todas las salidas del bloque. La de un
+// bloque a un Excel (PLAN_EXCEL §3.3) también lleva `to: null`: es de escritura (X8).
 import { CaptureUpdateAction, convertToExcalidrawElements, newElementWith } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { BlockType } from "./store";
+import { isExcelPath } from "./excel";
 import { BIND_GAP, elbowRoute, fixedPointFor, socketPoint, socketY, type Pt, type Rect, type Side } from "./ports";
 
 type El = ExcalidrawElement;
-type Cd = { kind?: string; blockType?: string; from?: string | null; to?: string | null };
+type Cd = { kind?: string; blockType?: string; path?: string; from?: string | null; to?: string | null };
 const cd = (e: El) => (e.customData ?? {}) as Cd;
 
 export const isConnection = (e: El) => e.type === "arrow" && cd(e).kind === "connection";
 export const isBlockEl = (e: El) => e.type === "embeddable" && cd(e).kind === "block";
 export const isCardEl = (e: El) => e.type === "embeddable" && (cd(e).kind === "file" || cd(e).kind === "folder");
 export const isFolderEl = (e: El) => e.type === "embeddable" && cd(e).kind === "folder";
+/** La tarjeta de un `.xlsx`/`.xlsm`: recibe las flechas de escritura de un bloque (§3.3). */
+export const isExcelEl = (e: El) => e.type === "embeddable" && cd(e).kind === "file" && isExcelPath(String(cd(e).path ?? ""));
+/** Una tarjeta que recibe flechas sin puerto de entrada: una carpeta o un Excel. */
+const takesAll = (e: El) => isFolderEl(e) || isExcelEl(e);
 /** Bloques y tarjetas: lo que une una conexión. */
 export const isNodeEl = (e: El) => isBlockEl(e) || isCardEl(e);
 
@@ -34,7 +40,7 @@ export const CARD_SOCKET_Y = { file: 20, folder: 62 } as const;
 export function portIndex(types: Record<string, BlockType>, block: El, side: Side, port: string | null): number {
   if (isCardEl(block)) {
     if (side === "out") return port === null || port === cardPort(block) ? 0 : -1;
-    return isFolderEl(block) ? 0 : -1;
+    return takesAll(block) ? 0 : -1;
   }
   const ty = types[cd(block).blockType ?? ""];
   if (!ty) return -1;
@@ -106,9 +112,10 @@ export function syncConnections(api: ExcalidrawImperativeAPI, types: Record<stri
     const dst = arrow.endBinding && byId.get(arrow.endBinding.elementId);
     const { from, to } = cd(a);
     if (!src || !dst || src.isDeleted || dst.isDeleted || !isNodeEl(src) || !isNodeEl(dst)) continue;
-    // A una carpeta, sin entrada; de un bloque, siempre con su salida salvo a una carpeta.
-    if ((to ?? null) === null ? !isFolderEl(dst) : isFolderEl(dst)) continue;
-    if ((from ?? null) === null && !isFolderEl(dst) && !isCardEl(src)) continue;
+    // A una carpeta o a un Excel, sin entrada; de un bloque, siempre con su salida salvo a
+    // una de esas.
+    if ((to ?? null) === null ? !takesAll(dst) : takesAll(dst)) continue;
+    if ((from ?? null) === null && !takesAll(dst) && !isCardEl(src)) continue;
     const oi = portIndex(types, src, "out", from ?? null), ii = portIndex(types, dst, "in", to ?? null);
     if (oi < 0 || ii < 0) continue;
     const s = socketPoint("out", oi, src as Rect, sockY(src, oi)), e = socketPoint("in", ii, dst as Rect, sockY(dst, ii));

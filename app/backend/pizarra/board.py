@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 
 from pizarra import connectors as connectors_mod, diff as diff_mod, files, graph, ink, packs, pasted, proposals as props, scene, validation
-from pizarra import excel_links
+from pizarra import excel_links, excel_write
 from pizarra import i18n
 from pizarra.config import AUTHOR_USER
 from pizarra import blocks as blocks_mod
@@ -289,6 +289,7 @@ class Board:
             book = self.excel.get(cid)      # un Excel: sus nombres (PLAN_EXCEL §3.5)
             out[cid]["names"] = excel_links.names_view(book) if book and st and book.hash == st.hash else None
             out[cid]["names_error"] = book.error if book else None
+            out[cid]["write"] = excel_write.view(self, cid) if book else None   # §3.3
         return out
 
     def add_cards(self, paths, x=0, y=0, author=AUTHOR_USER):

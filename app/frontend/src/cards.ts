@@ -4,7 +4,7 @@
 // casillas salen marcadas en la vista de una carpeta mientras se edita (D142) y qué dice la
 // etiqueta de una flecha a una carpeta (D109). Las reglas son las mismas que en Python.
 import { getLanguage, t } from "./i18n";
-import type { ExcelName } from "./excel";
+import type { ExcelName, ExcelWrite } from "./excel";
 
 export const FILE = "archivo";
 export const FOLDER = "carpeta";
@@ -20,6 +20,9 @@ export type SourceView = {
   /** Un Excel: sus nombres definidos (PLAN_EXCEL §3.5); null si no es un Excel o aún no se
    *  ha leído. `names_error`: no se pudo leer. */
   names?: ExcelName[] | null; names_error?: string | null;
+  /** Un Excel con flechas de escritura o algo elegido (§3.3): qué va a cada nombre y si se
+   *  puede escribir la copia; null si no. */
+  write?: ExcelWrite | null;
 };
 
 // ------------------------------------------------------------------ tipos (D132)

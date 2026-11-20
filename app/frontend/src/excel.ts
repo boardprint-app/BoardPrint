@@ -2,7 +2,9 @@
 // una tarjeta de Excel y qué parámetro de un bloque puede tomar cada uno (*Tomar de Excel*).
 // Las reglas de unidad son las del backend (`pizarra/excel_names.py`, `check_unit`): si cambia
 // una tabla, cambia la otra. El backend vuelve a comprobarlo todo al enlazar (un 422 con el
-// motivo); aquí solo se decide qué se ofrece, y nunca se ofrece lo que él negaría.
+// motivo); aquí solo se decide qué se ofrece, y nunca se ofrece lo que él negaría. También lo
+// puro de escribir las salidas en una copia (§3.3): dónde, qué campo y si el botón deja.
+import { t } from "./i18n";
 
 /** Un nombre definido del Excel, como lo da `sources_view()[tarjeta].names`. */
 export type ExcelName = {
@@ -97,4 +99,81 @@ export function nameState(n: ExcelName): "ok" | "calculando" | "sin_valor" | "no
   if (n.problema === "calculando") return "calculando";
   if (n.problema || n.valor === null || n.valor === undefined) return "sin_valor";
   return "ok";
+}
+
+// ------------------------------------------------- escribir en una copia (PLAN_EXCEL §3.3)
+
+/** Lo que va a un nombre, como lo da `sources_view()[tarjeta].write.rows[nombre]`: `value` ya en
+ *  la unidad del sufijo; con `reason`, no se puede escribir. */
+export type WriteRow = { block: string; port: string; field: string; value: unknown; unit: string; reason: string | null };
+/** Lo que la tarjeta de un Excel enseña para escribir (`excel_write.view`). */
+export type ExcelWrite = {
+  writers: { id: string; title: string }[];
+  rows: Record<string, WriteRow>;
+  ready: boolean; reason: string | null;
+  pending: string | null;           // la propuesta que espera a que se acepte o se rechace
+};
+
+/** ¿Es un Excel que recibe flechas de escritura (`.xlsx`, `.xlsm`, X9)? */
+export const isExcelPath = (path: string) => /\.xls[xm]$/i.test(path.trim());
+
+/** El motivo (código de `excel.escribir.unidad.<código>` del backend) por el que un campo en
+ *  `unit` no se puede escribir en un nombre con el sufijo `sfx`, o null (`check_write`). */
+export function writeProblem(unit: string, sfx: string): string | null {
+  unit = unit || "";
+  sfx = sfx || "";
+  if (!sfx) return unit ? "sin_sufijo" : null;
+  if (!unit) return "sin_unidad";
+  if (!(unit in MAGNITUDE)) return "unidad_desconocida";
+  return MAGNITUDE[unit] === MAGNITUDE[sfx] ? null : "otra_magnitud";
+}
+
+/** ¿Se puede escribir en el nombre? Una celda admitida (X3) que no es una fórmula: escribir
+ *  encima la borraría (R4). */
+export const writeTarget = (n: ExcelName) => !(n.problema && NOT_ADMITTED.has(n.problema)) && n.formula === null;
+
+/** Un campo de salida que se ofrece a un nombre, con el motivo si no casa en unidad. */
+export type WriteChoice = { block: string; title: string; port: string; field: string; unit: string; value: unknown;
+                            label?: string; problem: string | null };
+
+type Outputs = Record<string, Record<string, { value: unknown; unit: string; label?: string; file?: string; control?: string }>> | null;
+const isScalar = (v: unknown) => typeof v === "number" || typeof v === "string" || typeof v === "boolean";
+
+/** Lo que se ofrece al nombre `n`: los campos de la última salida de los bloques con flecha de
+ *  escritura que son un valor (nunca uno que cita un archivo ni un control: una vista 2D, una
+ *  gráfica), cada uno con su `problem` de unidad (o `no_es_numero` si hay que convertir un
+ *  texto); los que casan, primero. Un bloque sin resultado no ofrece nada. */
+export function writeChoices(n: ExcelName, writers: { id: string; title: string }[],
+                             blocks: Record<string, { outputs: Outputs }>): WriteChoice[] {
+  const out: WriteChoice[] = [];
+  for (const w of writers) {
+    for (const [port, fields] of Object.entries(blocks[w.id]?.outputs ?? {})) {
+      for (const [field, f] of Object.entries(fields ?? {})) {
+        if (!f || typeof f !== "object" || f.file !== undefined || f.control || !isScalar(f.value)) continue;
+        const unit = f.unit ?? "";
+        let problem = writeProblem(unit, n.unidad);
+        if (!problem && n.unidad && typeof f.value !== "number") problem = "no_es_numero";
+        out.push({ block: w.id, title: w.title, port, field, unit, value: f.value, label: f.label, problem });
+      }
+    }
+  }
+  return [...out.filter((c) => !c.problem), ...out.filter((c) => c.problem)];
+}
+
+/** El botón «Escribir copia»: deja solo con lo que dice el backend (`ready`) y con cada bloque
+ *  de lo elegido al día aquí también (la vista del backend puede ir por detrás de una
+ *  ejecución o de un parámetro cambiado). `reason`, lo que se enseña al lado. */
+export function writeButton(write: ExcelWrite | null | undefined,
+                            blocks: Record<string, { status: string }>): { disabled: boolean; reason: string | null } {
+  if (!write) return { disabled: true, reason: null };
+  if (!write.ready) return { disabled: true, reason: write.reason };
+  for (const r of Object.values(write.rows)) {
+    const s = blocks[r.block]?.status;
+    if (s !== "al_dia") {
+      const title = write.writers.find((w) => w.id === r.block)?.title ?? r.block;
+      return { disabled: true, reason: t(s === "ejecutando" || s === "en_cola" ? "bloques.excel.escribir.ocupado"
+        : s === "desactualizado" ? "bloques.excel.escribir.desactualizado" : "bloques.excel.escribir.sin_resultado", { title }) };
+    }
+  }
+  return { disabled: false, reason: null };
 }

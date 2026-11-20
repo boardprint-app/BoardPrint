@@ -78,9 +78,13 @@ export function blockChoices(all: readonly Block[], connected: readonly string[]
 
 // ------------------------------------------------------------- propuesta de archivo
 
-/** El cambio de una propuesta de archivo (`editar_archivo`): la copia y lo que cambia. */
-export type FileDiffItem = { where: string; before: string; after: string };
-export type FileChange = { nuevo: string; diff: FileDiffItem[] };
+/** El cambio de una propuesta de archivo (`editar_archivo`): la copia y lo que cambia. La de
+ *  *Escribir copia* de un Excel (PLAN_EXCEL §3.3) lleva además, por celda, el nombre (`name`) y
+ *  el campo que se escribe (`source`) o si es una fórmula recalculada (`formula`); el estado del
+ *  recálculo de la copia (`calc`) y el aviso de lo que openpyxl puede perder (`aviso`). */
+export type FileDiffItem = { where: string; before: string; after: string; name?: string; source?: string; formula?: boolean };
+export type FileCalc = { state: "calculando" | "hecho" | "sin_valor"; names?: string[]; motivo?: string };
+export type FileChange = { nuevo: string; diff: FileDiffItem[]; calc?: FileCalc; aviso?: string };
 
 /** El nombre de un archivo a partir de su ruta guardada (con `/` o `\`). */
 export const fileName = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? p;

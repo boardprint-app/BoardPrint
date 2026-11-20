@@ -292,9 +292,10 @@ def create(tipo, contenido, folder, nombre):
 # --- editar una copia ---------------------------------------------------------------------
 
 def kind_of(path):
-    """`docx`, `xlsx` o `pptx` por la extensión, u OfficeError: el resto no se edita."""
+    """`docx`, `xlsx`, `xlsm` o `pptx` por la extensión, u OfficeError: el resto no se edita.
+    Un `.xlsm` se edita como un `.xlsx` y conserva sus macros (`keep_vba`, PLAN_EXCEL X9)."""
     ext = Path(path).suffix.lower()[1:]
-    if ext not in TYPES:
+    if ext not in TYPES and ext != "xlsm":
         raise OfficeError(f"solo se editan Word (.docx), Excel (.xlsx) y PowerPoint (.pptx), "
                           f"no {Path(path).name}")
     return ext
@@ -411,7 +412,8 @@ _REF = re.compile(r"^(?:(?:'((?:[^']|'')+)'|([^!']+))!)?\$?([A-Za-z]{1,3})\$?(\d
 
 def _edit_xlsx(src, changes):
     import openpyxl
-    wb = openpyxl.load_workbook(src)          # con las fórmulas: la copia las conserva
+    # con las fórmulas: la copia las conserva; un .xlsm, también sus macros
+    wb = openpyxl.load_workbook(src, keep_vba=Path(src).suffix.lower() == ".xlsm")
     diff = []
     for i, ch in enumerate(changes, 1):
         ref = ch.get("celda")
@@ -519,7 +521,7 @@ def _edit_pptx(src, changes):
     return prs, diff
 
 
-EDITORS = {"docx": _edit_docx, "xlsx": _edit_xlsx, "pptx": _edit_pptx}
+EDITORS = {"docx": _edit_docx, "xlsx": _edit_xlsx, "xlsm": _edit_xlsx, "pptx": _edit_pptx}
 
 
 def _merge(diff):
@@ -555,6 +557,11 @@ def edit_copy(src, changes):
     if not diff:
         raise OfficeError("los cambios dejan el archivo igual: no hay nada que proponer")
     buf = io.BytesIO()
-    doc.save(buf)
+    try:
+        doc.save(buf)
+    finally:
+        vba = getattr(doc, "vba_archive", None)     # un .xlsm abierto con keep_vba
+        if vba is not None:
+            vba.close()
     dest = _create_exclusive(src.parent, src.name, lambda f: f.write(buf.getvalue()), True)
     return dest, diff

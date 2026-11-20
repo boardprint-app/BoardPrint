@@ -141,6 +141,36 @@ def convert(value, sfx, unit):
     return _clean(value * UNITS[sfx][1] / UNITS[unit][1])
 
 
+def check_write(unit, sfx):
+    """Lanza `UnitError` si un campo de salida en `unit` ("" sin unidad) no se puede escribir en
+    un nombre con el sufijo `sfx` (§3.3): la dirección contraria a `check_unit`, con sus códigos
+    (`sin_sufijo`, `sin_unidad`, `unidad_desconocida`, `otra_magnitud`)."""
+    unit, sfx = unit or "", sfx or ""
+    if not sfx:
+        if unit:
+            raise UnitError("sin_sufijo", unidad=unit)
+        return
+    if not unit:
+        raise UnitError("sin_unidad", sufijo=sfx)
+    if unit not in UNITS:
+        raise UnitError("unidad_desconocida", unidad=unit)
+    if UNITS[sfx][0] != UNITS[unit][0]:
+        raise UnitError("otra_magnitud", sufijo=sfx, unidad=unit)
+
+
+def convert_out(value, unit, sfx):
+    """`value`, de un campo de salida en `unit`, en la unidad del sufijo `sfx` del nombre donde
+    se escribe. Sin unidad en los dos lados, tal cual. `UnitError` si no se puede."""
+    check_write(unit, sfx)
+    if not sfx:
+        return value
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise UnitError("no_es_numero", valor=repr(value), unidad=sfx)
+    if sfx == unit or UNITS[sfx][1] == UNITS[unit][1]:
+        return value
+    return _clean(value * UNITS[unit][1] / UNITS[sfx][1])
+
+
 def _clean(x):
     """Sin el ruido del último bit de la conversión (15 cifras significativas): 1,001 m daba
     1000,9999999999999 mm, y el bloque no daba lo mismo que con 1001 escrito a mano (§6)."""

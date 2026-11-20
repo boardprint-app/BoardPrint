@@ -54,6 +54,14 @@ export const linkParam = (block: string, param: string, card: string | null, nam
   call<{ links: Record<string, unknown> }>(`/blocks/${encodeURIComponent(block)}/links`, "POST",
                                            card ? { param, card, name } : { param });
 
+/** Qué campo de salida va al nombre `name` del Excel `cardId` (PLAN_EXCEL §3.3); `pick` null,
+ *  nada. Uno que no vale (la unidad, una fórmula…) sale en el aviso con el motivo (422). */
+export const setWrite = (cardId: string, name: string, pick: { block: string; port: string; field: string } | null) =>
+  call<{ write: unknown }>(`${card(cardId)}/writes`, "POST", { name, ...(pick ?? {}) });
+/** *Escribir copia*: la copia `_n` con su propuesta (el original nunca se escribe). */
+export const writeCopy = (cardId: string) =>
+  call<{ proposal: string; nuevo: string }>(`${card(cardId)}/write-copy`, "POST", {});
+
 export type CardInfo = { id: string; kind: "file" | "folder"; path: string; name: string; folder: string;
                          exists: boolean; type: string; open_with: boolean };
 export const cardInfo = (id: string) => call<CardInfo>(card(id), "GET");

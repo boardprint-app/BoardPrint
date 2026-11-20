@@ -305,6 +305,9 @@ export const ES_AGENTE: Record<string, string> = {
   "agente.office.copia_nueva": "Copia nueva:",
   "agente.office.mas": "y {n} más",
   "agente.office.diff_nota": "Aceptar pasa la tarjeta a la copia; el original sigue en el disco. Rechazar borra la copia.",
+  "agente.office.calculando": "Recalculando las fórmulas de la copia…",
+  "agente.office.formula": "fórmula",
+  "agente.office.sin_valor": "Sin valor en la copia: {names}. {motivo}",
   // los encargos al agente (office.ts): el agente los lee, y salen en el hilo como lo que pide el ingeniero
   "agente.office.titulo_leer": "Leer {nombre}",
   "agente.office.titulo_editar": "Editar {nombre}",
@@ -622,6 +625,9 @@ export const EN_AGENTE: Record<string, string> = {
   "agente.office.copia_nueva": "New copy:",
   "agente.office.mas": "and {n} more",
   "agente.office.diff_nota": "Accepting switches the card to the copy; the original stays on disk. Rejecting deletes the copy.",
+  "agente.office.calculando": "Recalculating the copy's formulas…",
+  "agente.office.formula": "formula",
+  "agente.office.sin_valor": "No value in the copy: {names}. {motivo}",
   // los encargos al agente (office.ts): el agente los lee, y salen en el hilo como lo que pide el ingeniero
   "agente.office.titulo_leer": "Read {nombre}",
   "agente.office.titulo_editar": "Edit {nombre}",

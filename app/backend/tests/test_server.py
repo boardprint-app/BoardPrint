@@ -570,6 +570,14 @@ class ServidorReal(unittest.TestCase):
         status, body = self.api("POST", url, {"param": "L"})
         self.assertEqual((status, json.loads(body)["links"]), (200, {}))
         self.assertEqual(self.workspace.load_block_state(pid)[bid]["params"]["L"], 300)
+        # §3.3: sin flecha de escritura ni nada elegido, ni se elige ni se escribe (con el motivo)
+        status, body = self.api("POST", f"/api/projects/{pid}/cards/{cid}/writes",
+                                {"name": "L_m", "block": bid, "port": "x", "field": "L"})
+        self.assertEqual(status, 422, body)
+        self.assertIn("flecha", json.loads(body)["detail"])
+        status, body = self.api("POST", f"/api/projects/{pid}/cards/{cid}/write-copy", {})
+        self.assertEqual(status, 422, body)
+        self.assertEqual(sorted(p.name for p in path.parent.iterdir()), ["datos.xlsx"])
 
     def test_la_cache_de_mallas_guarda_por_hash_y_nada_mas(self):
         digest = "ab" * 32
