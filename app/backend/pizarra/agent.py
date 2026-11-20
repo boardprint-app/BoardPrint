@@ -274,7 +274,8 @@ def tool_leer_pizarra(board, _args, review=False):
         full.update(catalog=catalog(board.registry), my_proposals=my_proposals(board))
     for cap in PORT_CHARS:
         out = {**full, "blocks": [
-            {**{k: b[k] for k in ("id", "type", "status", "params")}, "cite": f"bloque:{b['id']}",
+            {**{k: b[k] for k in ("id", "type", "status", "params", "links") if k in b},
+             "cite": f"bloque:{b['id']}",
              "outputs": _digest(b["outputs"], cap)} for b in full["blocks"]],
             "note": REVIEW_BOARD_NOTE if review else BOARD_NOTE}
         text = json.dumps(out, ensure_ascii=False)

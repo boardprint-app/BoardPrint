@@ -139,6 +139,46 @@ html, body, #root, .app { height: 100%; margin: 0; }
 /* Texto y destino en Fusion (D113, D115): la etiqueta arriba y el campo a todo lo ancho. */
 .block-params label.wide { grid-template-columns: 1fr; gap: 2px; }
 .block-params label.wide em { display: none; }
+/* El Excel como datos (PLAN_EXCEL §3.5): con un Excel en la pizarra, cada parámetro lleva
+   *Tomar de Excel* en una cuarta columna; uno enlazado, su valor con candado (como un fijado)
+   y debajo la celda, la tarjeta y *Quitar enlace*. */
+.block-params .bp-linked { display: grid; grid-template-columns: 1fr 90px 36px; gap: 2px 6px; align-items: center; }
+.block-params.xl label, .block-params.xl .bp-linked { grid-template-columns: 1fr 90px 36px 18px; }
+.block-params.xl label.wide { grid-template-columns: 1fr 18px; }
+.block-params.xl label.wide > span:first-child { grid-column: 1 / -1; }
+.xl-take { width: 18px; height: 20px; padding: 0; border: 0; background: none; cursor: pointer; display: grid;
+  place-items: center; color: color-mix(in srgb, var(--paper-fg) 45%, transparent); border-radius: 4px; }
+.xl-take:hover, .xl-take[aria-expanded="true"] { color: #1d6f42; background: color-mix(in srgb, #1d6f42 12%, transparent); }
+.bp-lockval { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 2px 4px; border-radius: 4px;
+  background: rgba(255, 212, 59, .28); border: 1px solid transparent; font-weight: 600; font-family: var(--f-num);
+  font-variant-numeric: tabular-nums; }
+.bp-lockval svg { flex: none; width: 12px; height: 12px; color: var(--paper-muted); }
+.bp-lockval span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bp-linked.bad .bp-lockval { background: color-mix(in srgb, var(--b-err) 14%, transparent); color: var(--b-err); }
+.bp-from { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11.5px;
+  color: var(--paper-muted); margin: -1px 0 3px; }
+.bp-from code { flex: none; font: 11px ui-monospace, Consolas, monospace; color: #1d6f42; }
+.bp-card { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bp-unlink { flex: none; padding: 0 6px; border-radius: 4px; border: 1px solid var(--b-line); background: transparent;
+  color: inherit; font: 600 11px var(--f-ui); cursor: pointer; line-height: 18px; }
+.bp-unlink:hover { color: var(--paper-fg); border-color: currentColor; }
+.bp-why { grid-column: 1 / -1; color: var(--b-err); font-size: 11.5px; overflow-wrap: anywhere; margin-bottom: 3px; }
+.xl-menu { position: fixed; z-index: 60; min-width: 240px; max-width: 340px; max-height: min(420px, calc(100vh - 16px));
+  overflow-y: auto; padding: 6px; display: grid; gap: 2px; background: var(--ui-bg); color: var(--ui-fg);
+  border: 1px solid var(--ui-line); border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.4); font: 13px var(--f-ui); }
+.xl-menu .q { color: var(--ui-muted); font-size: 12px; padding: 2px 6px 4px; }
+.xl-none { margin: 2px 6px 4px; color: var(--ui-muted); font-size: 12px; }
+.xl-card { font: 700 11px var(--f-ui); color: var(--ui-muted); padding: 6px 6px 2px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; border-top: 1px solid var(--ui-line); }
+.xl-grp:first-of-type .xl-card { border-top: 0; }
+.xl-menu button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; align-items: baseline;
+  padding: 4px 8px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; cursor: pointer;
+  text-align: left; }
+.xl-menu button:hover, .xl-menu button:focus-visible { background: var(--ui-hover); }
+.xl-n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xl-menu button code { grid-row: 2; font: 11px ui-monospace, Consolas, monospace; color: var(--ui-muted); }
+.xl-menu button em { grid-row: 1 / 3; grid-column: 2; align-self: center; font-style: normal; white-space: nowrap;
+  font-variant-numeric: tabular-nums; color: var(--ui-muted); }
 /* Excalidraw pinta `input[type=text]` a su manera (oscuro y alto): aquí manda la tarjeta. */
 .excalidraw .block-params input[type="text"], .excalidraw .bo-row input[type="text"] {
   height: auto; padding: 2px 4px; font: inherit; color: inherit; border-radius: 4px;

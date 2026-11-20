@@ -137,12 +137,17 @@ def _compile(env_dir, cache_dir):
             pass
 
 
-def ensure_env(pyenv, cache_dir, reqs):
-    """El entorno de `reqs` en `<cache_dir>/envs/<huella>/`, creado si no está. Devuelve
-    `(carpeta, creado)`. Si `uv` falla no deja nada (ni a medias) y lanza `EnvError`."""
+def ensure_env(pyenv, cache_dir, reqs, overrides=(), envs="envs"):
+    """El entorno de `reqs` en `<cache_dir>/<envs>/<huella>/`, creado si no está. Devuelve
+    `(carpeta, creado)`. Si `uv` falla no deja nada (ni a medias) y lanza `EnvError`.
+
+    `overrides`: requisitos que sustituyen a los de cualquier librería (`uv --override`), como
+    `numpy>=2` para xlcalculator (PLAN_EXCEL R3). `envs`: otra carpeta que `<caché>/envs`, para
+    un entorno que no es el de los paquetes (`PackEnvironment.cleanup` borra lo que hay ahí)."""
     pyenv.check()
     cache_dir = Path(cache_dir)
-    env_dir = cache_dir / "envs" / env_hash(reqs, pyenv.meta)
+    key = [*reqs, *(f"--override {_norm(o)}" for o in overrides)]
+    env_dir = cache_dir / envs / env_hash(key, pyenv.meta)
     if (env_dir / OK_MARK).is_file():
         return env_dir, False
     if env_dir.exists():
@@ -152,8 +157,13 @@ def ensure_env(pyenv, cache_dir, reqs):
         _uv(pyenv, ["venv", "--python", str(pyenv.python), "--no-project", "--quiet",
                     str(env_dir)], cache_dir)
         if reqs:
+            extra = []
+            if overrides:
+                over = env_dir / "overrides.txt"
+                over.write_text("\n".join(_norm(o) for o in overrides) + "\n", encoding="utf-8")
+                extra = ["--override", str(over)]
             _uv(pyenv, ["pip", "install", "--python", str(env_python(env_dir)), "--quiet",
-                        *sorted({_norm(r) for r in reqs})], cache_dir)
+                        *extra, *sorted({_norm(r) for r in reqs})], cache_dir)
             _compile(env_dir, cache_dir)
         (env_dir / OK_MARK).write_text(json.dumps({"reqs": sorted(reqs), "pyenv": pyenv.meta}),
                                        encoding="utf-8")

@@ -179,7 +179,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from pizarra import agent_chat, agent_review, agent_threads, blocks as blocks_mod
-from pizarra import connectors as connectors_mod, desktop, execution, files_api, graph, scene, watchdog
+from pizarra import connectors as connectors_mod, desktop, excel_calc, execution, files_api, graph, scene, watchdog
 from pizarra import agent_packs, pack_env, pack_host, pack_install, pack_install_api, pack_ui
 from pizarra import (i18n, library_api, profile_api, settings_api, supply_api, update_api,
                      welcome, workspace_api)
@@ -283,6 +283,10 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
                                    worker=None if is_env else worker_spec,         # P89
                                    env=worker_spec if is_env else None)            # P92
         pack_install.clean(reg.origins)         # una instalación cortada (§7)
+    # Recálculo de las fórmulas sin valor de un Excel (PLAN_EXCEL §3.4): con la caché y el
+    # Python del entorno de paquetes, en su propio entorno. Avisa al acabar (`start_watchers`).
+    calc = excel_calc.Calculator.for_app(worker_spec) if workspace is not None else None
+    excel_calc.configure(calc)
     # Sin /docs ni /openapi.json: no hacen falta y describen la API a cualquiera (R6).
     app = FastAPI(title=APP_NAME, docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -420,6 +424,9 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
         las ventanas del proyecto (D134)."""
         changed = await asyncio.get_running_loop().run_in_executor(None, board.probe, fresh)
         if changed and session is not None:
+            if board.params_dirty:        # un parámetro enlazado a un Excel (PLAN_EXCEL §3.2)
+                board.params_dirty = False
+                await save_and_ack(session)
             await broadcast(session, blocks_msg(session))
         return changed
 
@@ -758,6 +765,13 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
     async def start_watchers():
         app.state.watch = asyncio.create_task(watch_connectors())
         app.state.watch_sources = asyncio.create_task(watch_sources())
+        if calc is not None:        # un recálculo acabado: se sondea ya, sin esperar al vigilante
+            loop = asyncio.get_running_loop()
+
+            def recalculated():
+                for s in (sessions.all() if sessions is not None else []):
+                    spawn(s, probe_now(s.board, s))
+            calc.on_done = lambda: loop.call_soon_threadsafe(recalculated)
 
     @app.get("/api/connectors")
     def get_connectors():

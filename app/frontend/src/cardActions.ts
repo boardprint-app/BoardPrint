@@ -47,6 +47,13 @@ export const confirmCard = (id: string) => call(`${card(id)}/confirm`);
 export const saveTo = (blockId: string) =>
   call<{ ids: string[] }>(`/blocks/${encodeURIComponent(blockId)}/save-to`, "POST", {});
 
+/** *Tomar de Excel* (PLAN_EXCEL §3.2): enlaza el parámetro `param` del bloque con el nombre
+ *  `name` de la tarjeta de Excel `card`; sin `card`, *Quitar enlace* (se queda el último
+ *  valor). Uno que no vale sale en el aviso con el motivo del backend (422). */
+export const linkParam = (block: string, param: string, card: string | null, name?: string) =>
+  call<{ links: Record<string, unknown> }>(`/blocks/${encodeURIComponent(block)}/links`, "POST",
+                                           card ? { param, card, name } : { param });
+
 export type CardInfo = { id: string; kind: "file" | "folder"; path: string; name: string; folder: string;
                          exists: boolean; type: string; open_with: boolean };
 export const cardInfo = (id: string) => call<CardInfo>(card(id), "GET");

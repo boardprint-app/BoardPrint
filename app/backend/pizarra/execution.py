@@ -29,7 +29,7 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from pizarra import files, graph, i18n, pack_data, validation
+from pizarra import excel_links, files, graph, i18n, pack_data, validation
 from pizarra.storage import StorageError
 
 PROGRESS_EVERY = 0.1          # s: el proceso de cálculo no manda progreso más a menudo
@@ -230,7 +230,8 @@ class Job:
             inputs[ip] = payload
         step = Step(block_id=bid, kind=kind, params=params, inputs=inputs,
                     input_hash=graph.input_hash(bid, params, edges, board.state, board.sources,
-                                                board.param_files.get(bid)),
+                                                board.param_files.get(bid),
+                                                excel_links.hashes(board, bid)),
                     workdir=str(board.ws.block_scratch(board.project_id, bid)),
                     options=self.options.pop(bid, {}), env=board.run_env(bid))
         self.current, self.progress = step, (None, "")

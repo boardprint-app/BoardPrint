@@ -543,6 +543,34 @@ class ServidorReal(unittest.TestCase):
         (d / "ficha.pdf").unlink()
         self.assertEqual(self.api("GET", f"/api/projects/{pid}/cards/{pdf}/raw")[0], 404)
 
+    def test_tomar_de_excel_enlaza_un_parametro_y_quitarlo_conserva_el_valor(self):
+        # PLAN_EXCEL §3.2: la API de los enlaces, con el mismo motivo que la pizarra
+        import openpyxl
+        from openpyxl.workbook.defined_name import DefinedName
+        pid = self.workspace.create_project("", "Excel").id
+        path = Path(tempfile.mkdtemp()) / "datos.xlsx"
+        wb = openpyxl.Workbook()
+        wb.active.title = "Datos"
+        wb["Datos"]["B3"], wb["Datos"]["B4"] = 0.3, 2.5
+        wb.defined_names["L_m"] = DefinedName("L_m", attr_text="Datos!$B$3")
+        wb.defined_names["masa_kg"] = DefinedName("masa_kg", attr_text="Datos!$B$4")
+        wb.save(path)
+        bid = json.loads(self.api("POST", f"/api/projects/{pid}/blocks", {"type": "prueba.tubo"})[1])["id"]
+        cid = json.loads(self.api("POST", f"/api/projects/{pid}/cards", {"paths": [str(path)]})[1])["ids"][0]
+        url = f"/api/projects/{pid}/blocks/{bid}/links"
+        status, body = self.api("POST", url, {"param": "L", "card": cid, "name": "L_m"})
+        self.assertEqual(status, 200, body)
+        link = json.loads(body)["links"]["L"]
+        self.assertEqual((link["value"], link["where"]), (300, "Datos!B3"))
+        self.assertEqual(self.workspace.load_block_state(pid)[bid]["links"],
+                         {"L": {"card": cid, "name": "L_m"}}, "guardado")
+        status, body = self.api("POST", url, {"param": "t", "card": cid, "name": "masa_kg"})
+        self.assertEqual(status, 422)
+        self.assertIn("kg", json.loads(body)["detail"])
+        status, body = self.api("POST", url, {"param": "L"})
+        self.assertEqual((status, json.loads(body)["links"]), (200, {}))
+        self.assertEqual(self.workspace.load_block_state(pid)[bid]["params"]["L"], 300)
+
     def test_la_cache_de_mallas_guarda_por_hash_y_nada_mas(self):
         digest = "ab" * 32
         self.assertEqual(self.api("GET", f"/api/mesh/{digest}")[0], 204, "no estar no es un error")

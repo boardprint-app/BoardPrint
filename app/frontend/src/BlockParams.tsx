@@ -11,9 +11,11 @@ import { ArchivoStep } from "./ArchivoStep";
 import { linkedFile } from "./cards";
 import { widgetPack } from "./packui";
 import type { Proposal } from "./proposal";
-import type { BlockState, BlockType } from "./store";
+import { useStore, type BlockState, type BlockType, type ParamSpec } from "./store";
 import { useUnits } from "./appSettings";
 import { commitText, editText, shownUnit, toShown, type UnitPrefs } from "./units";
+import { hasExcel, linkOf, type ParamKind } from "./excel";
+import { ExcelMenuButton, LinkedParam } from "./ExcelLink";
 
 // Sugerencia de un campo de texto vacío: lo que el bloque dio en una salida del mismo sentido
 // (el *Documento* de Construir en Fusion enseña el nombre que tiene ahora, D115).
@@ -51,6 +53,7 @@ export function useParamDraft(id: string, st: BlockState | undefined) {
 }
 
 type Props = {
+  id: string;                 // el bloque
   ty: BlockType;
   st: BlockState | undefined;
   params: Record<string, unknown>;
@@ -64,8 +67,19 @@ function shownNumber(v: unknown, unit: string, prefs: UnitPrefs) {
   return typeof v === "number" ? toShown(v, unit, prefs) : v;
 }
 
-export function BlockParams({ ty, st, params, setDraft, commit, prop }: Props) {
+/** Lo que *Tomar de Excel* necesita de un parámetro, o null si no se puede tomar de un Excel
+ *  (un control especial, un sí/no, una lista de nodos). */
+export function paramKind(spec: ParamSpec): ParamKind | null {
+  if (spec.widget) return null;
+  if (spec.default === null || typeof spec.default === "number") return { unit: spec.unit, kind: "number" };
+  if (typeof spec.default === "string") return { unit: spec.unit, kind: "text", choices: spec.choices };
+  return null;
+}
+
+export function BlockParams({ id, ty, st, params, setDraft, commit, prop }: Props) {
   const prefs = useUnits();
+  const { sources } = useStore();
+  const xl = hasExcel(sources);      // con un Excel en la pizarra, cada parámetro puede tomar de él
   // Un número se edita en la unidad de pantalla: el borrador guarda lo escrito y, al salir,
   // vuelve a la del parámetro; sin tocar el texto, el valor de antes tal cual (sin deriva).
   const numberField = (name: string, fallback: unknown, unit: string, optional: boolean) => {
@@ -87,14 +101,23 @@ export function BlockParams({ ty, st, params, setDraft, commit, prop }: Props) {
     );
   };
   return (
-    <div className="block-params">
+    <div className={`block-params${xl ? " xl" : ""}`}>
       {/* Un parámetro que no es número ni texto (los fijados del Dimensionado, el árbol de
           un terminal) no se edita aquí: tiene su pestaña o su editor (D96). Uno que vale
           null por defecto es un número opcional: vacío = sin dato (PLAN_TERMINALES). */}
       {Object.entries(ty.params).filter(([, spec]) => !widgetPack(spec.widget)
                                                && (spec.widget || spec.default === null
-                                                   || typeof spec.default !== "object")).map(([name, spec]) => (
-        <label key={name} className={spec.widget || (typeof spec.default === "string" && !spec.choices.length) ? "wide" : undefined}>
+                                                   || typeof spec.default !== "object")).map(([name, spec]) => {
+        const kind = paramKind(spec);
+        const link = kind && linkOf(st?.links, name);
+        // Enlazado a un Excel (PLAN_EXCEL R1): el valor con candado, sin campo para escribir.
+        if (link) return (
+          <LinkedParam key={name} block={id} param={name} label={spec.label || name} link={link}
+                       shown={fmt(shownNumber(params[name], spec.unit, prefs))} unitShown={shownUnit(spec.unit, prefs)}
+                       card={sources[link.card]} />
+        );
+        return (
+        <label key={name} data-param={name} className={spec.widget || (typeof spec.default === "string" && !spec.choices.length) ? "wide" : undefined}>
           <span>{spec.label || name}</span>
           {spec.widget === "archivo_step" ? (
             <ArchivoStep value={String(params[name] ?? "")} onChange={(p) => commit(name, p)}
@@ -117,6 +140,8 @@ export function BlockParams({ ty, st, params, setDraft, commit, prop }: Props) {
             numberField(name, spec.default, spec.unit, false)
           )}
           <em>{shownUnit(spec.unit, prefs)}</em>
+          {xl && (kind ? <ExcelMenuButton block={id} param={name} label={spec.label || name} kind={kind}
+                                          unitShown={shownUnit(spec.unit, prefs)} sources={sources} /> : <span />)}
           {/* Propuesta (2A): el valor de ahora tachado y el propuesto resaltado. */}
           {prop?.change.params && name in prop.change.params && (
             <span className="prop-param">
@@ -125,7 +150,8 @@ export function BlockParams({ ty, st, params, setDraft, commit, prop }: Props) {
             </span>
           )}
         </label>
-      ))}
+        );
+      })}
     </div>
   );
 }

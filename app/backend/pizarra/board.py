@@ -15,6 +15,7 @@ import uuid
 from pathlib import Path
 
 from pizarra import connectors as connectors_mod, diff as diff_mod, files, graph, ink, packs, pasted, proposals as props, scene, validation
+from pizarra import excel_links
 from pizarra import i18n
 from pizarra.config import AUTHOR_USER
 from pizarra import blocks as blocks_mod
@@ -43,6 +44,9 @@ class Board:
         self.sources = {}          # {tarjeta: FileState}
         self.param_files = {}      # {bloque: {parámetro: hash}}: parámetros que son un archivo
         self.copy_notices = {}     # {carpeta: aviso} de la última copia que falló (D109)
+        self.excel = {}            # {tarjeta: excel_links.Book}: los nombres de cada Excel
+        self.calc = None           # excel_calc.Calculator; None: el de la app (PLAN_EXCEL §3.4)
+        self.params_dirty = False  # el sondeo cambió un parámetro enlazado: hay que guardar
         self._probe_lock = threading.Lock()   # el sondeo corre en un hilo; antes de ejecutar, otro
         # Post-its de R2 a tarjetas (D71). La escena de antes se guarda aparte una sola vez,
         # antes de escribir la migrada.
@@ -156,7 +160,15 @@ class Board:
     def explain(self):
         """(estados, motivos) de los bloques, con lo último que dio el sondeo."""
         return graph.explain(self.elements, self.registry, self.state, self.connectors,
-                             self.sources, self.param_files)
+                             self.sources, self.param_files, excel_links.states(self))
+
+    # ------------------------------------------ parámetros enlazados a un Excel (PLAN_EXCEL)
+    def link_param(self, block_id, param, card_id, name):
+        """*Tomar de Excel*: ver `excel_links.link`. Devuelve la vista del enlace."""
+        return excel_links.link(self, block_id, param, card_id, name)
+
+    def unlink_param(self, block_id, param):
+        excel_links.unlink(self, block_id, param)
 
     # ------------------------------------------------------------- archivos (D131)
     def card(self, card_id):
@@ -246,8 +258,12 @@ class Board:
             for (bid, name), path in wanted.items():
                 param_files.setdefault(bid, {})[name] = self.prober.probe_file(path, fresh).hash
             self.prober.forget([self.card_path(el) for el in cards.values()] + list(wanted.values()))
-            changed = sources != self.sources or param_files != self.param_files
-            self.sources, self.param_files = sources, param_files
+            excel = excel_links.books(self, cards, sources)    # sus nombres (PLAN_EXCEL §3.1)
+            changed = (sources != self.sources or param_files != self.param_files
+                       or excel != self.excel)
+            self.sources, self.param_files, self.excel = sources, param_files, excel
+            if excel_links.apply(self):     # el valor de cada parámetro enlazado, convertido
+                self.params_dirty = changed = True
             return changed
 
     def sources_view(self):
@@ -255,7 +271,8 @@ class Board:
         («No encontrado», D139), el tamaño, cuántos archivos entran de una carpeta, si espera a
         que se confirme el hash (D136) y el aviso de una copia que falló (D109). `type`, el de
         su salida (`archivo.<ext>` o `carpeta`); en una carpeta, `total` (cuántos archivos tiene)
-        y `peek`, los tipos de los tres primeros que entran (los papeles que asoman, D139)."""
+        y `peek`, los tipos de los tres primeros que entran (los papeles que asoman, D139);
+        `name`, el del archivo (los menús que no ven la escena: *Tomar de Excel*)."""
         out = {}
         for cid, el in graph.sources_in(self.elements).items():
             st = self.sources.get(cid)
@@ -267,7 +284,11 @@ class Board:
                         "files": len(st.files) if st else 0, "total": st.total if st else 0,
                         "peek": [files.port_type(f) for f in (st.files if st else ())[:3]],
                         "big": bool(st and st.big),
-                        "notice": self.copy_notices.get(cid)}
+                        "notice": self.copy_notices.get(cid),
+                        "name": Path(el["customData"].get("path") or "").name}
+            book = self.excel.get(cid)      # un Excel: sus nombres (PLAN_EXCEL §3.5)
+            out[cid]["names"] = excel_links.names_view(book) if book and st and book.hash == st.hash else None
+            out[cid]["names_error"] = book.error if book else None
         return out
 
     def add_cards(self, paths, x=0, y=0, author=AUTHOR_USER):
@@ -401,6 +422,7 @@ class Board:
         y su progreso; sin ejecución, `run` es None."""
         edges, problems = graph.build(self.elements, self.registry)
         sts, reasons = self.explain()
+        links = excel_links.view(self)
         run = self.job.view() if self.job is not None else None
         if run is not None:
             sts = {**sts, **{b: "en_cola" for b in run["queued"]}}
@@ -413,6 +435,7 @@ class Board:
             blocks[bid] = {"type": kind, "status": sts[bid], "reason": reasons.get(bid),
                            "params": st.get("params"), "outputs": st.get("outputs"),
                            "error": st.get("error"), "error_action": st.get("error_action"),
+                           "links": links.get(bid),
                            "inputs": {ip: {"block": src, "port": op}
                                       for ip, (src, op) in edges.get(bid, {}).items()}}
             # Traer (D116): hay algo enviado aunque el último intento diera error y el bloque
@@ -425,6 +448,11 @@ class Board:
 
     def summary(self):
         out = scene.summary(self.elements, self.statuses(), self.state)
+        links = excel_links.view(self)      # qué parámetros salen de un Excel (PLAN_EXCEL §2)
+        for b in out["blocks"]:
+            if b["id"] in links:
+                b["links"] = {p: {k: v[k] for k in ("card", "name", "where", "reason")}
+                              for p, v in links[b["id"]].items()}
         # las tarjetas, para que el agente sepa qué puede leer con `leer_archivo` (R36)
         out["files"] = [{"id": cid, "kind": "carpeta" if el["customData"]["kind"] == "folder"
                          else "archivo", "name": Path(el["customData"]["path"]).name,
@@ -510,6 +538,7 @@ class Board:
         params = {k: v for k, v in params.items() if k in allowed}
         for k, v in params.items():            # todo o nada: un valor malo no deja los otros
             validation.check_param(k, allowed[k], v)
+        excel_links.check_manual(self, block_id, params)     # lo enlazado, solo del Excel
         merged = dict(st.get("params") or self.default_params(kind))
         merged.update(params)
         st["params"] = merged

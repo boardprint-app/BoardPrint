@@ -89,7 +89,7 @@ function GenericPanel({ id, st, ty }: { id: string; st: BlockState; ty: BlockTyp
       {above.length > 0 && (
         <section className="pg-col">
           <h3>{t("bloques.panel.parametros")}</h3>
-          <BlockParams ty={ty} st={st} params={params} setDraft={setDraft} commit={commit} />
+          <BlockParams id={id} ty={ty} st={st} params={params} setDraft={setDraft} commit={commit} />
         </section>
       )}
       {below.length > 0 && (

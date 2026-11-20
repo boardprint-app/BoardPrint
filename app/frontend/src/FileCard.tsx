@@ -17,6 +17,8 @@ import { confirmCard, openCard, relocateCard } from "./cardActions";
 import { contentOf, fmtSize, folderChip, previewKind, typeFamily, typeLabel } from "./cards";
 import { CARD_SOCKET_Y } from "./connections";
 import { portColor, SOCKET_H } from "./ports";
+import { fmt } from "./BlockOutputs";
+import { nameState, type ExcelName } from "./excel";
 
 const OPEN_WITH = /Windows/.test(navigator.userAgent);   // «Abrir con» solo en Windows (D141)
 
@@ -161,10 +163,34 @@ export function FileCard({ id, kind, data, selected, height, onHeight, onMenu, o
           <span className="fc-name" title={path}>{name}</span>
           {view?.ok && <span className="fc-ext">{fmtSize(view.size)}</span>}
         </div>
+        {view?.ok && view.names && <ExcelNames names={view.names} />}
+        {view?.ok && view.names_error && <div className="fk-notice">⚠ {t("bloques.excel.ilegible", { error: view.names_error })}</div>}
         {unreadable && <div className="fk-notice">⚠ {view!.reason}</div>}
         {lost && lostBox}
       </div>
       <div className="block-socks">{sock("out", "archivo")}</div>
     </div>
+  );
+}
+
+/** Los nombres definidos de un Excel (PLAN_EXCEL §3.5): el valor con su unidad y la celda. Lo
+ *  no admitido va en gris y, con lo que no tiene valor, dice su motivo al pasar el ratón. */
+function ExcelNames({ names }: { names: ExcelName[] }) {
+  if (!names.length) return <div className="fc-names-none">{t("bloques.excel.sin_nombres")}</div>;
+  return (
+    <ul className="fc-names">
+      {names.map((n) => {
+        const state = nameState(n);
+        const value = state === "ok" ? <>{fmt(n.valor)}{n.unidad && <em> {n.unidad}</em>}</>
+          : t(`bloques.excel.${state}`);
+        return (
+          <li key={n.nombre} className={`fcn fcn-${state}`} title={n.motivo ?? undefined}>
+            <span className="fcn-n">{n.nombre}</span>
+            <span className="fcn-w">{n.where ?? "—"}</span>
+            <span className="fcn-v">{value}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

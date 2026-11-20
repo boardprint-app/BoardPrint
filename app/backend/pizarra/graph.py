@@ -22,7 +22,8 @@ Estado de un bloque:
 - `no_disponible`: pide un conector (`requires`) que no está disponible. Sin error.
 - `nunca`: no se ha ejecutado.
 - `incompleto`: le falta alguna entrada obligatoria conectada (una opcional, D122, no cuenta),
-  o le llega un archivo o una carpeta sin hash (no está, no se lee...; `explain` da el motivo).
+  o le llega un archivo o una carpeta sin hash (no está, no se lee...; `explain` da el motivo),
+  o un parámetro enlazado a un Excel no tiene valor (PLAN_EXCEL §3.2).
 - `error`: la última ejecución falló.
 - `al_dia`: su hash de entradas coincide con el de la última ejecución y todo lo que tiene
   delante está al día.
@@ -261,12 +262,13 @@ def topo_upstream(edges, *block_ids):
     return order
 
 
-def input_hash(block_id, params, edges, state, sources=None, files=None):
+def input_hash(block_id, params, edges, state, sources=None, files=None, links=None):
     """Hash de lo que entra en el bloque: sus parámetros y, por cada entrada, el hash del
     puerto de salida que le llega (no el del bloque entero); de una tarjeta de archivo o de
     carpeta, el de su contenido (`sources[id].hash`), nunca el de su ruta (D133). `files`:
     `{parámetro: hash}` de los parámetros que son la ruta de un archivo (el *STEP de
-    referencia*), que también desactualizan por contenido; sin ninguno, el hash es el de
+    referencia*), que también desactualizan por contenido. `links`: `{parámetro: hash}` de los
+    enlazados a un Excel, el de su tarjeta (PLAN_EXCEL §3.2). Sin ninguno, el hash es el de
     siempre."""
     sources = sources or {}
 
@@ -276,7 +278,8 @@ def input_hash(block_id, params, edges, state, sources=None, files=None):
         return ((state.get(src) or {}).get("outputs_hash") or {}).get(out_port)
 
     ups = {port: up(src, out_port) for port, (src, out_port) in sorted(edges.get(block_id, {}).items())}
-    return _h({"params": params, "inputs": ups, **({"files": files} if files else {})})
+    return _h({"params": params, "inputs": ups, **({"files": files} if files else {}),
+               **({"links": links} if links else {})})
 
 
 def outputs_hash(outputs, file_digest=None):
@@ -311,21 +314,26 @@ def pack_changed(registry, kind, st):
     return i18n.t("bloque.otra_version_paquete", paquete=info.id, antes=ran, ahora=info.version)
 
 
-def statuses(elements, registry, state, connectors=frozenset(), sources=None, param_files=None):
+def statuses(elements, registry, state, connectors=frozenset(), sources=None, param_files=None,
+             links=None):
     """Estado de cada bloque de la escena; ver `explain`."""
-    return explain(elements, registry, state, connectors, sources, param_files)[0]
+    return explain(elements, registry, state, connectors, sources, param_files, links)[0]
 
 
-def explain(elements, registry, state, connectors=frozenset(), sources=None, param_files=None):
+def explain(elements, registry, state, connectors=frozenset(), sources=None, param_files=None,
+            links=None):
     """(estados, motivos). Estado de cada bloque de la escena (las tarjetas de archivo no
     tienen, D131). `state[id]` guarda params, last_hash, outputs... Un bloque que pide un
     conector que no está en `connectors` sale `no_disponible`. `sources`: `{tarjeta: FileState}`
     del sondeo; una tarjeta conectada sin hash (o sin sondear) deja el bloque `incompleto`, con
     su motivo en `motivos[bloque]`, aunque llegue a una entrada opcional: nunca entra el hash
     viejo ni se ejecuta como si no estuviera conectada (D138). `param_files`:
-    `{bloque: {parámetro: hash}}`, ver `input_hash`."""
+    `{bloque: {parámetro: hash}}`, ver `input_hash`. `links`: `{bloque: {parámetro: (hash,
+    motivo)}}` de los parámetros enlazados a un Excel (PLAN_EXCEL §3.2): uno con motivo (sin
+    valor, el nombre o la tarjeta ya no están) deja el bloque `incompleto` con ese motivo."""
     sources = sources or {}
     param_files = param_files or {}
+    links = links or {}
     blocks = blocks_in(elements, registry)
     srcs = sources_in(elements)
     edges, _ = build(elements, registry)
@@ -345,6 +353,8 @@ def explain(elements, registry, state, connectors=frozenset(), sources=None, par
                 f"{files.reason_text(getattr(sources.get(src), 'reason', None)) or i18n.t('tarjeta.sin_comprobar')}"
                 for src, _ in sorted(set(edges.get(bid, {}).values()))
                 if src in srcs and getattr(sources.get(src), "hash", None) is None]
+        lost += [why for _, (_, why) in sorted(links.get(bid, {}).items()) if why]
+        linked = {p: h for p, (h, why) in links.get(bid, {}).items()}
         changed = ""
         if not set(btype.requires) <= set(connectors):
             s = "no_disponible"
@@ -358,7 +368,7 @@ def explain(elements, registry, state, connectors=frozenset(), sources=None, par
         elif st.get("last_hash") is None:
             s = "nunca"
         elif (st["last_hash"] == input_hash(bid, st.get("params"), edges, state, sources,
-                                            param_files.get(bid))
+                                            param_files.get(bid), linked)
               and all(u == "al_dia" for u in ups)
               and not (changed := pack_changed(registry, blocks[bid]["customData"]["blockType"], st))):
             s = "al_dia"

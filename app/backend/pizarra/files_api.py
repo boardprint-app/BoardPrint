@@ -17,6 +17,9 @@ explorador las da el shell de Tauri.
     POST /api/projects/<id>/cards/<c>/confirm             calcular el hash de una carpeta
                                                           de más de 500 MB (D136)
     POST /api/projects/<id>/blocks/<b>/save-to {path?}    *Guardar también en…* (D109)
+    POST /api/projects/<id>/blocks/<b>/links {param,      *Tomar de Excel* (PLAN_EXCEL §3.2):
+         card?, name?}                                    enlaza el parámetro a un nombre del
+                                                          Excel; sin `card`, quita el enlace
     GET  /api/projects/<id>/cards/<c>/raw                 el archivo tal cual, para
                                                           *Previsualizar* (D135)
     GET|PUT /api/mesh/<hash>                              malla del visor STEP por hash del
@@ -91,6 +94,12 @@ class OpenCardIn(BaseModel):
 
 class PathIn(BaseModel):
     path: str | None = None
+
+
+class LinkIn(BaseModel):
+    param: str
+    card: str | None = None         # sin tarjeta: quitar el enlace
+    name: str | None = None
 
 
 async def _in_thread(fn, *args):
@@ -290,6 +299,20 @@ def register(app, *, board_for, board_changed, probe_now, mesh_dir=None):
         await board_changed(board, session, new)
         await probe_now(board, session)
         return {"ids": [e["id"] for e in new]}
+
+    @app.post("/api/projects/{pid}/blocks/{bid}/links")
+    async def post_link(pid: str, bid: str, body: LinkIn):
+        """Enlaza un parámetro del bloque a un nombre de una tarjeta de Excel, o quita el
+        enlace (el parámetro se queda con el último valor). Devuelve los enlaces del bloque,
+        como van en `blocks_view`; un enlace que no vale es un 422 con el motivo."""
+        board, session = board_for(pid)
+        if body.card is None:
+            checked(board.unlink_param, bid, body.param)
+        else:
+            await _in_thread(checked, board.link_param, bid, body.param, body.card,
+                             body.name or "")
+        await board_changed(board, session, [])
+        return {"links": board.blocks_view()["blocks"].get(bid, {}).get("links") or {}}
 
     @app.post("/api/projects/{pid}/images")
     async def post_image(pid: str, request: Request):

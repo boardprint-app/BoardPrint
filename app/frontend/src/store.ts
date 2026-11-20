@@ -7,6 +7,7 @@ import type { Proposal } from "./proposal";
 import type { Compare } from "./versions";
 import type { Template } from "./palette";
 import type { SourceView } from "./cards";
+import type { ParamLink } from "./excel";
 import type { PortTypes } from "./ports";
 import { isReviewEvent, reviewAfter, type ReviewMilestone, type ReviewState } from "./review";
 
@@ -34,6 +35,10 @@ export type BlockState = {
   synced?: boolean;
   /** Entradas conectadas: `{puerto_de_entrada: {block, port}}`. */
   inputs: Record<string, { block: string; port: string }>;
+  /** Por qué está `incompleto` (lo que falta), si lo está. */
+  reason?: string | null;
+  /** Parámetros que salen de un nombre de un Excel (PLAN_EXCEL §3.2): no se editan a mano. */
+  links?: Record<string, ParamLink> | null;
 };
 /** `widget`: control especial. Los de la app (`archivo_step`) los pinta la tarjeta; uno
  *  `<paquete>.<x>` lo pinta la interfaz de ese paquete (el destino en Fusion, D113, P41). */

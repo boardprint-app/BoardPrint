@@ -166,7 +166,7 @@ export function BlockView({ id, blockType, height, onHeight }: Props) {
              onWheel={forwardWheel}>
           {ownUi && <PackFrame id={id} blockType={blockType} surface="card" />}
           {above.includes("params") && (
-            <BlockParams ty={ty} st={st} params={params} setDraft={setDraft} commit={commit} prop={prop} />
+            <BlockParams id={id} ty={ty} st={st} params={params} setDraft={setDraft} commit={commit} prop={prop} />
           )}
           {conCard && <PackFrame id={id} blockType={blockType} surface="card" part="connector" />}
           {/* Una ejecución por proyecto (D89): mientras dura, Ejecutar no se puede en ningún
