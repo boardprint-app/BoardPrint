@@ -578,6 +578,17 @@ class ServidorReal(unittest.TestCase):
         status, body = self.api("POST", f"/api/projects/{pid}/cards/{cid}/write-copy", {})
         self.assertEqual(status, 422, body)
         self.assertEqual(sorted(p.name for p in path.parent.iterdir()), ["datos.xlsx"])
+        # §3.6: la flecha de enlace, todas las parejas o ninguna, y borrarla
+        pair = f"{url}/{cid}"
+        status, body = self.api("PUT", pair, {"links": {"L": "L_m", "t": "masa_kg"}})
+        self.assertEqual(status, 422, body)
+        self.assertNotIn("links", self.workspace.load_block_state(pid)[bid], "ni la buena")
+        status, body = self.api("PUT", pair, {"links": {"L": "L_m"}})
+        self.assertEqual((status, sorted(json.loads(body)["links"])), (200, ["L"]), body)
+        status, body = self.api("DELETE", pair)
+        self.assertEqual((status, json.loads(body)["links"]), (200, {}))
+        self.assertEqual(self.workspace.load_block_state(pid)[bid]["params"]["L"], 300, "su último valor")
+        self.assertEqual(self.api("PUT", f"{url}/no-existe", {"links": {}})[0], 404)
 
     def test_la_cache_de_mallas_guarda_por_hash_y_nada_mas(self):
         digest = "ab" * 32

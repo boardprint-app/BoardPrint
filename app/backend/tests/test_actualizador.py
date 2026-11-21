@@ -152,5 +152,61 @@ class LatestJson(unittest.TestCase):
                 latest_json.aplanar(d)
 
 
+class Notas(unittest.TestCase):
+    """PLAN_EXCEL §3.6: el aviso de actualización lleva las notas del Release. Hasta v0.5.0,
+    `latest.json` se escribía sin ellas y las notas se ponían después con `gh release edit`."""
+
+    def run_script(self, *args):
+        return subprocess.run([sys.executable, str(REPO / "scripts" / "latest_json.py"), *args],
+                              capture_output=True, text=True, encoding="utf-8")
+
+    def test_el_latest_json_lleva_las_notas_del_fichero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "release"
+            d.mkdir()
+            (d / "BoardPrint_0.6.0_x64-setup.exe").write_bytes(b"x")
+            (d / "BoardPrint_0.6.0_x64-setup.exe.sig").write_text("FIRMA", encoding="utf-8")
+            notes = Path(tmp) / "notas.md"
+            notes.write_text("## New since v0.5.0\n\n- Link arrow «Excel»\n", encoding="utf-8")
+            r = self.run_script(str(d), "0.6.0", "--notas", str(notes))
+            self.assertEqual(r.returncode, 0, r.stderr)
+            got = json.loads((d / "latest.json").read_text(encoding="utf-8"))
+        self.assertEqual(got["notes"], "## New since v0.5.0\n\n- Link arrow «Excel»\n")
+
+    def test_poner_notas_cambia_solo_las_notas_de_un_latest_json_ya_publicado(self):
+        # Lo que hace el workflow `notas` cuando se edita el Release (`gh release edit`).
+        with tempfile.TemporaryDirectory() as tmp:
+            latest = Path(tmp) / "latest.json"
+            before = {"version": "0.6.0", "notes": "BoardPrint installer.", "pub_date": "2026-11-21T10:00:00Z",
+                      "platforms": {"windows-x86_64": {"signature": "FIRMA", "url": "https://x/y.exe"}}}
+            latest.write_text(json.dumps(before), encoding="utf-8")
+            notes = Path(tmp) / "body.md"
+            notes.write_text("Notas nuevas", encoding="utf-8")
+            r = self.run_script("--poner-notas", str(latest), "--notas", str(notes))
+            self.assertEqual(r.returncode, 0, r.stderr)
+            got = json.loads(latest.read_text(encoding="utf-8"))
+        self.assertEqual(got, {**before, "notes": "Notas nuevas"})
+
+    def test_poner_notas_sin_notas_se_niega(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            latest = Path(tmp) / "latest.json"
+            latest.write_text("{}", encoding="utf-8")
+            self.assertNotEqual(self.run_script("--poner-notas", str(latest)).returncode, 0)
+        self.assertNotEqual(self.run_script().returncode, 0, "sin carpeta ni versión")
+
+    def test_los_workflows_las_ponen_al_crear_y_al_editar_el_release(self):
+        app = (REPO / ".github" / "workflows" / "app.yml").read_text(encoding="utf-8")
+        step = app[app.index("- name: latest.json"):app.index("- name: Release v")]
+        self.assertIn("--notas", step, "latest.json con las mismas notas que el Release")
+        notas = (REPO / ".github" / "workflows" / "notas.yml").read_text(encoding="utf-8")
+        self.assertIn("types: [edited]", notas)
+        self.assertIn("--poner-notas", notas)
+        self.assertIn("--clobber", notas)
+        uses = [ln.strip() for ln in notas.splitlines() if "github.event.release.body" in ln]
+        self.assertTrue(uses)
+        for ln in uses:     # el cuerpo va en una variable de entorno, nunca pegado en el script
+            self.assertRegex(ln, r"^[A-Z_]+: \$\{\{ github\.event\.release\.body \}\}$")
+
+
 if __name__ == "__main__":
     unittest.main()

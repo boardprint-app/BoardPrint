@@ -54,6 +54,17 @@ export const linkParam = (block: string, param: string, card: string | null, nam
   call<{ links: Record<string, unknown> }>(`/blocks/${encodeURIComponent(block)}/links`, "POST",
                                            card ? { param, card, name } : { param });
 
+/** La flecha de enlace (PLAN_EXCEL §3.6): los enlaces del bloque con la tarjeta de Excel pasan
+ *  a ser `links` = `{parámetro: nombre}`, todos o ninguno (una pareja que no vale sale en el
+ *  aviso, 422). Lo de esa tarjeta que no viene se desenlaza. */
+export const setPairLinks = (block: string, cardId: string, links: Record<string, string>) =>
+  call<{ links: Record<string, unknown> }>(`/blocks/${encodeURIComponent(block)}/links/${encodeURIComponent(cardId)}`,
+                                           "PUT", { links });
+/** Borrar la flecha de enlace: quita sus enlaces; cada parámetro se queda con su último valor. */
+export const removePairLinks = (block: string, cardId: string) =>
+  call<{ links: Record<string, unknown> }>(`/blocks/${encodeURIComponent(block)}/links/${encodeURIComponent(cardId)}`,
+                                           "DELETE");
+
 /** Qué campo de salida va al nombre `name` del Excel `cardId` (PLAN_EXCEL §3.3); `pick` null,
  *  nada. Uno que no vale (la unidad, una fórmula…) sale en el aviso con el motivo (422). */
 export const setWrite = (cardId: string, name: string, pick: { block: string; port: string; field: string } | null) =>

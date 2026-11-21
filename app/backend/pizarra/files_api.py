@@ -20,6 +20,11 @@ explorador las da el shell de Tauri.
     POST /api/projects/<id>/blocks/<b>/links {param,      *Tomar de Excel* (PLAN_EXCEL §3.2):
          card?, name?}                                    enlaza el parámetro a un nombre del
                                                           Excel; sin `card`, quita el enlace
+    PUT  /api/projects/<id>/blocks/<b>/links/<c>          la flecha de enlace (PLAN_EXCEL §3.6):
+         {links: {parámetro: nombre}}                     los enlaces del bloque con esa
+                                                          tarjeta, todos o ninguno
+    DELETE /api/projects/<id>/blocks/<b>/links/<c>        borrar la flecha: quita sus enlaces
+                                                          (cada parámetro, con su último valor)
     POST /api/projects/<id>/cards/<c>/writes {name,       qué campo de salida va a un nombre
          block?, port?, field?}                           del Excel (PLAN_EXCEL §3.3); sin
                                                           `block`, nada
@@ -51,7 +56,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from pizarra import connectors as connectors_mod, desktop, excel_write, files, i18n, packs as packs_mod, pasted
+from pizarra import connectors as connectors_mod, desktop, excel_links, excel_write, files, i18n, packs as packs_mod, pasted
 from pizarra.storage import StorageError
 from pizarra.validation import ValidationError
 
@@ -106,6 +111,10 @@ class LinkIn(BaseModel):
     param: str
     card: str | None = None         # sin tarjeta: quitar el enlace
     name: str | None = None
+
+
+class PairIn(BaseModel):
+    links: dict[str, str] = {}      # {parámetro: nombre}; lo que no viene se desenlaza
 
 
 class WriteIn(BaseModel):
@@ -324,6 +333,26 @@ def register(app, *, board_for, board_changed, probe_now, mesh_dir=None):
         else:
             await _in_thread(checked, board.link_param, bid, body.param, body.card,
                              body.name or "")
+        await board_changed(board, session, [])
+        return {"links": board.blocks_view()["blocks"].get(bid, {}).get("links") or {}}
+
+    @app.put("/api/projects/{pid}/blocks/{bid}/links/{cid}")
+    async def put_pair(pid: str, bid: str, cid: str, body: PairIn):
+        """La flecha de enlace de la tarjeta `cid` al bloque (PLAN_EXCEL §3.6): sus enlaces
+        pasan a ser `links`, todos o ninguno (una pareja que no vale es un 422 con el motivo).
+        Devuelve los enlaces del bloque."""
+        board, session = board_for(pid)
+        card_of(board, cid)
+        await _in_thread(checked, excel_links.set_pair, board, bid, cid, body.links)
+        await board_changed(board, session, [])
+        return {"links": board.blocks_view()["blocks"].get(bid, {}).get("links") or {}}
+
+    @app.delete("/api/projects/{pid}/blocks/{bid}/links/{cid}")
+    async def delete_pair(pid: str, bid: str, cid: str):
+        """Borrar la flecha de enlace: quita los enlaces del bloque con la tarjeta `cid` (que
+        puede no estar ya en la pizarra); cada parámetro se queda con su último valor."""
+        board, session = board_for(pid)
+        checked(excel_links.unlink_card, board, bid, cid)
         await board_changed(board, session, [])
         return {"links": board.blocks_view()["blocks"].get(bid, {}).get("links") or {}}
 

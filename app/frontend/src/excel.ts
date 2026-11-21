@@ -5,6 +5,7 @@
 // motivo); aquí solo se decide qué se ofrece, y nunca se ofrece lo que él negaría. También lo
 // puro de escribir las salidas en una copia (§3.3): dónde, qué campo y si el botón deja.
 import { t } from "./i18n";
+import type { ParamSpec } from "./store";
 
 /** Un nombre definido del Excel, como lo da `sources_view()[tarjeta].names`. */
 export type ExcelName = {
@@ -53,6 +54,15 @@ export const compatible = (sfx: string, unit: string) => unitProblem(sfx, unit) 
 /** Lo que necesita saber *Tomar de Excel* de un parámetro: su unidad, si es número o texto y,
  *  si es una lista, sus valores. */
 export type ParamKind = { unit: string; kind: "number" | "text"; choices?: string[] };
+
+/** Lo que *Tomar de Excel* necesita de un parámetro, o null si no se puede tomar de un Excel
+ *  (un control especial, un sí/no, una lista de nodos). */
+export function paramKind(spec: ParamSpec): ParamKind | null {
+  if (spec.widget) return null;
+  if (spec.default === null || typeof spec.default === "number") return { unit: spec.unit, kind: "number" };
+  if (typeof spec.default === "string") return { unit: spec.unit, kind: "text", choices: spec.choices };
+  return null;
+}
 
 /** ¿Puede el nombre `n` dar valor a un parámetro así? Nunca lo de X3; la unidad tiene que
  *  casar; y un valor que ya se conoce, ser del tipo del parámetro (un texto, solo a un texto y

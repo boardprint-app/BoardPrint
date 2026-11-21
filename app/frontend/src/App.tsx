@@ -53,6 +53,7 @@ import { askAgent, handleThreadMessage, threadError } from "./threadActions";
 import { useAskInContextMenu } from "./askMenu";
 import { FolderView } from "./FolderView";
 import { FolderArrows } from "./FolderArrows";
+import { ExcelArrows } from "./ExcelArrows";
 import { Preview } from "./Preview";
 import { addCards } from "./cardActions";
 import { previewKind, type Content } from "./cards";
@@ -879,6 +880,7 @@ export function ProjectBoard({ projectId, onHome, skin, onSkin }: Props) {
       {api && <InkLayer api={api} filter={skinInkFilter(skinOf(skin))} cardFilter={cardInkFilter(skinOf(skin))} />}
       {api && <ConnectLayer api={api} />}
       {api && <FolderArrows api={api} onOverwrite={setOverwrite} />}
+      {api && <ExcelArrows api={api} />}
       {menu && <CardMenu target={menu} onClose={() => setMenu(null)} onRemove={removeCard}
                          onAsk={(ids) => api && askAgent(api, ids)} api={api} />}
       {api && preview && (() => {

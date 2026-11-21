@@ -183,6 +183,41 @@ html, body, #root, .app { height: 100%; margin: 0; }
 .xl-menu button code { grid-row: 2; font: 11px ui-monospace, Consolas, monospace; color: var(--ui-muted); }
 .xl-menu button em { grid-row: 1 / 3; grid-column: 2; align-self: center; font-style: normal; white-space: nowrap;
   font-variant-numeric: tabular-nums; color: var(--ui-muted); }
+/* La flecha de enlace de un Excel a un bloque (PLAN_EXCEL §3.6): discontinua, del verde del
+   Excel, con «3 enlaces»; no es de la escena (ExcelArrows.tsx). La línea fina se pinta y la
+   gruesa transparente es la que recibe el clic. */
+.xl-arrows { --xl: #2f9e5c; }
+.xl-arrow { fill: none; stroke: var(--xl); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+.xl-arrows .on .xl-arrow { stroke-width: 3; }
+.xl-arrow-tip { fill: var(--xl); }
+.xl-arrow-hit { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; }
+.app.tool-other .xl-arrow-hit, .app.tool-other .xl-arrow-label { pointer-events: none; }
+.xl-arrow-label { pointer-events: auto; white-space: nowrap; font: 600 11.5px var(--f-ui); cursor: pointer;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1.5px dashed #2f9e5c; border-radius: 10px; padding: 2px 8px; }
+.xl-arrow-label.on { border-style: solid; box-shadow: 0 0 0 2px color-mix(in srgb, #2f9e5c 35%, transparent); }
+.xl-arrow-pop { width: 300px; }
+.xl-arrow-pop .fr > span:first-child { font: 12.5px var(--f-ui); }
+.xl-arrow-pop code { font: 12px ui-monospace, Consolas, monospace; color: #2f9e5c; white-space: nowrap; }
+.xl-arrow-pop code.bad { color: var(--b-err, #e03131); }
+.xl-arrow-btns, .xl-link-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.xl-btn { min-height: 26px; padding: 0 10px; border-radius: 6px; cursor: pointer; border: 1px solid var(--ui-line);
+  background: transparent; color: inherit; font: 600 12px var(--f-ui); }
+.xl-btn:hover:not(:disabled) { background: var(--ui-hover); }
+.xl-btn.main { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+/* Dentro de `.xl-menu` sus botones son filas: aquí, botones normales. */
+.xl-link-btns .xl-btn { width: auto; display: inline-flex; align-items: center; padding: 0 12px; }
+.xl-link-btns .xl-btn.main, .xl-link-btns .xl-btn.main:hover { background: var(--accent); color: var(--accent-fg); }
+.xl-btn:disabled { opacity: .5; cursor: default; }
+/* Su menú: una fila por parámetro con los nombres que casan. */
+.xl-link-menu { width: 360px; max-width: calc(100vw - 16px); gap: 6px; padding: 10px 12px; }
+.xl-link-title { font-weight: 700; overflow-wrap: anywhere; }
+.xl-link-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 2px 8px; align-items: center; }
+.xl-link-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xl-link-row select { width: 100%; min-width: 0; padding: 3px 4px; font: inherit; color: inherit; background: var(--ui-bg);
+  border: 1px solid var(--ui-line); border-radius: 5px; }
+.xl-link-row select option { background: var(--ui-bg); color: var(--ui-fg); }
+.xl-link-row em { grid-column: 2; font-style: normal; font-size: 11.5px; color: var(--ui-muted); }
+.xl-link-btns { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--ui-line); }
 /* Excalidraw pinta `input[type=text]` a su manera (oscuro y alto): aquí manda la tarjeta. */
 .excalidraw .block-params input[type="text"], .excalidraw .bo-row input[type="text"] {
   height: auto; padding: 2px 4px; font: inherit; color: inherit; border-radius: 4px;
@@ -655,6 +690,10 @@ html, body, #root, .app { height: 100%; margin: 0; }
   background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line);
   box-shadow: 0 6px 24px rgba(0,0,0,.35); font: 13px var(--f-ui); max-width: calc(100vw - 32px); }
 .pull-error button { display: block; margin-top: 6px; }
+/* Las notas del Release en el aviso (PLAN_EXCEL §3.6): debajo, a todo lo ancho, con scroll. */
+.update-banner:has(.update-notes) { flex-wrap: wrap; width: min(560px, calc(100vw - 32px)); }
+.update-notes { flex-basis: 100%; max-height: 50vh; overflow: auto; padding: 8px 6px 4px 0;
+  border-top: 1px solid var(--ui-line); line-height: 1.45; }
 
 /* La barra de herramientas de Excalidraw va abajo, en el centro (R37): arriba la tapaba la
    píldora del proyecto. Con ella bajan su pista («Para mover el lienzo…») y el desplegable de

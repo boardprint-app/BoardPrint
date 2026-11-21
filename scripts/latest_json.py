@@ -1,6 +1,7 @@
 """El `latest.json` del actualizador (docs/PLAN_V020.md §4, V9-V12).
 
     python scripts/latest_json.py <carpeta con los instaladores> 0.2.0 [--notas notas.md]
+    python scripts/latest_json.py --poner-notas latest.json --notas notas.md
 
 Mira en la carpeta los instaladores que tienen su firma al lado (`<nombre>.sig`, la que deja
 `tauri build` con `createUpdaterArtifacts` y la clave en `TAURI_SIGNING_PRIVATE_KEY`) y escribe
@@ -11,6 +12,11 @@ Antes saca a la raíz de la carpeta lo que venga en subcarpetas (`aplanar`): el 
 de App sube `release/*` tal cual, y desde el 20/11 `upload-artifact` guarda cada instalador
 bajo su carpeta de `bundle/` (`nsis/`, `dmg/`, `macos/`): sin aplanar, v0.2.2 no encontraba
 ninguna firma (PLAN_PUBLICACION §4.5).
+
+Las notas son las del Release, y el aviso de actualización las enseña (PLAN_EXCEL §3.6). El job
+*publicar* las pasa con `--notas` al crearlo, y el workflow `notas` las vuelve a poner con
+`--poner-notas` cada vez que se edita el Release (`gh release edit --notes-file`): solo cambia
+`notes` del `latest.json` ya publicado, con las firmas y las URL tal cual.
 """
 import argparse
 import json
@@ -51,13 +57,31 @@ def build(folder, version, notes="", pub_date=None):
             "platforms": platforms}
 
 
+def set_notes(latest, notes):
+    """Cambia solo las notas del `latest.json` de `latest`."""
+    latest = Path(latest)
+    data = json.loads(latest.read_text(encoding="utf-8"))
+    data["notes"] = notes
+    latest.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("carpeta")
-    ap.add_argument("version")
+    ap.add_argument("carpeta", nargs="?")
+    ap.add_argument("version", nargs="?")
     ap.add_argument("--notas", help="fichero con las notas del Release")
+    ap.add_argument("--poner-notas", metavar="LATEST_JSON",
+                    help="solo cambia las notas de un latest.json ya escrito (con --notas)")
     a = ap.parse_args()
     notes = Path(a.notas).read_text(encoding="utf-8") if a.notas else ""
+    if a.poner_notas:
+        if not a.notas:
+            ap.error("--poner-notas necesita --notas")
+        set_notes(a.poner_notas, notes)
+        print(f"{a.poner_notas}: notas puestas ({len(notes)} caracteres)")
+        raise SystemExit(0)
+    if not a.carpeta or not a.version:
+        ap.error("faltan la carpeta y la versión")
     aplanar(a.carpeta)
     data = build(a.carpeta, a.version, notes)
     if not data["platforms"]:

@@ -62,6 +62,7 @@ export const EN: Record<string, string> = {
   "actualizar.buscando": "Checking…",
   "actualizar.instalar": "Install and restart",
   "actualizar.ahora_no": "Not now",
+  "actualizar.novedades": "What's new",
   "actualizar.aviso": "BoardPrint {version} is available.",
   "actualizar.disponible": "A new version is available: {version} (you have {actual}).",
   "actualizar.al_dia": "You have the latest version ({actual}).",

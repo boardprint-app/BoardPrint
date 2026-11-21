@@ -140,23 +140,30 @@ jobs:
           path: release
           pattern: instalador-*
           merge-multiple: true
-      # El actualizador busca el último Release y su latest.json (PLAN_V020 §4).
-      - name: latest.json
-        run: python3 scripts/latest_json.py release "${{ inputs.version }}"
-      - name: Release v${{ inputs.version }}
+      # Las notas, de docs/releases/v<versión>.md si existe. En el repo público no está (O20):
+      # salen unas genéricas y se cambian luego con `gh release edit --notes-file`, y el
+      # workflow `notas` las copia entonces al latest.json (PLAN_EXCEL §3.6).
+      - name: Notas
         env:
-          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "La versión tiene que ser X.Y.Z (es «$VERSION»)"; exit 1
           fi
-          ls -l release
-          # las notas, de docs/releases/v<versión>.md si existe (no está en el repo público, O20: se ponen luego con gh release edit)
-          NOTES="docs/releases/v$VERSION.md"
-          if [ ! -f "$NOTES" ]; then
+          if [ -f "docs/releases/v$VERSION.md" ]; then
+            cp "docs/releases/v$VERSION.md" /tmp/notes.md
+          else
             echo "BoardPrint installer. The app ships without packs: install one (a folder or a .bppack) from Settings, Packs." > /tmp/notes.md
-            NOTES=/tmp/notes.md
           fi
+      # El actualizador busca el último Release y su latest.json (PLAN_V020 §4), con las
+      # mismas notas que el Release: las enseña el aviso de versión nueva.
+      - name: latest.json
+        run: python3 scripts/latest_json.py release "${{ inputs.version }}" --notas /tmp/notes.md
+      - name: Release v${{ inputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          ls -l release
           gh release create "v$VERSION" release/* --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" --title "BoardPrint $VERSION" --notes-file "$NOTES"
+            --target "$GITHUB_SHA" --title "BoardPrint $VERSION" --notes-file /tmp/notes.md

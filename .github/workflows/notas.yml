@@ -1,0 +1,38 @@
+# Las notas del aviso de actualización (docs/PLAN_EXCEL.md §3.6). El aviso enseña las `notes`
+# del `latest.json` del último Release, y ese fichero se escribe al crear el Release, antes de
+# que sus notas de verdad se pongan con `gh release edit --notes-file` (el repo público no tiene
+# `docs/releases/`, O20). Cada vez que se edita un Release que lleva `latest.json`, este job le
+# pone el cuerpo del Release como notas y lo vuelve a subir; las firmas y las URL no cambian.
+# Lo que hace el propio job (con `GITHUB_TOKEN`) no lanza otro run.
+
+name: Notas del Release
+
+on:
+  release:
+    types: [edited]
+
+concurrency:
+  group: notas-${{ github.event.release.tag_name }}
+  cancel-in-progress: true
+
+jobs:
+  notas:
+    name: Notas en latest.json
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Notas en latest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          BODY: ${{ github.event.release.body }}
+        run: |
+          mkdir -p /tmp/rel
+          if ! gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir /tmp/rel; then
+            echo "El Release $TAG no lleva latest.json: nada que hacer"; exit 0
+          fi
+          printf '%s' "$BODY" > /tmp/notes.md
+          python3 scripts/latest_json.py --poner-notas /tmp/rel/latest.json --notas /tmp/notes.md
+          gh release upload "$TAG" /tmp/rel/latest.json --repo "$GITHUB_REPOSITORY" --clobber

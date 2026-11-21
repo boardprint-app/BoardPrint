@@ -87,14 +87,30 @@ def names_view(book):
             for n in book.names.values()]
 
 
-def _spec(board, block_id, param):
+def _block(board, block_id):
     block = graph.blocks_in(board.elements, board.registry).get(block_id)
     if block is None:
         raise validation.ValidationError(i18n.t("bloque.no_existe", id=repr(block_id)))
+    return block
+
+
+def _spec(board, block_id, param):
+    block = _block(board, block_id)
     spec = board.registry[block["customData"]["blockType"]].params.get(param)
     if spec is None:
         raise validation.ValidationError(i18n.t("excel.parametro_no_existe", parametro=repr(param)))
     return spec
+
+
+def _label(board, block_id, spec, param):
+    """La etiqueta del parámetro para un motivo, en el idioma de la app: la del paquete,
+    traducida con su catálogo (O15, la entrada exacta) si lo tiene. Sin ella, en inglés el
+    motivo empezaba por la etiqueta en español (PLAN_EXCEL §3.6)."""
+    label = spec.label or param
+    pack_of = getattr(board.registry, "pack_of", None)
+    info = pack_of(_block(board, block_id)["customData"]["blockType"]) if pack_of else None
+    catalog = (getattr(info, "i18n", None) or {}).get(i18n.language()) or {}
+    return catalog.get(label, label)
 
 
 def resolve(board, block_id, param, link):
@@ -105,8 +121,8 @@ def resolve(board, block_id, param, link):
 
     def fail(key, **kw):
         return {"value": None, "hash": None, "where": None,
-                "reason": i18n.t("excel.enlace", parametro=spec.label or param, nombre=name,
-                                 motivo=i18n.t(key, **kw) if key else kw["motivo"])}
+                "reason": i18n.t("excel.enlace", parametro=_label(board, block_id, spec, param),
+                                 nombre=name, motivo=i18n.t(key, **kw) if key else kw["motivo"])}
 
     el = graph.sources_in(board.elements).get(cid)
     if el is None:
@@ -193,18 +209,22 @@ def view(board):
     return out
 
 
-def link(board, block_id, param, card_id, name):
-    """*Tomar de Excel* (§3.2): enlaza el parámetro con el nombre `name` de la tarjeta
-    `card_id` y le pone ya su valor. Se niega (`ValidationError`, nada cambia) si la tarjeta no
-    es un `.xlsx`/`.xlsm` de la pizarra, si el nombre no existe o no se admite (X3) o si la
-    unidad no casa (X4). Un nombre sin valor sí se enlaza: el bloque queda `incompleto`."""
-    spec = _spec(board, block_id, param)
+def _excel_book(board, card_id):
+    """El `Book` recién sondeado de la tarjeta de Excel `card_id` (None sin hash), o
+    `ValidationError` si no es un `.xlsx`/`.xlsm` de la pizarra."""
     el = board.card(card_id)
-    path = board.card_path(el)
     if not is_excel_card(board, el):
-        raise validation.ValidationError(i18n.t("excel.no_es_excel", archivo=path.name))
-    book = refresh(board, card_id)
-    label = spec.label or param
+        raise validation.ValidationError(i18n.t("excel.no_es_excel", archivo=board.card_path(el).name))
+    return refresh(board, card_id)
+
+
+def _check(board, block_id, param, card_id, name, book):
+    """`ValidationError` con el motivo si el parámetro no se puede enlazar con el nombre `name`
+    del `book` de la tarjeta `card_id`: el nombre no existe o no se admite (X3), o la unidad no
+    casa (X4). Un nombre sin valor sí se enlaza: el bloque queda `incompleto`."""
+    spec = _spec(board, block_id, param)
+    path = board.card_path(board.card(card_id))
+    label = _label(board, block_id, spec, param)
 
     def refuse(motivo):
         raise validation.ValidationError(i18n.t("excel.enlace", parametro=label, nombre=name,
@@ -227,10 +247,49 @@ def link(board, block_id, param, card_id, name):
         refuse(i18n.t(f"excel.unidad.{exc.code}", **exc.vars))
     except validation.ValidationError as exc:
         refuse(str(exc))
+
+
+def link(board, block_id, param, card_id, name):
+    """*Tomar de Excel* (§3.2): enlaza el parámetro con el nombre `name` de la tarjeta
+    `card_id` y le pone ya su valor. Se niega (`ValidationError`, nada cambia) si la tarjeta no
+    es un `.xlsx`/`.xlsm` de la pizarra o por lo de `_check`."""
+    _spec(board, block_id, param)
+    _check(board, block_id, param, card_id, name, _excel_book(board, card_id))
     st_block = board.state.setdefault(block_id, {})
     st_block["links"] = {**(st_block.get("links") or {}), param: {"card": card_id, "name": name}}
     apply(board)
     return view(board)[block_id][param]
+
+
+def set_pair(board, block_id, card_id, names):
+    """La flecha de enlace (§3.6): los enlaces del bloque con la tarjeta `card_id` pasan a ser
+    `names` = `{parámetro: nombre}`, con su valor ya puesto. Lo que estaba enlazado a esa
+    tarjeta y no viene en `names` se desenlaza (con su último valor); lo enlazado a otra no se
+    toca, salvo que venga en `names` (pasa a esta). Todo o nada: con una pareja que no vale,
+    `ValidationError` con su motivo y nada cambia. Sin `names`, borrar la flecha. Devuelve la
+    vista de los enlaces del bloque."""
+    _block(board, block_id)
+    for param in names:
+        _spec(board, block_id, param)
+    if names:
+        book = _excel_book(board, card_id)
+        for param, name in names.items():
+            _check(board, block_id, param, card_id, name, book)
+    st = board.state.setdefault(block_id, {})
+    links = {p: v for p, v in (st.get("links") or {}).items() if v.get("card") != card_id}
+    links.update({p: {"card": card_id, "name": n} for p, n in names.items()})
+    if links:
+        st["links"] = links
+    else:
+        st.pop("links", None)
+    apply(board)
+    return view(board).get(block_id, {})
+
+
+def unlink_card(board, block_id, card_id):
+    """Borrar la flecha de enlace (§3.6): quita todos los enlaces del bloque con la tarjeta
+    `card_id`; cada parámetro se queda con su último valor, como con *Quitar enlace*."""
+    return set_pair(board, block_id, card_id, {})
 
 
 def unlink(board, block_id, param):

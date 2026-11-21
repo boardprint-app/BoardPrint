@@ -8,7 +8,7 @@ import { apiFetch } from "./auth";
 
 import { parseState, UNKNOWN, type UpdateState } from "./updateState";
 
-export { canInstall, showBanner, statusText, type UpdateState } from "./updateState";
+export { canInstall, notesOf, showBanner, statusText, type UpdateState } from "./updateState";
 
 const DISMISSED = "boardprint.update.dismissed";
 

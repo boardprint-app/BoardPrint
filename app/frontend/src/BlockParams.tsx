@@ -7,14 +7,15 @@ import { useEffect, useState } from "react";
 import { send } from "./socket";
 import { t } from "./i18n";
 import { fmt } from "./BlockOutputs";
+import { choiceWidth } from "./block";
 import { ArchivoStep } from "./ArchivoStep";
 import { linkedFile } from "./cards";
 import { widgetPack } from "./packui";
 import type { Proposal } from "./proposal";
-import { useStore, type BlockState, type BlockType, type ParamSpec } from "./store";
+import { useStore, type BlockState, type BlockType } from "./store";
 import { useUnits } from "./appSettings";
 import { commitText, editText, shownUnit, toShown, type UnitPrefs } from "./units";
-import { hasExcel, linkOf, type ParamKind } from "./excel";
+import { hasExcel, linkOf, paramKind } from "./excel";
 import { ExcelMenuButton, LinkedParam } from "./ExcelLink";
 
 // Sugerencia de un campo de texto vacío: lo que el bloque dio en una salida del mismo sentido
@@ -67,15 +68,6 @@ function shownNumber(v: unknown, unit: string, prefs: UnitPrefs) {
   return typeof v === "number" ? toShown(v, unit, prefs) : v;
 }
 
-/** Lo que *Tomar de Excel* necesita de un parámetro, o null si no se puede tomar de un Excel
- *  (un control especial, un sí/no, una lista de nodos). */
-export function paramKind(spec: ParamSpec): ParamKind | null {
-  if (spec.widget) return null;
-  if (spec.default === null || typeof spec.default === "number") return { unit: spec.unit, kind: "number" };
-  if (typeof spec.default === "string") return { unit: spec.unit, kind: "text", choices: spec.choices };
-  return null;
-}
-
 export function BlockParams({ id, ty, st, params, setDraft, commit, prop }: Props) {
   const prefs = useUnits();
   const { sources } = useStore();
@@ -116,16 +108,22 @@ export function BlockParams({ id, ty, st, params, setDraft, commit, prop }: Prop
                        shown={fmt(shownNumber(params[name], spec.unit, prefs))} unitShown={shownUnit(spec.unit, prefs)}
                        card={sources[link.card]} />
         );
+        // Una lista con un texto que no cabe en el campo de siempre va a todo lo ancho, del
+        // largo de su texto más largo (PLAN_EXCEL §3.6), y lo elegido se ve entero al pasar.
+        const choiceLabel = (c: string) => spec.choice_labels?.[c] ?? c;
+        const choiceW = spec.choices.length ? choiceWidth(spec.choices.map(choiceLabel)) : null;
+        const chosen = String(params[name] ?? spec.default);
         return (
-        <label key={name} data-param={name} className={spec.widget || (typeof spec.default === "string" && !spec.choices.length) ? "wide" : undefined}>
+        <label key={name} data-param={name} className={spec.widget || choiceW || (typeof spec.default === "string" && !spec.choices.length) ? "wide" : undefined}>
           <span>{spec.label || name}</span>
           {spec.widget === "archivo_step" ? (
             <ArchivoStep value={String(params[name] ?? "")} onChange={(p) => commit(name, p)}
                          linked={linkedFile(ty.inputs, st?.inputs)} />
           ) : spec.choices.length ? (
-            <select value={String(params[name] ?? spec.default)}
+            <select value={chosen} title={choiceLabel(chosen)}
+                    style={choiceW ? { width: `min(100%, ${choiceW}ch)` } : undefined}
                     onChange={(e) => commit(name, e.target.value)}>
-              {spec.choices.map((c) => <option key={c} value={c}>{spec.choice_labels?.[c] ?? c}</option>)}
+              {spec.choices.map((c) => <option key={c} value={c}>{choiceLabel(c)}</option>)}
             </select>
           ) : typeof spec.default === "string" ? (
             // Texto (D115: el nombre del documento). Vacío = el de por defecto, que se ve

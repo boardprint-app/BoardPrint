@@ -793,6 +793,11 @@ def set_language(language):
     _language = language if language in CATALOGS else "es"
 
 
+def language():
+    """El idioma de la app ahora (`es` o `en`)."""
+    return _language
+
+
 class _Keep(dict):
     def __missing__(self, key):
         return "{" + key + "}"

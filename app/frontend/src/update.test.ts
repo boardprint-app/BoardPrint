@@ -3,7 +3,7 @@
 // cuenta como desconocido, nunca como un fallo.
 import { describe, expect, it } from "vitest";
 import { setLanguage } from "./i18n";
-import { canInstall, parseState, showBanner, statusText } from "./updateState";
+import { canInstall, notesOf, parseState, showBanner, statusText } from "./updateState";
 
 describe("actualizador", () => {
   it("el aviso sale solo con una versión nueva que no se dejó para luego", () => {
@@ -14,6 +14,18 @@ describe("actualizador", () => {
     expect(showBanner({ estado: "al_dia", actual: "0.2.0" }, null)).toBe(false);
     expect(showBanner({ estado: "error", motivo: "sin red" }, null)).toBe(false);
     expect(showBanner({ estado: "disponible" }, null)).toBe(false);
+  });
+
+  it("el aviso enseña las notas del Release que trae el latest.json (PLAN_EXCEL §3.6)", () => {
+    expect(notesOf({ estado: "disponible", version: "0.6.0", notas: "## New since v0.5.0\n- Link arrow\n" }))
+      .toBe("## New since v0.5.0\n- Link arrow");
+    // las líneas cortadas a mano de un párrafo o de un punto se unen; los puntos y títulos, no
+    const wrapped = "Intro that\nwraps.\n\n## Title\n- **One** that\n  wraps\n- Two\n\n```\na\nb\n```";
+    expect(notesOf({ estado: "disponible", version: "0.6.0", notas: wrapped }))
+      .toBe("Intro that wraps.\n\n## Title\n- **One** that wraps\n- Two\n\n```\na\nb\n```");
+    expect(notesOf({ estado: "disponible", version: "0.6.0", notas: "  " })).toBeNull();
+    expect(notesOf({ estado: "disponible", version: "0.6.0", notas: null })).toBeNull();
+    expect(notesOf({ estado: "disponible", version: "0.6.0" })).toBeNull();
   });
 
   it("instalar solo con una versión nueva y nada instalándose ya", () => {

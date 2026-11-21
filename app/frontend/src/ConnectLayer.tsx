@@ -10,7 +10,8 @@
 // carpeta recibe las salidas de un bloque (D109): desde un enchufe de salida, solo esa salida;
 // desde la carpeta soltada en un bloque, todas. Su etiqueta la pinta FolderArrows. La entrada de
 // un Excel recibe la flecha de escritura de un bloque (PLAN_EXCEL §3.3): qué campo va a cada
-// nombre se elige en la tarjeta.
+// nombre se elige en la tarjeta. La salida de un Excel soltada en un bloque sin entrada que la
+// acepte abre el menú de enlace (PLAN_EXCEL §3.6, ExcelArrows): sus nombres a sus parámetros.
 import { useEffect, useState, type CSSProperties } from "react";
 import { viewportCoordsToSceneCoords } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
@@ -23,6 +24,8 @@ import { accepts } from "./cards";
 import { t } from "./i18n";
 import { tp } from "./packI18n";
 import { compatibleInputs, labelSpot, portColor, type Pt, type Side } from "./ports";
+import { dropOnBlock } from "./excelPairs";
+import { openLinkMenu } from "./ExcelArrows";
 
 type End = { block: string; port: string; side: Side; type: string; kind: string };
 type Drag = { from: End; start: Pt; at: Pt; hover: End | null };
@@ -77,6 +80,10 @@ export function ConnectLayer({ api }: { api: ExcalidrawImperativeAPI }) {
     if (b && b.side !== a.side && b.block !== a.block) {
       if (inn!.kind === "folder") return toFolder(out!.block, out!.kind, out!.port, elById(inn!.block));
       if (inn!.kind === "file") return toExcel(out!.block, out!.kind, out!.port, elById(inn!.block));
+      // de un Excel a una entrada que no lo acepta: sus nombres a los parámetros del bloque
+      if (!accepts(inn!.type, out!.type) && out!.kind === "file" && inn!.kind === "block" && isExcelEl(elById(out!.block) ?? ({} as ExcalidrawElement))) {
+        return openLinkMenu({ card: out!.block, block: inn!.block, at });
+      }
       if (!accepts(inn!.type, out!.type)) {
         return setStore({ lastError: t("bloques.conexion.tipo_distinto", { a: out!.port, ta: out!.type, b: inn!.port, tb: inn!.type }) });
       }
@@ -115,8 +122,10 @@ export function ConnectLayer({ api }: { api: ExcalidrawImperativeAPI }) {
     if (a.side === "out") {
       const options = compatibleInputs(a.type, ty.inputs, Object.keys(getStore().blocks[overBlock.id]?.inputs ?? {}));
       const src = elById(a.block)!;
-      if (options.length === 1) return addConnection(api, types, src, a.port, overBlock, options[0]);
-      if (options.length > 1) return setMenu({ at, src, outPort: a.port, dst: overBlock, options, type: a.type });
+      const act = dropOnBlock(a.kind === "file" && isExcelEl(src), options.length);
+      if (act === "connect") return addConnection(api, types, src, a.port, overBlock, options[0]);
+      if (act === "inputs") return setMenu({ at, src, outPort: a.port, dst: overBlock, options, type: a.type });
+      if (act === "link") return openLinkMenu({ card: a.block, block: overBlock.id, at });
       return setStore({ lastError: t("bloques.conexion.sin_entrada_libre", { title: ty.title, type: a.type }) });
     }
     // Desde una entrada, soltada en un bloque: su única salida de ese tipo.
