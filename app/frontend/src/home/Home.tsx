@@ -7,7 +7,9 @@ import { t } from "../i18n";
 import { openSettings } from "../settings";
 import { ContextMenu, MoveDialog, NameDialog, TrashDialog, type MenuItem } from "./Dialogs";
 import { LibraryDialog } from "./LibraryDialog";
+import { NewWorkspaceDialog } from "./NewWorkspaceDialog";
 import { countProjects, crumbs, findFolder, folderSummary, moveTargets, search, timeAgo, type TreeNode } from "./tree";
+import { WorkspaceMenu } from "./WorkspaceMenu";
 import "./home.css";
 
 type Recent = { id: string; name: string; exists: boolean; folder?: string; modified?: number; thumbnail?: boolean };
@@ -81,6 +83,9 @@ export function Home({ missing, problem, onOpen }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   const [library, setLibrary] = useState(false);      // *Librería* (PLAN_V020 §5)
+  // *Nuevo workspace* (PLAN_WORKSPACES W6), con la carpeta base; y la espera al cambiar (W3)
+  const [newWs, setNewWs] = useState<{ base: string | null } | null>(null);
+  const [switching, setSwitching] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -168,7 +173,16 @@ export function Home({ missing, problem, onOpen }: Props) {
     return (
       <main className="home">
         <h1>{error ? t("lienzo.inicio.no_workspace") : t("lienzo.inicio.abriendo")}</h1>
+        {/* sin workspace (su carpeta falta), la lista sirve para abrir o crear otro (W6) */}
+        {error && (
+          <div className="home-head">
+            <WorkspaceMenu label={t("workspaces.elegir")} disabled={switching !== null} onError={setError}
+                           onBusy={setSwitching} onNew={(base) => setNewWs({ base })} />
+          </div>
+        )}
+        {switching && <div className="notice" role="status"><p>{switching}</p></div>}
         {error && <div className="notice" role="alert"><p>{error}</p></div>}
+        {newWs && <NewWorkspaceDialog base={newWs.base} onClose={() => setNewWs(null)} />}
       </main>
     );
   }
@@ -214,7 +228,8 @@ export function Home({ missing, problem, onOpen }: Props) {
     <main className="home">
       <header className="home-head">
         <h1>{data.app}</h1>
-        <span className="ws-chip">{t("lienzo.inicio.workspace", { nombre: data.workspace.name })}</span>
+        <WorkspaceMenu label={t("lienzo.inicio.workspace", { nombre: data.workspace.name })} disabled={switching !== null} onError={setError}
+                       onBusy={setSwitching} onNew={(base) => setNewWs({ base })} />
         <label className="home-search">
           <span className="sr-only">{t("lienzo.inicio.buscar")}</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
@@ -226,6 +241,7 @@ export function Home({ missing, problem, onOpen }: Props) {
         <button className="btn-outline home-settings" onClick={() => openSettings()}>{t("lienzo.inicio.ajustes")}</button>
       </header>
 
+      {switching && <div className="notice" role="status"><p>{switching}</p></div>}
       {missingName !== null && (
         <div className="notice" role="status">
           <p>
@@ -331,6 +347,7 @@ export function Home({ missing, problem, onOpen }: Props) {
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuFor(menu.node)} onClose={() => setMenu(null)} />}
       {library && <LibraryDialog onClose={() => setLibrary(false)} />}
+      {newWs && <NewWorkspaceDialog base={newWs.base} onClose={() => setNewWs(null)} />}
 
       {d?.kind === "new-project" && (
         <NameDialog title={t("lienzo.inicio.nuevo_proyecto")} label={t("lienzo.inicio.nombre")}

@@ -26,6 +26,17 @@ Aplicar sustituye `library/` entera (las fichas que no vienen en el zip se van a
 y, **solo si el zip los trae**, `fabricacion.md`, `proveedores.toml` y `stock.csv`: lo que
 no trae se queda.
 
+**Hacia un workspace nuevo** (PLAN_WORKSPACES W4): `plan(None, ruta, destino="nuevo")` y
+`apply(ws, token, destino="nuevo")` sobre el `LocalWorkspace` recién creado. No hay nada que
+sustituir ni copia previa; si el workspace ya tiene perfil, `Conflict`. El token se ata al
+fichero y al destino (el id del workspace, o «nuevo»): uno de otro destino es `Conflict`.
+
+**Plantillas de sector** (W4, W5): una carpeta `profile_templates/<id>/` con los mismos
+ficheros que la carpeta `perfil/` del zip (`manifest.toml`, con `generica = true` y su
+`[plantilla]`, y `fabricacion.md`); un `<nombre>.<idioma>.md` de la raíz sustituye a
+`<nombre>.md` en ese idioma. `write_template` la empaqueta como un zip, que pasa por el mismo
+`plan`.
+
 **Lo que se valida** (L10): el zip como un `.bppack` (rutas dentro, sin enlaces, cuántos
 ficheros y cuánto pesan) y el `esquema` del manifiesto (uno mayor que `ESQUEMA` no se importa);
 si algo de eso falla, no se escribe nada. Cada ficha pasa la validación de `[meta]` de la
@@ -62,6 +73,10 @@ LIBRARY = "library"
 BROKEN = ".ilegibles"            # en la copia de antes de importar: las fichas que no valen
 FABRICACION_MAX = 20_000         # caracteres del perfil de fabricación (V8, `workspace_api`)
 PLAN_SECONDS = 30 * 60
+DESTINOS = ("actual", "nuevo")   # el workspace abierto, o uno recién creado (PLAN_WORKSPACES W4)
+TEMPLATES_DIR = Path(__file__).resolve().parent / "profile_templates"
+TEMPLATE_ID = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}")
+_VARIANT = re.compile(r"(?P<base>[^/]+)\.(?P<lang>[a-z]{2})(?P<ext>\.[a-z]+)")
 MAX_PLANS = 10
 ARCHIVE_TEXTS = {k: f"perfil_zip.{k}" for k in pack_install.ARCHIVE_TEXTS if k != "id_no_valido"}
 _BAD_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -225,7 +240,7 @@ def _manifest(archivo, raw):
         raise ValidationError(i18n.t("perfil_zip.esquema_mayor", archivo=archivo,
                                      esquema=esquema, max=ESQUEMA))
     return {"esquema": esquema, "app": str(data.get("app") or ""),
-            "fecha": str(data.get("fecha") or "")}
+            "fecha": str(data.get("fecha") or ""), "generica": data.get("generica") is True}
 
 
 def _ficha(parts, key, raw):
@@ -256,18 +271,31 @@ _plans = {}
 _lock = threading.Lock()
 
 
-def _compute(ws, path):
-    """`(resumen, lo leído)` de importar `path` en `ws`."""
-    copies = ws.profile_copy_dir()
-    if copies is None:
+def _destino(destino):
+    if destino not in DESTINOS:
+        raise ValidationError(i18n.t("perfil_zip.destino_no_valido", valor=repr(destino)))
+    return destino
+
+
+def _target(ws, destino):
+    """A qué se ata un token: «nuevo», o el id del workspace (no el objeto, `id(ws)`)."""
+    return "nuevo" if destino == "nuevo" else f"ws:{ws.info().id}"
+
+
+def _compute(ws, path, destino="actual"):
+    """`(resumen, lo leído)` de importar `path` en `ws` o, con `destino="nuevo"`, en un
+    workspace nuevo (sin nada que sustituir ni copia: `ws` no se mira)."""
+    nuevo = _destino(destino) == "nuevo"
+    copies = None if nuevo else ws.profile_copy_dir()
+    if copies is None and not nuevo:
         raise ValidationError(i18n.t("perfil_zip.sin_copia"))
     prof = read(path)
-    cur = ws.list_library_fichas()
+    cur = {} if nuevo else ws.list_library_fichas()
     incoming = {k.casefold() for k in prof["fichas"]}
     tipos = {}
     for type_, _ in prof["fichas"].values():
         tipos[type_] = tipos.get(type_, 0) + 1
-    cur_stock = ws.load_stock()
+    cur_stock = {} if nuevo else ws.load_stock()
     summary = {
         "file": str(path), "nombre": Path(str(path)).name, "manifest": prof["manifest"],
         "fichas": len(prof["fichas"]), "tipos": dict(sorted(tipos.items())),
@@ -279,10 +307,10 @@ def _compute(ws, path):
         "sustituye": {
             "fichas": len(cur),
             "quitadas": sorted((k for k in cur if k.casefold() not in incoming), key=str.casefold),
-            "fabricacion": prof["fabricacion"] is not None
+            "fabricacion": prof["fabricacion"] is not None and not nuevo
                            and ws.load_manufacturing_profile() is not None,
             "stock": len(cur_stock) if prof["stock"] is not None and cur_stock else 0},
-        "copia": str(copies)}
+        "copia": None if nuevo else str(copies), "destino": destino}
     return summary, prof
 
 
@@ -291,10 +319,11 @@ def _digest(summary, prof):
                                      ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
 
 
-def plan(ws, path):
-    """El resumen de importar el perfil `path` en `ws`, con el `token` para aplicarlo. No
-    escribe nada. `ValidationError` si el zip no vale entero."""
-    summary, prof = _compute(ws, path)
+def plan(ws, path, destino="actual"):
+    """El resumen de importar el perfil `path` en `ws` (con `destino="nuevo"`, en un workspace
+    que aún no existe: `ws` puede ser None), con el `token` para aplicarlo. No escribe nada.
+    `ValidationError` si el zip no vale entero o el destino no es uno de `DESTINOS`."""
+    summary, prof = _compute(ws, path, destino)
     token = uuid.uuid4().hex
     now = time.monotonic()
     with _lock:
@@ -303,8 +332,28 @@ def plan(ws, path):
         while len(_plans) >= MAX_PLANS:
             del _plans[min(_plans, key=lambda t: _plans[t]["until"])]
         _plans[token] = {"path": str(path), "digest": _digest(summary, prof),
-                         "until": now + PLAN_SECONDS, "ws": id(ws)}
+                         "until": now + PLAN_SECONDS, "target": _target(ws, destino)}
     return {"token": token, **summary}
+
+
+def _valid(p, ws, destino):
+    """`(resumen, lo leído)` del plan `p` si sigue valiendo para `ws` y `destino`; si no,
+    `Conflict`."""
+    if p is None or p["until"] < time.monotonic() or (ws is None and destino != "nuevo") \
+            or p["target"] != _target(ws, destino):
+        raise Conflict(i18n.t("perfil_zip.plan_caducado"))
+    summary, prof = _compute(ws, p["path"], destino)
+    if _digest(summary, prof) != p["digest"]:
+        raise Conflict(i18n.t("perfil_zip.plan_caducado"))
+    return summary, prof
+
+
+def check_token(token, destino="actual", ws=None):
+    """`Conflict` si `apply` con `token` hacia `destino` no valdría (caducado, de otro destino
+    o con el zip cambiado), sin gastarlo: así no se crea un workspace que luego no se llena."""
+    with _lock:
+        p = _plans.get(token) if isinstance(token, str) else None
+    _valid(p, ws, _destino(destino))
 
 
 def write_copy(ws):
@@ -324,17 +373,21 @@ def write_copy(ws):
     return pack_install.write_zip(dest, files)
 
 
-def apply(ws, token):
-    """Escribe lo del resumen `token` si sigue siendo lo mismo (si no, `Conflict`): primero la
-    copia y después el perfil. Devuelve `{copia, fichas, quitadas, fabricacion, stock}`."""
+def apply(ws, token, destino="actual"):
+    """Escribe en `ws` lo del resumen `token` si sigue siendo lo mismo (si no, `Conflict`):
+    primero la copia y después el perfil. Con `destino="nuevo"`, sin copia, y `Conflict` si
+    `ws` ya tiene perfil. Devuelve `{copia, fichas, quitadas, fabricacion, stock}`."""
+    _destino(destino)
     with _lock:
         p = _plans.pop(token, None) if isinstance(token, str) else None
-    if p is None or p["until"] < time.monotonic() or p["ws"] != id(ws):
-        raise Conflict(i18n.t("perfil_zip.plan_caducado"))
-    summary, prof = _compute(ws, p["path"])
-    if _digest(summary, prof) != p["digest"]:
-        raise Conflict(i18n.t("perfil_zip.plan_caducado"))
-    copia = write_copy(ws)
+    summary, prof = _valid(p, ws, destino)
+    if destino == "nuevo":
+        if (ws.list_library_fichas() or ws.load_manufacturing_profile() is not None
+                or ws.load_providers_text() is not None or ws.load_stock()):
+            raise Conflict(i18n.t("perfil_zip.destino_no_vacio"))
+        copia = None
+    else:
+        copia = write_copy(ws)
     if prof["fabricacion"] is not None:
         ws.save_manufacturing_profile(prof["fabricacion"])
     if prof["proveedores"] is not None:
@@ -347,7 +400,66 @@ def apply(ws, token):
         ws.save_library_ficha(key, type_, text)
     if prof["stock"] is not None:
         ws.save_stock(prof["stock"])
-    return {"copia": str(copia), "fichas": len(prof["fichas"]),
+    return {"copia": None if copia is None else str(copia), "fichas": len(prof["fichas"]),
             "quitadas": len(summary["sustituye"]["quitadas"]),
             "fabricacion": prof["fabricacion"] is not None,
             "proveedores": prof["proveedores"] is not None, "stock": summary["stock"]}
+
+
+# ----------------------------------------------------------- plantillas de sector (W4, W5)
+def _template_dir(template_id):
+    if not isinstance(template_id, str) or not TEMPLATE_ID.fullmatch(template_id) \
+            or not (TEMPLATES_DIR / template_id / MANIFEST).is_file():
+        raise ValidationError(i18n.t("perfil_zip.plantilla_no_existe", id=template_id))
+    return TEMPLATES_DIR / template_id
+
+
+def _localized(table, language):
+    """El texto de `{es, en}` en `language` (si no lo tiene, en español)."""
+    if not isinstance(table, dict):
+        return str(table or "")
+    return str(table.get(language or i18n.language()) or table.get("es") or "")
+
+
+def templates(language=None):
+    """Las plantillas que vienen con la app: `[{id, titulo, descripcion, generica, lleva}]`,
+    con los textos en `language` (por defecto, el de la app); `lleva`, la del manifiesto."""
+    out = []
+    for d in sorted(TEMPLATES_DIR.iterdir()) if TEMPLATES_DIR.is_dir() else []:
+        if not (TEMPLATE_ID.fullmatch(d.name) and (d / MANIFEST).is_file()):
+            continue
+        data = tomllib.loads((d / MANIFEST).read_text(encoding="utf-8"))
+        info = data.get("plantilla") if isinstance(data.get("plantilla"), dict) else {}
+        lleva = data.get("lleva") if isinstance(data.get("lleva"), dict) else {}
+        out.append({"id": d.name, "titulo": _localized(info.get("titulo"), language),
+                    "descripcion": _localized(info.get("descripcion"), language),
+                    "generica": data.get("generica") is True,
+                    "lleva": {"fabricacion": lleva.get("fabricacion") is True,
+                              "fichas": int(lleva.get("fichas") or 0),
+                              "proveedores": lleva.get("proveedores") is True}})
+    return out
+
+
+def write_template(template_id, carpeta, language=None):
+    """Empaqueta la plantilla `template_id` en `<carpeta>/<id>.zip`, como un perfil exportado,
+    con los ficheros de `language` (`fabricacion.en.md` en inglés; si no hay, el de por
+    defecto). Lo mismo da los mismos bytes. `ValidationError` si no existe."""
+    folder = _template_dir(template_id)
+    language = language or i18n.language()
+    files, variants = {}, {}
+    for p in sorted(folder.rglob("*")):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(folder).as_posix()
+        m = _VARIANT.fullmatch(rel)
+        if m and m["lang"] in i18n.CATALOGS:
+            if m["lang"] == language:
+                variants[m["base"] + m["ext"]] = p.read_bytes()
+            continue
+        files[rel] = p.read_bytes()
+    files.update(variants)
+    carpeta = Path(carpeta)
+    carpeta.mkdir(parents=True, exist_ok=True)
+    order = sorted(files, key=lambda r: (r != MANIFEST, r))
+    return pack_install.write_zip(carpeta / f"{template_id}.zip",
+                                  [(f"{TOP}/{rel}", files[rel]) for rel in order])

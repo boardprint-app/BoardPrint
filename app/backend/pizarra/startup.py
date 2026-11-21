@@ -24,6 +24,8 @@ class StartState:
     settings: Settings
     workspace: LocalWorkspace | None      # None si su carpeta ya no está
     problem: str | None = None            # algo que la pantalla de inicio tiene que decir
+    default_root: Path | None = None      # el del workspace por defecto: su carpeta es donde
+                                          # van los nuevos (Documentos/<App>/, PLAN_WORKSPACES W6)
 
 
 def legacy_settings(settings_path, names=LEGACY_APP_DIRS):
@@ -61,7 +63,7 @@ def bootstrap(settings_path, default_root, spike_sources=(), trash=None, legacy=
             settings.save()
             return StartState(settings, None,
                               i18n.t("workspace.carpeta_no_encontrada", settings.language,
-                                     nombre=entry.get("name"), ruta=root))
+                                     nombre=entry.get("name"), ruta=root), Path(default_root))
         ws = LocalWorkspace.open(root, trash=trash)
         if entry.get("id") != ws.info().id:
             # Ajustes a mano o de otra copia: manda el id de la carpeta (`workspace.toml`). Si
@@ -71,7 +73,7 @@ def bootstrap(settings_path, default_root, spike_sources=(), trash=None, legacy=
         _import_spikes(ws, settings, spike_sources)
         settings.spike_imported = True
     settings.save()
-    return StartState(settings, ws, problem)
+    return StartState(settings, ws, problem, Path(default_root))
 
 
 def _import_spikes(ws, settings, sources):

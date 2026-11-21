@@ -2,7 +2,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
 
-function Dialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+export function Dialog({ title, children, onClose, className }: {
+  title: string; children: ReactNode; onClose: () => void; className?: string;
+}) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", key);
@@ -10,7 +12,7 @@ function Dialog({ title, children, onClose }: { title: string; children: ReactNo
   }, [onClose]);
   return (
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+      <div className={className ? `dialog ${className}` : "dialog"} role="dialog" aria-modal="true" aria-labelledby="dialog-title">
         <h2 id="dialog-title">{title}</h2>
         {children}
       </div>

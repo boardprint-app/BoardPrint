@@ -1,6 +1,6 @@
 // *Ajustes → General* (plan D179): idioma (D180), unidades en pantalla (D182, del workspace),
-// modo de ventana y escala (D183, los aplica el shell), dónde se guarda el workspace (D186,
-// solo lectura aquí: se cambia en la bienvenida), su perfil de fabricación (PLAN_V020 V8,
+// modo de ventana y escala (D183, los aplica el shell), los workspaces con su carpeta
+// (PLAN_WORKSPACES W6, `WorkspacesRow`: abrir otro y quitar de la lista), su perfil de fabricación (PLAN_V020 V8,
 // `ProfileRow`), exportar e importar el perfil .zip (PLAN_LIBRERIA §5, `ProfileZipRow`), volver
 // a ver la bienvenida y las actualizaciones (PLAN_V020 §4, `UpdateRow`). Desde FF 8.1, la
 // caducidad de las ofertas de la Librería (PLAN_APROVISIONAMIENTO A10, `ExpiryRow`).
@@ -14,6 +14,7 @@ import { Row, rowLabel, TabHead, useSaver } from "./common";
 import { ProfileRow } from "./ProfileRow";
 import { ProfileZipRow } from "./ProfileZipRow";
 import { UpdateRow } from "./UpdateRow";
+import { WorkspacesRow } from "./WorkspacesRow";
 
 const MAGNITUDES = Object.keys(SI) as Magnitude[];
 
@@ -81,12 +82,7 @@ export function GeneralTab({ app }: { app: AppSettings }) {
           {scales.map((s) => <option key={s} value={s}>{s} %</option>)}
         </select>
       </Row>
-      <Row id="workspace" title={t("ajustes.workspace")} hint={t("ajustes.workspace.nota")}>
-        {ws?.ruta
-          ? <code className="st-path">{ws.ruta}</code>
-          : <span className="st-muted">{t("ajustes.workspace.sin_ruta")}</span>}
-        {ws?.nube && <p className="st-warn st-cloud" role="note">{t("ajustes.workspace.nube", { servicio: ws.nube })}</p>}
-      </Row>
+      <WorkspacesRow ws={ws} />
       {ws && <ProfileRow key={profileRev} />}
       {ws && <ProfileZipRow onImported={() => setProfileRev((n) => n + 1)} />}
       <ExpiryRow app={app} />

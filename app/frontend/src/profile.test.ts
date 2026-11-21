@@ -66,3 +66,27 @@ describe("el resumen de importar un perfil", () => {
     expect(valueOf({ ...plan, fabricacion: false }, "Fabricación")).toMatch(/se queda/);
   });
 });
+
+// Hacia un workspace nuevo (PLAN_WORKSPACES W4): no hay nada que sustituir ni copia (`copia`
+// null), así que el resumen solo dice lo que trae, y lo que no trae empieza vacío.
+describe("el resumen de un perfil para un workspace nuevo", () => {
+  const nuevo: ProfileImportPlan = {
+    ...plan, destino: "nuevo", copia: null, proveedores: false,
+    sustituye: { fichas: 0, quitadas: [], fabricacion: false, stock: 0 },
+  };
+  const labels = (p: ProfileImportPlan) => importRows(p).map((r) => r.label);
+
+  it("sin copia ni librería que sustituir", () => {
+    expect(labels(nuevo)).toEqual(["Fichas", "Fabricación", "Proveedores", "Stock"]);
+    expect(importRows(nuevo).some((r) => /sustituye/.test(r.value))).toBe(false);
+  });
+  it("lo que no trae, empieza vacío", () => {
+    expect(valueOf({ ...nuevo, fabricacion: false }, "Fabricación")).toMatch(/empieza sin/);
+    expect(valueOf(nuevo, "Stock")).toMatch(/empieza sin stock/);
+    expect(valueOf({ ...nuevo, stock: 4 }, "Stock")).toMatch(/4/);
+    expect(valueOf(nuevo, "Proveedores")).toMatch(/empieza sin/);
+  });
+  it("con copia null aunque no diga el destino, tampoco enseña la copia", () => {
+    expect(labels({ ...nuevo, destino: undefined })).not.toContain("Copia");
+  });
+});

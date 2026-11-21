@@ -163,3 +163,7 @@
 .st-pz-rows dt { color: var(--ui-muted); }
 .st-pz-rows dd { margin: 0; overflow-wrap: anywhere; }
 .st-pz-summary .st-breaks code { overflow-wrap: anywhere; }
+/* La lista de workspaces (PLAN_WORKSPACES W6, W7): uno por tarjeta, con su carpeta */
+.st-ws-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.st-ws .st-path { align-self: flex-start; }
+.st-ws-open { border-color: var(--accent); }

@@ -1,0 +1,18 @@
+# Plantilla de sector (docs/PLAN_WORKSPACES.md W4, W5): un perfil que viene con la app, con los
+# mismos ficheros que la carpeta `perfil/` de un perfil .zip. `fabricacion.en.md` sustituye a
+# `fabricacion.md` con la app en inglés.
+esquema = 1
+app = ""
+fecha = "2026-11-21"
+# Genérica: valores de orden de magnitud, no datos de fabricante ni de proveedor.
+generica = true
+
+[plantilla]
+titulo = { es = "Robótica: terminales y brazos", en = "Robotics: end effectors and arms" }
+descripcion = { es = "Perfil de fabricación genérico para terminales y brazos ligeros: mecanizado de aluminio, impresión 3D, chapa y perfil ranurado, con tolerancias y espesores de orden de magnitud. Sin proveedores ni fichas. Revísalo con los datos de tu taller.", en = "Generic manufacturing profile for end effectors and light arms: aluminium machining, 3D printing, sheet metal and slotted profile, with order-of-magnitude tolerances and thicknesses. No suppliers or records. Check it against your own workshop." }
+
+[lleva]
+fabricacion = true
+fichas = 0
+stock = false
+proveedores = false

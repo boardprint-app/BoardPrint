@@ -66,6 +66,8 @@ def main():
            # Lo que el agente usa para hacer paquetes (PLAN_PAQUETES P99, P100): datos, no código.
            "--add-data", f"{BACKEND / 'pizarra' / 'pack_template'}{sep}pizarra/pack_template",
            "--add-data", f"{BACKEND / 'pizarra' / 'pack_guide.md'}{sep}pizarra",
+           # Las plantillas de sector, perfiles que vienen con la app (PLAN_WORKSPACES W4).
+           "--add-data", f"{BACKEND / 'pizarra' / 'profile_templates'}{sep}pizarra/profile_templates",
            str(BACKEND / "run_backend.py")]
     # `--collect-submodules` importa el paquete en un subproceso aislado que no ve `--paths`.
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(

@@ -33,6 +33,32 @@
 
 .home-head { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; }
 .ws-chip { border: 1.5px dashed var(--ink-line); border-radius: 10px; padding: 8px 14px; font-weight: 700; }
+
+/* El chip del workspace es un menú (PLAN_WORKSPACES W6): la lista, *Nuevo* y *Abrir carpeta* */
+.ws-menu-wrap { position: relative; }
+button.ws-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; background: transparent;
+  color: var(--ink); font: 700 15px var(--f-ui); cursor: pointer; }
+button.ws-chip:hover:not(:disabled), button.ws-chip[aria-expanded="true"] { border-style: solid; }
+button.ws-chip:disabled { cursor: progress; opacity: .7; }
+.ws-menu {
+  position: absolute; z-index: 50; top: calc(100% + 8px); left: 0; width: 460px; max-width: calc(100vw - 32px);
+  background: var(--paper); color: var(--paper-fg); box-shadow: 0 10px 24px rgba(0,0,0,.45); border-radius: 6px;
+  padding: 6px; display: flex; flex-direction: column; box-sizing: border-box;
+}
+.ws-menu hr { width: 100%; margin: 6px 0; border: 0; border-top: 1px solid rgba(0,0,0,.15); }
+.ws-menu-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
+.ws-menu button { all: unset; box-sizing: border-box; cursor: pointer; padding: 10px 12px; border-radius: 4px; font: 15px var(--f-ui); }
+.ws-menu button:hover:not(:disabled), .ws-menu button:focus-visible { background: rgba(0,0,0,.08); }
+.ws-menu button:focus-visible { outline: 2px solid var(--paper-fg); outline-offset: -2px; }
+.ws-menu .ws-menu-ws { width: 100%; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.ws-menu .ws-menu-ws:disabled { cursor: default; }
+.ws-menu-mark { font-weight: 700; }
+.ws-menu-text { display: flex; flex-direction: column; min-width: 0; }
+.ws-menu-text small { color: var(--paper-muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.ws-menu-tag { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; }
+.ws-falta .ws-menu-text b { text-decoration: line-through; opacity: .7; }
+.ws-falta .ws-menu-tag { color: #9b1c1c; }
+.ws-menu-wait { margin: 0; padding: 10px 12px; color: var(--paper-muted); }
 .home-search {
   margin-left: auto; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
   border-radius: 10px; background: var(--paper); color: var(--paper-fg); width: 340px; max-width: 100%;
@@ -165,6 +191,45 @@
 .dialog .btn-row { justify-content: flex-end; }
 .dialog .btn-outline { color: var(--paper-fg); border-color: var(--paper-fg); }
 .dialog .btn-danger { background: #9b1c1c; color: #ffffff; border: 0; }
+
+/* *Nuevo workspace* (PLAN_WORKSPACES W6): más ancho, y con scroll si el resumen no cabe */
+.dialog.dialog-wide { width: 620px; max-height: calc(100vh - 32px); overflow-y: auto; }
+/* los botones, siempre a la vista aunque el resumen haga scroll */
+.dialog.dialog-wide > form > .btn-row { position: sticky; bottom: -24px; margin: 0 -24px -24px; padding: 12px 24px 24px;
+  background: var(--paper); box-shadow: 0 -1px 0 rgba(0,0,0,.12); }
+.nw-field { display: flex; flex-direction: column; gap: 6px; }
+.nw-label { font-weight: 700; }
+.nw-folder { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nw-folder .btn-outline { min-height: 38px; }
+.nw-path { flex: 1 1 260px; min-width: 0; font: 13px/1.4 ui-monospace, Consolas, monospace; padding: 8px 10px;
+  border-radius: 6px; background: #fbf7ec; border: 1px dashed var(--paper-fg); overflow-wrap: anywhere; }
+.nw-muted { color: var(--paper-muted); font-size: 14px; }
+.nw-folder .nw-muted { flex: 1 1 260px; }
+.nw-link { all: unset; cursor: pointer; align-self: flex-start; font-size: 14px; text-decoration: underline; }
+.nw-link:focus-visible { outline: 2px solid var(--paper-fg); }
+.nw-start { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.nw-start legend { padding: 0; margin-bottom: 6px; }
+.dialog label.nw-choice { flex-direction: row; align-items: flex-start; gap: 10px; font-weight: 400; cursor: pointer;
+  padding: 10px 12px; border: 1.5px solid rgba(0,0,0,.18); border-radius: 6px; }
+.dialog label.nw-choice:has(input:checked) { border-color: var(--paper-fg); background: rgba(0,0,0,.04); }
+.dialog .nw-choice input { min-height: 0; width: 16px; height: 16px; margin: 3px 0 0; flex: none; accent-color: var(--paper-fg); }
+.nw-choice > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nw-choice small { color: var(--paper-muted); font-size: 13.5px; overflow-wrap: anywhere; }
+.nw-badge { margin-left: 8px; font: 700 11.5px var(--f-ui); font-style: normal; padding: 1px 8px; border-radius: 10px;
+  border: 1px solid #a65200; color: #7a3d00; white-space: nowrap; vertical-align: 1px; }
+.nw-profile { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; padding-left: 26px; }
+.nw-profile .btn-outline { min-height: 38px; }
+.nw-summary { align-self: stretch; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px;
+  border-radius: 6px; background: #fbf7ec; border: 1px solid rgba(0,0,0,.15); }
+.nw-summary h3 { margin: 0; font: 700 15px var(--f-ui); overflow-wrap: anywhere; }
+.nw-warn { padding: 8px 10px; border-left: 4px solid #e8590c; background: rgba(232,89,12,.08); font-size: 14px; }
+.nw-rows { margin: 0; display: grid; gap: 4px; }
+.nw-rows > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.nw-rows dt { color: var(--paper-muted); }
+.nw-rows dd { margin: 0; overflow-wrap: anywhere; }
+.nw-breaks { padding: 8px 10px; border-radius: 6px; box-shadow: inset 0 0 0 1px #9b1c1c; }
+.nw-breaks ul { margin: 4px 0 0; padding-left: 18px; }
+.nw-breaks code { overflow-wrap: anywhere; }
 
 @media (max-width: 700px) {
   .home { padding: 28px 22px 36px; }

@@ -37,22 +37,27 @@ export type ProfileExport = {
   fabricacion?: boolean; omitidas?: string[];
 };
 
+// Con `destino: "nuevo"` (PLAN_WORKSPACES W4: crear un workspace con él) no hay nada que
+// sustituir ni copia: `copia` es null y `sustituye` va a cero.
 export type ProfileImportPlan = {
   file: string | null; token: string; nombre: string;
-  manifest: { esquema: number; app: string; fecha: string };
-  fichas: number; tipos: Record<string, number>; fabricacion: boolean; stock: number | null;
+  manifest: { esquema: number; app: string; fecha: string; generica?: boolean };
+  fichas: number; tipos: Record<string, number>; fabricacion: boolean; proveedores?: boolean;
+  stock: number | null;
   invalid: { ruta: string; clave: string | null; motivo: string }[]; ignored: string[];
   sustituye: { fichas: number; quitadas: string[]; fabricacion: boolean; stock: number };
-  copia: string;
+  copia: string | null; destino?: "actual" | "nuevo";
 };
 
 export type ProfileImportDone = {
-  copia: string; fichas: number; quitadas: number; fabricacion: boolean; stock: number | null;
+  copia: string | null; fichas: number; quitadas: number; fabricacion: boolean; stock: number | null;
 };
 
 /** El resumen de importar en filas (título, lo que pasa): qué trae, qué sustituye de lo de
- *  ahora y qué se queda, y dónde queda la copia. Las fichas que no valen van aparte. */
+ *  ahora y qué se queda, y dónde queda la copia. Las fichas que no valen van aparte. Hacia un
+ *  workspace nuevo, solo lo que trae (`newRows`). */
 export function importRows(p: ProfileImportPlan): { label: string; value: string }[] {
+  if (p.destino === "nuevo" || p.copia === null) return newRows(p);
   const tipos = Object.entries(p.tipos).map(([tipo, n]) => `${tipo} ${n}`).join(", ");
   const rows = [
     { label: t("ajustes.perfil_zip.r.fichas"),
@@ -75,6 +80,26 @@ export function importRows(p: ProfileImportPlan): { label: string; value: string
         : t("ajustes.perfil_zip.stock_si", { n: p.stock }),
   });
   rows.push({ label: t("ajustes.perfil_zip.r.copia"), value: t("ajustes.perfil_zip.copia", { ruta: p.copia }) });
+  return rows;
+}
+
+/** Lo que trae el zip a un workspace nuevo: no sustituye nada, y lo que no trae empieza vacío. */
+function newRows(p: ProfileImportPlan): { label: string; value: string }[] {
+  const tipos = Object.entries(p.tipos).map(([tipo, n]) => `${tipo} ${n}`).join(", ");
+  const rows = [
+    { label: t("ajustes.perfil_zip.r.fichas"),
+      value: tipos ? t("ajustes.perfil_zip.fichas_tipos", { n: p.fichas, tipos }) : String(p.fichas) },
+    { label: t("ajustes.perfil_zip.r.fabricacion"),
+      value: p.fabricacion ? t("ajustes.perfil_zip.fab_si") : t("ajustes.perfil_zip.nuevo_fab_no") },
+  ];
+  if (p.proveedores !== undefined) {
+    rows.push({ label: t("ajustes.perfil_zip.r.proveedores"),
+                value: p.proveedores ? t("ajustes.perfil_zip.prov_si") : t("ajustes.perfil_zip.nuevo_prov_no") });
+  }
+  rows.push({
+    label: t("ajustes.perfil_zip.r.stock"),
+    value: p.stock === null ? t("ajustes.perfil_zip.nuevo_stock_no") : t("ajustes.perfil_zip.stock_si", { n: p.stock }),
+  });
   return rows;
 }
 

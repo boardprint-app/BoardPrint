@@ -111,6 +111,9 @@ REST:
     GET|PUT /api/settings/panels {right}       ancho del panel derecho (D60, D174), nunca
                                                por debajo de `right_min` (320 px)
     GET    /api/workspace                      árbol, recientes y avisos
+    GET|POST /api/workspaces, POST /api/workspaces/abrir, DELETE /api/workspaces/<id>
+                                               la lista de workspaces, crear, abrir y quitar
+                                               (PLAN_WORKSPACES §3, §4): en `workspaces`
     POST   /api/folders {parent, name}         PATCH /api/folders {path, name | dest}
     DELETE /api/folders?path=…                 a la Papelera (D66)
     POST   /api/projects {folder, name}        PATCH /api/projects/<id> {name | dest}
@@ -182,7 +185,7 @@ from pizarra import agent_chat, agent_review, agent_threads, blocks as blocks_mo
 from pizarra import connectors as connectors_mod, desktop, excel_calc, execution, files_api, graph, scene, watchdog
 from pizarra import agent_packs, pack_env, pack_host, pack_install, pack_install_api, pack_ui
 from pizarra import (i18n, library_api, profile_api, settings_api, supply_api, update_api,
-                     welcome, workspace_api)
+                     welcome, workspace_api, workspaces)
 from pizarra import packs as packs_mod
 from pizarra.board import Board
 from pizarra.config import AGENT_AUTHORS, APP_NAME
@@ -644,6 +647,8 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
                         cli_path=claude_cli)
     welcome.register(app, settings=settings, workspace=workspace, claude_cli=claude_cli,
                      restart=restart)
+    workspaces.register(app, settings=settings, workspace=workspace, restart=restart,
+                        base=start.default_root.parent if start.default_root else None)
     agent_chat.register(app, need_workspace, settings, sessions)
     pack_install_api.register(app, drafts=Path(settings.path).parent / agent_packs.DRAFTS,
                               changed=packs_changed, busy=lambda: sessions is not None and any(

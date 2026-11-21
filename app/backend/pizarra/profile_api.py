@@ -1,8 +1,14 @@
 """Rutas REST del perfil `.zip` del workspace (docs/PLAN_LIBRERIA.md §5, L8-L10).
 
     POST /api/profile/export          {carpeta?, con_stock} -> {file, nombre, fichas, stock…}
-    POST /api/profile/import/inspect  {ruta?} -> resumen + {token}
+    POST /api/profile/import/inspect  {ruta?, destino?} -> resumen + {token}
     POST /api/profile/import/apply    {token} -> {copia, fichas, quitadas, fabricacion, stock}
+    GET  /api/profile/templates       {plantillas: [{id, titulo, descripcion, generica, lleva}]}
+
+`destino` es `actual` (por defecto: sustituir el perfil del workspace abierto) o `nuevo`
+(PLAN_WORKSPACES W4: para crear un workspace con él, `POST /api/workspaces` con `desde` = el
+token; no necesita workspace abierto, y el resumen no sustituye nada ni tiene copia). El token
+de uno no vale para el otro (409).
 
 Sin `carpeta` (o sin `ruta`), abre el diálogo del sistema (`choose_folder`, `choose_file`);
 cancelado, `{file: null}`. Un zip o una carpeta que no valen son 422; un resumen caducado o
@@ -25,6 +31,7 @@ class ExportIn(BaseModel):
 
 class InspectIn(BaseModel):
     ruta: str | None = None
+    destino: str = "actual"
 
 
 class ApplyIn(BaseModel):
@@ -59,16 +66,20 @@ def register(app, *, need_workspace, settings):
 
     @app.post("/api/profile/import/inspect")
     async def post_inspect(p: InspectIn):
-        ws = need_workspace()
+        ws = None if p.destino == "nuevo" else need_workspace()
         ruta = p.ruta
         if not ruta:
             ruta = await _in_thread(desktop.choose_file, i18n.t("dialogo.importar_perfil"),
                                     [(i18n.t("dialogo.perfil_zip"), "*.zip")])
             if not ruta:
                 return {"file": None}
-        return await _in_thread(checked, profile_zip.plan, ws, ruta)
+        return await _in_thread(checked, profile_zip.plan, ws, ruta, p.destino)
 
     @app.post("/api/profile/import/apply")
     async def post_apply(a: ApplyIn):
         ws = need_workspace()
         return await _in_thread(checked, profile_zip.apply, ws, a.token)
+
+    @app.get("/api/profile/templates")
+    def get_templates():
+        return {"plantillas": profile_zip.templates(settings.language)}

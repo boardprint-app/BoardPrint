@@ -63,7 +63,7 @@ export function ProfileZipRow({ onImported }: { onImported: () => void }) {
     () => post("/api/profile/import/apply", { token: p.token }),
     (got) => {
       setPlan(null);
-      setNote(t("ajustes.perfil_zip.importado", { ruta: got.copia }));
+      setNote(t("ajustes.perfil_zip.importado", { ruta: got.copia ?? "" }));
       onImported();
     });
 

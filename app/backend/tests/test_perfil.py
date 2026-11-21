@@ -9,7 +9,10 @@ Lo que protegen, regla a regla:
 - un zip con rutas fuera, un enlace o un `esquema` mayor no escribe nada (L10);
 - una ficha que no vale no impide las demás y sale en el resumen (L10);
 - aplicar con el zip cambiado da `Conflict` (409) y no escribe nada;
-- importar sin stock en el zip deja el stock de ahora.
+- importar sin stock en el zip deja el stock de ahora;
+- hacia un workspace nuevo (PLAN_WORKSPACES W4), el nuevo tiene exactamente lo que trae el zip,
+  sin copia previa, y el de antes no cambia; un token de otro fichero o de otro destino se
+  rechaza, y un nombre que no vale al crear no gasta el token.
 """
 import json
 import shutil
@@ -259,6 +262,114 @@ class Importar(_Base):
         profile_zip.apply(destino, profile_zip.plan(destino, self.exportado())["token"])
         self.assertEqual(set(destino.list_library_fichas()), {"RED-1", "MG-200"})
         self.assertEqual(destino.load_library_ficha("RED-1"), FICHA_RED)
+
+
+PROVEEDORES = 'esquema = 1\n[[proveedor]]\nnombre = "Tienda"\ndominio = "tienda.example"\n'
+
+
+class HaciaUnWorkspaceNuevo(_Base):
+    """Destino «nuevo» (PLAN_WORKSPACES W4, §6): nada que sustituir y sin copia previa; el
+    token se ata al fichero y al destino."""
+
+    def origen(self):
+        ws = self.lleno("Origen")
+        ws.save_providers_text(PROVEEDORES)
+        return ws
+
+    def test_el_nuevo_tiene_exactamente_lo_del_zip_sin_copia_y_el_de_antes_no_cambia(self):
+        origen = self.origen()
+        zip_ = profile_zip.export(origen, self.out, con_stock=True)["file"]
+        actual = self.workspace("Actual")
+        actual.save_manufacturing_profile("el de ahora")
+        antes = _perfil(actual)
+        plan = profile_zip.plan(None, zip_, destino="nuevo")
+        self.assertEqual(plan["sustituye"], {"fichas": 0, "quitadas": [], "fabricacion": False,
+                                             "stock": 0})
+        self.assertIsNone(plan["copia"])
+        self.assertEqual((plan["destino"], plan["fichas"], plan["stock"]), ("nuevo", 2, 2))
+        nuevo = self.workspace("Nuevo")
+        done = profile_zip.apply(nuevo, plan["token"], destino="nuevo")
+        self.assertIsNone(done["copia"])
+        self.assertEqual(_perfil(nuevo), _perfil(origen))
+        self.assertEqual(nuevo.load_providers_text(), PROVEEDORES)
+        self.assertFalse(nuevo.profile_copy_dir().exists())
+        self.assertEqual(_perfil(actual), antes)
+
+    def test_sin_stock_en_el_zip_el_nuevo_no_tiene_stock(self):
+        zip_ = profile_zip.export(self.origen(), self.out)["file"]
+        nuevo = self.workspace("Nuevo")
+        profile_zip.apply(nuevo, profile_zip.plan(None, zip_, "nuevo")["token"], "nuevo")
+        self.assertEqual(nuevo.load_stock(), {})
+        self.assertEqual(set(nuevo.list_library_fichas()), {"RED-1", "MG-200"})
+
+    def test_un_token_de_otro_destino_se_rechaza(self):
+        zip_ = profile_zip.export(self.origen(), self.out)["file"]
+        actual = self.lleno("Actual")
+        antes = _perfil(actual)
+        nuevo = self.workspace("Nuevo")
+        para_nuevo = profile_zip.plan(None, zip_, "nuevo")["token"]
+        with self.assertRaises(Conflict):                 # el de «nuevo», sobre el actual
+            profile_zip.apply(actual, para_nuevo)
+        para_actual = profile_zip.plan(actual, zip_)["token"]
+        with self.assertRaises(Conflict):                 # el del actual, hacia uno nuevo
+            profile_zip.apply(nuevo, para_actual, "nuevo")
+        otro = self.workspace("Otro")
+        para_actual = profile_zip.plan(actual, zip_)["token"]
+        with self.assertRaises(Conflict):                 # el de un workspace, en otro
+            profile_zip.apply(otro, para_actual)
+        self.assertEqual(_perfil(actual), antes)
+        self.assertEqual(_perfil(nuevo), (None, {}, {}))
+        self.assertEqual(_perfil(otro), (None, {}, {}))
+        self.assertFalse(actual.profile_copy_dir().exists())
+
+    def test_un_token_de_otro_fichero_se_rechaza(self):
+        zip_ = Path(profile_zip.export(self.origen(), self.out)["file"])
+        token = profile_zip.plan(None, zip_, "nuevo")["token"]
+        otro = self.workspace("Cambiado")
+        otro.save_manufacturing_profile("otro taller")
+        shutil.copy(profile_zip.export(otro, self.tmp)["file"], zip_)
+        nuevo = self.workspace("Nuevo")
+        with self.assertRaises(Conflict):
+            profile_zip.check_token(token, "nuevo")
+        with self.assertRaises(Conflict):
+            profile_zip.apply(nuevo, token, "nuevo")
+        self.assertEqual(_perfil(nuevo), (None, {}, {}))
+
+    def test_hacia_uno_nuevo_que_ya_tiene_perfil_no_sustituye_nada(self):
+        zip_ = profile_zip.export(self.origen(), self.out)["file"]
+        lleno = self.workspace("NoTanNuevo")
+        lleno.save_manufacturing_profile("ya tenía")
+        with self.assertRaises(Conflict):
+            profile_zip.apply(lleno, profile_zip.plan(None, zip_, "nuevo")["token"], "nuevo")
+        self.assertEqual(lleno.load_manufacturing_profile(), "ya tenía")
+
+    def test_un_destino_que_no_existe_es_un_error(self):
+        zip_ = profile_zip.export(self.origen(), self.out)["file"]
+        with self.assertRaises(ValidationError):
+            profile_zip.plan(None, zip_, "otro")
+
+    def test_crear_un_workspace_desde_el_token_de_un_perfil(self):
+        from pizarra import workspaces
+        from pizarra.startup import bootstrap
+        start = bootstrap(self.tmp / "settings.toml", self.tmp / "Docs" / "Personal", ())
+        start.workspace.save_manufacturing_profile("el de Personal")
+        origen = self.origen()
+        zip_ = profile_zip.export(origen, self.out, con_stock=True)["file"]
+        plan = profile_zip.plan(None, zip_, "nuevo")
+        with self.assertRaises(Conflict):        # nombre repetido: no gasta el token
+            workspaces.create(start.settings, "Personal", base=self.tmp / "Docs",
+                              desde=plan["token"])
+        info, done = workspaces.create(start.settings, "Trabajo", base=self.tmp / "Docs",
+                                       desde=plan["token"])
+        nuevo = LocalWorkspace.open(self.tmp / "Docs" / "Trabajo")
+        self.assertEqual(nuevo.info().id, info.id)
+        self.assertEqual(_perfil(nuevo), _perfil(origen))
+        self.assertEqual((done["fichas"], done["stock"], done["copia"]), (2, 2, None))
+        self.assertEqual(start.workspace.load_manufacturing_profile(), "el de Personal")
+        self.assertEqual(start.settings.current_workspace()["id"], info.id)
+        with self.assertRaises(Conflict):        # un token se usa una vez
+            workspaces.create(start.settings, "Otro", base=self.tmp / "Docs", desde=plan["token"])
+        self.assertFalse((self.tmp / "Docs" / "Otro").exists())
 
 
 class ElZipSeAbreComoUnBppack(unittest.TestCase):
