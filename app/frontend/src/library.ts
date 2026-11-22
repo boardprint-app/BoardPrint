@@ -238,6 +238,30 @@ export function resolveChoices(choices: Record<string, string>, newFields: Recor
   return { ok: true, choices: out };
 }
 
+/** El importador abierto ya rellenado (PLAN_ONBOARDING N7): el Excel, la hoja, el tipo y el
+ *  mapeo que propuso el agente; `proposal`, la propuesta que se guarda al importar. */
+export type ImportInitial = {
+  path: string; sheet: string; type: string; mapping: Record<string, string>; proposal?: string;
+};
+
+/** Lo elegido en cada columna a partir de un mapeo ya hecho: su destino si se ofrece, un campo
+ *  de la ficha que el tipo aún no tiene como campo nuevo con su nombre, y nada en las demás.
+ *  Lo del mapeo que no es una columna de esta hoja no se pinta. */
+export function initialChoices(mapping: Record<string, string>, columns: string[], targets: string[]):
+    { choices: Record<string, string>; newFields: Record<string, string> } {
+  const choices: Record<string, string> = {};
+  const newFields: Record<string, string> = {};
+  for (const col of columns) {
+    const target = mapping[col] ?? "";
+    if (!target || targets.includes(target)) choices[col] = target;
+    else if (target.startsWith(VALUE_PREFIX)) {
+      choices[col] = NEW_FIELD;
+      newFields[col] = target.slice(VALUE_PREFIX.length);
+    } else choices[col] = "";
+  }
+  return { choices, newFields };
+}
+
 export type MappingResult =
   | { ok: true; mapping: Record<string, string>; needsType: boolean }
   | { ok: false; error: string };

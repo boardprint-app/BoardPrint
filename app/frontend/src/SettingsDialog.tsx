@@ -1,5 +1,5 @@
 // La ventana *Ajustes* (docs/PLAN_PAQUETES.md P78; pestañas de docs/PLAN_PIZARRA.md D179):
-// General, Apariencia, Atajos, Agentes, Paquetes y Avanzados, cada una en settings/ salvo
+// General, Apariencia, Atajos, Agentes, Cuentas (PLAN_M365 §3), Paquetes y Avanzados, cada una en settings/ salvo
 // Paquetes (§7), aquí: la lista con origen, versión, autor, código, librerías y error; instalar
 // con su resumen y el aviso de que trae código (D25); exportar y desinstalar. No se cierra con
 // un clic fuera: un resumen a medias se perdería (como P71); sí con Escape (en cualquier
@@ -20,6 +20,7 @@ import { GeneralTab } from "./settings/GeneralTab";
 import { AppearanceTab } from "./settings/AppearanceTab";
 import { ShortcutsTab } from "./settings/ShortcutsTab";
 import { AgentsTab } from "./settings/AgentsTab";
+import { AccountsTab } from "./settings/AccountsTab";
 import { AdvancedTab } from "./settings/AdvancedTab";
 import "./settings.css";
 
@@ -43,7 +44,7 @@ function SettingsWindow({ request, seq, tab: asked, highlight, skin, onSkin }: S
   const box = useRef<HTMLDivElement>(null);
   const tabName: Record<SettingsTab, string> = {
     general: t("ajustes.pestana.general"), apariencia: t("ajustes.pestana.apariencia"),
-    atajos: t("ajustes.pestana.atajos"), agentes: t("ajustes.pestana.agentes"),
+    atajos: t("ajustes.pestana.atajos"), agentes: t("ajustes.pestana.agentes"), cuentas: t("ajustes.pestana.cuentas"),
     paquetes: t("ajustes.pestana.paquetes"), avanzados: t("ajustes.pestana.avanzados"),
   };
 
@@ -124,6 +125,7 @@ function SettingsWindow({ request, seq, tab: asked, highlight, skin, onSkin }: S
             {panel("apariencia", <AppearanceTab skin={skin} onSkin={onSkin} />)}
             {panel("atajos", needs((a) => <ShortcutsTab app={a} />))}
             {panel("agentes", needs((a) => <AgentsTab app={a} />))}
+            {panel("cuentas", tab === "cuentas" ? <AccountsTab /> : null)}
             {/* Paquetes, siempre montada: un resumen a medias no se pierde al cambiar de pestaña */}
             <PacksTab request={request} seq={seq} hidden={tab !== "paquetes"} />
             {panel("avanzados", needs((a) => <AdvancedTab app={a} />))}

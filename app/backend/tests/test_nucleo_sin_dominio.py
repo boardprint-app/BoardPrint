@@ -6,13 +6,14 @@ que lo nombre (`"fusion.pull"`). Lo que hace falta de un paquete llega por lo qu
 (`pack.connector`, `pack.action`, `formerly=`…). Los comentarios y los docstrings sí pueden
 citarlo (explican, no dependen), y un texto para el usuario puede hablar del programa
 («Fusion no responde»): el programa no es el paquete, y tampoco su API (`adsk.fusion`, que
-usan `fusion_io` y las piezas de `parts/`, P15).
+usa `fusion_io`, P15).
 
 Las excepciones van en `ALLOWED`, cada una con su motivo. El test entró en FF 10.8 con
 `fusion`; FF 10.2 añadió los nombres de robótica y terminales y el motor entero (`core` y
 `parts`), y FF 10.9 añade el frontend (P67): aquí sus `.css` (ninguna clase ni variable lleva un
 paquete como palabra: `.block-open-fusion`), y su TypeScript en `app/frontend/src/nucleo.test.ts`,
-con el parser de TypeScript, que entiende el JSX.
+con el parser de TypeScript, que entiende el JSX. FF 7.7 saca `parts` del motor al paquete
+`piezas` y añade su nombre (docs/PLAN_PIEZAS.md Z3: `core.runner` recibe la pieza, no la busca).
 
 Ejecutar desde app/backend:  python -m unittest tests.test_nucleo_sin_dominio -v
 """
@@ -27,7 +28,8 @@ ROOTS = [BACKEND / "pizarra", BACKEND / "boardprint_sdk", REPO / "engine" / "piz
 
 # Los paquetes que el núcleo no nombra (§10), y lo suyo que más se nombraba (el tipo de la
 # brida, los motores de robótica y terminales).
-NAMES = ("fusion", "robotica", "robotica_base", "terminales", "brida", "robotarm", "terminals")
+NAMES = ("fusion", "robotica", "robotica_base", "terminales", "brida", "robotarm", "terminals",
+         "piezas")
 _ALT = "|".join(NAMES)
 # En un import o un nombre: el paquete como pieza (`fusion_sync`, `pizarra_packs.fusion`).
 WORD_RE = re.compile(r"(^|[._])(" + _ALT + r")($|[._])", re.IGNORECASE)

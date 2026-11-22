@@ -57,6 +57,10 @@ def main():
            "--paths", str(BACKEND),
            "--collect-submodules", "uvicorn",
            "--collect-submodules", "claude_agent_sdk",
+           # Microsoft 365 (PLAN_M365 §2): se importan dentro de funciones, y msal_extensions
+           # elige su cifrado por sistema (windows, osx, libsecret).
+           "--collect-submodules", "msal",
+           "--collect-submodules", "msal_extensions",
            "--hidden-import", "pizarra.agent",
            "--hidden-import", "pizarra.pack_env",     # --probe-pack-env (FF 10.1 paso 1)
            # Sin paquetes ni motor (PLAN_PAQUETES P11, P95): los paquetes corren en el

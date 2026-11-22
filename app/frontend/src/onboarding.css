@@ -1,0 +1,55 @@
+/* La ventana del agente de onboarding (PLAN_ONBOARDING §3): la interfaz de la app (`--ui-*` del
+   skin) y el chat de agent.css, encima de Ajustes (1000) y de la bienvenida (1100). */
+.ob-backdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 16px;
+  background: rgba(20, 20, 24, .55); }
+.ob { width: min(820px, 100%); height: min(90vh, 760px); display: flex; flex-direction: column; min-height: 0;
+  background: var(--ui-bg); color: var(--ui-fg); border: 1px solid var(--ui-line); border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .35); font: 14px/1.5 var(--f-ui); box-sizing: border-box;
+  --ag-bubble: color-mix(in srgb, var(--accent) 16%, var(--ui-bg));
+  --ag-field: color-mix(in srgb, var(--ui-fg) 4%, var(--ui-bg)); }
+.ob button { font: inherit; color: inherit; }
+.ob-head { display: flex; align-items: center; gap: 12px; padding: 12px 10px 4px 20px; min-width: 0; }
+.ob-head h2 { margin: 0; font-size: 17px; white-space: nowrap; }
+.ob-head .ag-x { margin-left: auto; }
+.ob-usage { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 260px; font-size: 12px; color: var(--ui-muted); }
+.ob-bar { display: flex; align-items: center; gap: 8px; padding: 0 20px 8px; border-bottom: 1px solid var(--ui-line); font-size: 13px; min-height: 32px; }
+.ob-bar .ag-link:disabled { opacity: .5; cursor: default; text-decoration: none; }
+.ob-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ob-problem { margin: 0; padding: 10px 20px; color: var(--ui-muted); }
+.ob-wait { flex: 1; }                       /* mientras conecta, la caja sigue abajo */
+.ob .ag-log { padding: 14px 20px; }
+.ob .ag-input textarea { height: 64px; }
+
+/* Las tarjetas de propuesta (N4): el estado arriba a la derecha, el diff en monoespaciada */
+.ob-card { gap: 8px; }
+.ob-card.s-guardada { border-left-color: var(--ag-ok); }
+.ob-card.s-descartada { border-left-color: var(--ui-line); }
+.ob-card.s-caducada { border-left-color: var(--ag-warn); }
+.ob-card-head { display: flex; align-items: baseline; gap: 8px; }
+.ob-state { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ui-muted); white-space: nowrap; }
+.ob-state.s-guardada { color: var(--ag-ok); }
+.ob-state.s-caducada { color: var(--ag-warn); }
+.ob-diff { font: 12.5px/1.45 ui-monospace, Consolas, monospace; border: 1px solid var(--ui-line); border-radius: 8px;
+  background: var(--ui-bg); max-height: 320px; overflow: auto; padding: 4px 0; }
+.ob-diff > div { white-space: pre-wrap; overflow-wrap: anywhere; padding: 0 10px; }
+.ob-diff span { display: inline-block; width: 1.4em; color: var(--ui-muted); user-select: none; }
+.ob-diff .d-add { background: color-mix(in srgb, var(--ag-ok) 14%, transparent); }
+.ob-diff .d-del { background: color-mix(in srgb, var(--ag-err) 12%, transparent); text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--ag-err) 60%, transparent); }
+.ob-diff .d-gap { color: var(--ui-muted); font: italic 12px var(--f-ui); padding: 2px 10px; }
+.ob-provs ol, .ob-provs ul { margin: 0; padding-left: 22px; display: grid; gap: 2px; overflow-wrap: anywhere; }
+.ob-provs li.m-nuevo { color: var(--ag-ok); }
+.ob-mark { margin-left: 8px; font: 700 10px var(--f-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.ob-mark.m-nuevo { color: var(--ag-ok); }
+.ob-removed { margin-top: 6px; color: var(--ui-muted); }
+.ob-units { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; justify-self: start; }
+.ob-units th, .ob-units td { border: 1px solid var(--ui-line); padding: 3px 10px; text-align: left; }
+.ob-units th { background: var(--ui-hover); font-weight: 600; }
+.ob-units tr.changed td { font-weight: 700; }
+.ob-units tr.changed td:last-child { color: var(--accent); }
+.ob-srcs { font-size: 12px; }
+.ob-url { font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+
+/* El Excel elegido y la importación propuesta (N7) */
+.ob-cols { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; color: var(--ui-fg); }
+.ob-import { display: grid; gap: 6px; }

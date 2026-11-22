@@ -34,12 +34,8 @@ jobs:
         with:
           python-version: "3.13"
 
-      # Las piezas y los paquetes no van en el repo público: sus pasos solo corren si están.
-      - name: Calculo de piezas
-        if: hashFiles('engine/pizarra_engine/parts/**/*.py') != ''
-        working-directory: engine
-        run: python -m unittest discover -s pizarra_engine/parts -t . -v
-
+      # Los paquetes no van en el repo público: sus pasos solo corren si están. Las piezas son
+      # del paquete `piezas` (docs/PLAN_PIEZAS.md Z1): sus tests corren con los de packs/*/tests.
       # La carga valida cada paquete (PLAN_PAQUETES P30) y un `[ui] entry` que no está no
       # pasa: la interfaz de los paquetes (`packs/*/ui/`, no versionada) se compila antes, o
       # `fusion` no carga y robótica tampoco (P61).
@@ -67,7 +63,8 @@ jobs:
           python -m unittest discover -s tests -t . -v
           # Los tests de cada paquete (plan D94), desde su carpeta: pueden abrir una pizarra
           # con el backend (P65). El generador de brazos va con los de robótica
-          # (packs/robotica/tests, P64) y el árbol de módulos con los de terminales.
+          # (packs/robotica/tests, P64), el árbol de módulos con los de terminales y el cálculo
+          # de la ménsula con los de piezas.
           for t in ../../packs/*/tests; do
             [ -d "$t" ] || continue
             python -m unittest discover -s "$t" -t "$t" -v || exit 1

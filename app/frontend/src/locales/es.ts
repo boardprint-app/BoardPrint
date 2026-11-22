@@ -5,6 +5,8 @@ import { ES_AGENTE } from "./agente";
 import { ES_BLOQUES } from "./bloques";
 import { ES_LIENZO } from "./lienzo";
 import { ES_LIBRERIA } from "./libreria";
+import { ES_M365 } from "./m365";
+import { ES_ONBOARDING } from "./onboarding";
 
 export const ES: Record<string, string> = {
   // unidades (D182)
@@ -424,4 +426,6 @@ export const ES: Record<string, string> = {
   ...ES_AGENTE,
   ...ES_BLOQUES,
   ...ES_LIBRERIA,
+  ...ES_M365,
+  ...ES_ONBOARDING,
 };

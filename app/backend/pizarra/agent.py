@@ -816,8 +816,9 @@ class DesignAgent:
             async def guia_anim(_args):
                 return _ok(agent_prompt.ANIMATION_GUIDE)
             guide_tools = [guia_anim]
-        from pizarra import agent_board_tools, agent_office_tools, agent_threads
-        board_tools = agent_board_tools.sdk_tools(self, tool) + agent_office_tools.sdk_tools(self, tool)
+        from pizarra import agent_board_tools, agent_m365_tools, agent_office_tools, agent_threads
+        board_tools = (agent_board_tools.sdk_tools(self, tool) + agent_office_tools.sdk_tools(self, tool)
+                       + agent_m365_tools.sdk_tools(self, tool))   # Microsoft 365 (PLAN_M365 §7)
         thread_tools, in_thread = [], self.decide is not None
         if in_thread:                   # solo dentro de un hilo (D167)
             @tool("proponer_decision", agent_threads.DECISION_TOOL, agent_threads.DECISION_SCHEMA)
@@ -841,6 +842,7 @@ class DesignAgent:
                            "mcp__pizarra__crear_postit", "mcp__pizarra__proponer_cambio",
                            *(f"mcp__pizarra__{n}" for n in agent_board_tools.NAMES),
                            *(f"mcp__pizarra__{n}" for n in agent_office_tools.NAMES),
+                           *(f"mcp__pizarra__{n}" for n in agent_m365_tools.NAMES),
                            *(f"mcp__pizarra__{n}" for n in PACK_TOOLS),
                            *([] if auto else ["mcp__pizarra__guia_animacion"]),
                            *(["mcp__pizarra__proponer_decision"] if in_thread else [])],
@@ -882,6 +884,13 @@ class DesignAgent:
             raise RuntimeError("el agente aún no ha arrancado")
         await self._client.interrupt()
 
+    def on_tool_use(self, block_id, name, inp):
+        """Cada herramienta que pide el agente, según sale del flujo. Aquí, nada; el de
+        onboarding apunta la web (PLAN_ONBOARDING N8)."""
+
+    def on_tool_result(self, tool_use_id, text, is_error):
+        """Lo que devolvió cada herramienta, entero, por su `tool_use_id`. Aquí, nada."""
+
     async def ask(self, message, emit):
         """Envía un mensaje y va emitiendo eventos {kind: text|tool|tool_result|done|error}.
         `done` lleva lo que da el SDK del consumo (`usage`, `cost_usd`) y cómo acabó
@@ -900,13 +909,16 @@ class DesignAgent:
                             if isinstance(b, TextBlock) and b.text.strip():
                                 await emit({"kind": "text", "text": b.text})
                             elif isinstance(b, ToolUseBlock):
+                                self.on_tool_use(b.id, b.name, b.input)
                                 await emit({"kind": "tool", "name": b.name.split("__")[-1],
                                             "input": b.input})
                     elif isinstance(m, UserMessage) and isinstance(m.content, list):
                         for b in m.content:
                             if isinstance(b, ToolResultBlock):
                                 text = b.content if isinstance(b.content, str) else "".join(
-                                    c.get("text", "") for c in (b.content or []))
+                                    c.get("text", "") for c in (b.content or [])
+                                    if isinstance(c, dict))
+                                self.on_tool_result(b.tool_use_id, text, bool(b.is_error))
                                 await emit({"kind": "tool_result", "error": bool(b.is_error),
                                             "text": text[:400]})
                     elif isinstance(m, ResultMessage):

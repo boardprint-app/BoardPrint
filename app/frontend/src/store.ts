@@ -90,8 +90,24 @@ export type PackProposal = {
 };
 export type AgentEvent = {
   kind: "user" | "text" | "tool" | "tool_result" | "done" | "error" | "pack_proposal"
-      | "stopped" | "privacy" | "limit" | "decision_proposal" | "closed" | "reopened";
+      | "stopped" | "privacy" | "limit" | "decision_proposal" | "closed" | "reopened"
+      | "proposal" | "proposal_state" | "excel";
   pack?: PackProposal;
+  /** Una propuesta del onboarding (PLAN_ONBOARDING §5): qué, lo de ahora y lo nuevo, por qué,
+   *  sus fuentes y su estado (pendiente | guardada | descartada | caducada). */
+  id?: string;
+  que?: string;
+  antes?: any;
+  nuevo?: any;
+  motivo?: string;
+  fuentes?: { url: string; cita: string }[];
+  estado?: "pendiente" | "guardada" | "descartada" | "caducada";
+  /** El Excel elegido en el onboarding (N7): su nombre, hojas, hoja, columnas y filas. */
+  nombre?: string;
+  sheet?: string;
+  sheets?: string[];
+  columns?: string[];
+  rows?: number;
   text?: string;
   name?: string;
   input?: Record<string, any>;

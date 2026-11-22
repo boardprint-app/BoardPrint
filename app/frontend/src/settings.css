@@ -67,6 +67,9 @@
    control a la derecha y el error debajo, a todo lo ancho. Todas montadas; se ve una. */
 .st-content[hidden] { display: none; }
 .st-intro { margin: 0; color: var(--ui-muted); }
+/* Cuentas (PLAN_M365 §3): un servicio por bloque, con su título y la nota de permisos debajo. */
+.st-subhead { margin: 4px 0 0; font-size: 1em; }
+.st-small { font-size: 0.9em; margin-top: 10px; }
 .st-row { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(0, 3fr); gap: 6px 20px;
   align-items: start; padding: 12px 8px; margin: 0 -6px; border-bottom: 1px solid var(--ui-line); border-radius: 6px; }
 /* (el margen negativo deja el texto donde estaba y aire dentro del marco del parpadeo) */

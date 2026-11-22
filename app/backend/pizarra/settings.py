@@ -19,6 +19,8 @@
     intrusividad_revisor = "a_demanda"   # PLAN_V020 V5: apagado | a_demanda | hitos
     modelo_diseno = "opus"      # V7, D7: opus | sonnet (PIZARRA_MODEL manda en desarrollo)
     modelo_revisor = "opus"
+    modelo_onboarding = "sonnet"   # PLAN_ONBOARDING N6, con su tope por workspace:
+    tope_onboarding_usd = 1
     [paneles]
     derecho = 420               # D60, D174: ancho del panel derecho en px (nunca < 320)
     idioma = "es"               # D180: el de la interfaz y el de las respuestas del agente
@@ -31,6 +33,9 @@
     "blocks.search" = "Ctrl+B"
     [bienvenida]
     vista = true                # D186: ya se terminó o se saltó la bienvenida
+    [microsoft365]              # PLAN_M365 M12: solo si la empresa registra su propia app
+    client_id = "<guid>"
+    tenant = "<id o dominio>"   # por defecto, common
 
 Un valor ilegible se lee como el de por defecto (nunca impide arrancar); los setters, en
 cambio, rechazan con ValueError lo que no vale, para que la API diga el motivo (D179). Se
@@ -63,9 +68,11 @@ DEFAULT_REVIEW_INTRUSIVENESS = "a_demanda"
 AGENT_MODELS = ("opus", "sonnet", "haiku")
 DEFAULT_AGENT_MODEL = "opus"
 MODEL_KEYS = {"diseno": "modelo_diseno", "revisor": "modelo_revisor",
-              "proveedores": "modelo_proveedores"}
-# El de proveedores lee fichas de producto: le basta Haiku (PLAN_APROVISIONAMIENTO A5).
-DEFAULT_MODELS = {"proveedores": "haiku"}
+              "proveedores": "modelo_proveedores", "onboarding": "modelo_onboarding"}
+# El de proveedores lee fichas de producto: le basta Haiku (PLAN_APROVISIONAMIENTO A5). El de
+# onboarding, Sonnet: es de una vez y no diseña (PLAN_ONBOARDING N6).
+DEFAULT_MODELS = {"proveedores": "haiku", "onboarding": "sonnet"}
+DEFAULT_ONBOARDING_LIMIT_USD = 1.0   # por workspace (PLAN_ONBOARDING N6)
 OFFERS = "ofertas"              # la tabla de la caducidad de las ofertas (A10)
 PANELS = "paneles"              # la tabla de los tamaños de los paneles (D60)
 RIGHT_PANEL_MIN = 320           # px: el panel derecho nunca es más estrecho (D174)
@@ -91,6 +98,7 @@ SHORTCUTS = "atajos"            # D97, D185
 SHORTCUT_ACTIONS = ("blocks.search", "view.fit_all", "view.fit_selection", "view.fit_viewport",
                     "tinta.activar")
 WELCOME = "bienvenida"          # D186
+M365 = "microsoft365"           # PLAN_M365 M12: client_id y tenant propios, a mano
 _MODIFIERS = (("ctrl", "Ctrl"), ("mayús", "Mayús"), ("alt", "Alt"))
 _MOD_ALIASES = {"ctrl": "ctrl", "cmd": "ctrl", "control": "ctrl", "mayús": "mayús",
                 "mayus": "mayús", "shift": "mayús", "alt": "alt", "option": "alt"}
@@ -214,6 +222,17 @@ class Settings:
     def _read(self, name, key):
         table = self.data.get(name)
         return table.get(key) if isinstance(table, dict) else None
+
+    # -------------------------------------------------- Microsoft 365 (PLAN_M365 M12)
+    @property
+    def m365(self):
+        """`[microsoft365] client_id` y `tenant`, solo a mano: la empresa que registre su app.
+        Lo que no es un texto no vacío se lee como no puesto."""
+        out = {}
+        for key in ("client_id", "tenant"):
+            value = self._read(M365, key)
+            out[key] = value.strip() if isinstance(value, str) and value.strip() else None
+        return out
 
     @property
     def window_mode(self):
@@ -345,6 +364,19 @@ class Settings:
         if positive_usd(value) is None:
             raise ValueError(i18n.t("ajustes.tope_valor_no_valido", valor=repr(value)))
         self._agents()["tope_busqueda_usd"] = float(value)
+
+    @property
+    def onboarding_limit_usd(self):
+        """El tope del agente de onboarding por workspace (PLAN_ONBOARDING N6); uno que no es
+        un importe vale 1."""
+        value = positive_usd(self._read(AGENTS, "tope_onboarding_usd"))
+        return value or DEFAULT_ONBOARDING_LIMIT_USD
+
+    @onboarding_limit_usd.setter
+    def onboarding_limit_usd(self, value):
+        if positive_usd(value) is None:
+            raise ValueError(i18n.t("ajustes.tope_valor_no_valido", valor=repr(value)))
+        self._agents()["tope_onboarding_usd"] = float(value)
 
     @property
     def offers_expiry_days(self):

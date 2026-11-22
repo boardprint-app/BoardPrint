@@ -22,7 +22,10 @@ export type AppSettings = {
              modelo_diseno?: string; modelo_revisor?: string;
              /** El agente de proveedores (PLAN_APROVISIONAMIENTO A5): haiku por defecto, y lo
               *  que puede gastar cada búsqueda. */
-             modelo_proveedores?: string; tope_busqueda_usd?: number };
+             modelo_proveedores?: string; tope_busqueda_usd?: number;
+             /** El agente de onboarding (PLAN_ONBOARDING N6): Sonnet por defecto, y su tope
+              *  por workspace. */
+             modelo_onboarding?: string; tope_onboarding_usd?: number };
   /** Días hasta que una oferta caduca (A10, de 1 a 90). */
   ofertas_caducidad_dias?: number;
   skin: string;

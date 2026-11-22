@@ -16,7 +16,7 @@ SHELL = Path(__file__).resolve().parent
 ROOT = SHELL.parents[1]
 PACKS = ROOT / "packs"
 OUT = SHELL / "dist-packs"
-OFFICIAL = ("robotica_base", "robotica", "terminales", "fusion")
+OFFICIAL = ("robotica_base", "robotica", "terminales", "fusion", "piezas")
 
 
 def build(out=OUT, ids=OFFICIAL):

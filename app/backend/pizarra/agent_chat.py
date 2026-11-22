@@ -94,6 +94,41 @@ def _add(a, b):
     return {**out, "usd": round(usd, 6)}
 
 
+def valid_cost(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and v >= 0
+
+
+def session_cost(entry, session_id, cumulative):
+    """(coste del mensaje, entrada nueva o None): el acumulado de la sesión (`cumulative`, el
+    `total_cost_usd` del SDK) menos el último que se apuntó de esa misma sesión en `entry`
+    (`session_id`, `cost_usd`). La entrada nueva lleva el acumulado de ahora; sin sesión, no
+    hay nada que apuntar. Una sesión nueva, o un acumulado menor, empieza de cero."""
+    last = entry.get("cost_usd") if entry.get("session_id") == session_id else None
+    last = last if isinstance(last, (int, float)) and not isinstance(last, bool) else 0.0
+    new = {**entry, "session_id": session_id, "at": time.time(),
+           "cost_usd": float(cumulative)} if session_id else None
+    return (cumulative - last if cumulative >= last else float(cumulative)), new
+
+
+def close_done(event, stopping, used, total, limit):
+    """El `done` del SDK como lo enseña el chat: cómo acabó (`reason`, de `subtype` y
+    `terminal_reason`, que se quitan), lo del mensaje (`used`), el total y el tope, y el texto
+    si no acabó bien. `stopping`: si se pulsó *Parar*."""
+    subtype = event.pop("subtype", None)
+    terminal = event.pop("terminal_reason", None)
+    reason = "stopped" if stopping or str(terminal or "").startswith("aborted") \
+        else REASONS.get(subtype, "error") if subtype is not None else "ok"
+    out = {**event, "reason": reason, "usage": used, "total": total, "limit": limit}
+    if reason == "limit":
+        out["text"] = i18n.t("agente.parado_tope", usado=f"{total['usd']:.2f}",
+                             tope=f"{limit:.2f}")
+    elif reason == "max_turns":
+        out["text"] = i18n.t("agente.parado_vueltas")
+    elif reason == "error":
+        out["text"] = i18n.t("agente.acabo_con_error", tipo=subtype)
+    return out
+
+
 class AgentStore:
     """`agent/` y `[agentes]` de un proyecto, siempre por el almacenamiento (D164)."""
 
@@ -131,18 +166,15 @@ class AgentStore:
         la sesión reanudada, no el del mensaje (medido con Claude de verdad): la diferencia con
         el último acumulado de esa misma sesión, que se guarda en `sessions.json`. Una sesión
         nueva, o un acumulado menor (el CLI perdió la sesión), empieza de cero."""
-        if not isinstance(cumulative, (int, float)) or isinstance(cumulative, bool) \
-                or not math.isfinite(cumulative) or cumulative < 0:
+        if not valid_cost(cumulative):
             return None
         data = self.ws.load_agent_file(self.pid, "sessions")
         entry = data.get(conversation) if isinstance(data.get(conversation), dict) else {}
-        last = entry.get("cost_usd") if entry.get("session_id") == session_id else None
-        last = last if isinstance(last, (int, float)) and not isinstance(last, bool) else 0.0
-        if session_id:
-            data[conversation] = {**entry, "session_id": session_id, "at": time.time(),
-                                  "cost_usd": float(cumulative)}
+        cost, new = session_cost(entry, session_id, cumulative)
+        if new is not None:
+            data[conversation] = new
             self.ws.save_agent_file(self.pid, "sessions", data)
-        return cumulative - last if cumulative >= last else float(cumulative)
+        return cost
 
     # --------------------------------------------------------------- consumo
     def usage(self):
@@ -413,8 +445,6 @@ class AgentChat:
     def _done(self, event, conv=MAIN):
         """El consumo del mensaje y el total, y cómo acabó (`reason`) en palabras del chat."""
         cumulative = event.pop("cost_usd", None)
-        subtype = event.pop("subtype", None)
-        terminal = event.pop("terminal_reason", None)
         agent = self._agent or self.session.agent
         try:                                  # por diferencia con SU sesión (R41)
             cost = self.store.message_cost(getattr(agent, "session_id", None), cumulative,
@@ -430,18 +460,7 @@ class AgentChat:
             log.warning("no se pudo guardar el consumo: %s", exc)
             usage = self.store.usage()
         limit, _own = limit_of(self.store, self.settings)
-        reason = "stopped" if self._stopping or str(terminal or "").startswith("aborted") \
-            else REASONS.get(subtype, "error") if subtype is not None else "ok"
-        out = {**event, "reason": reason, "usage": used, "total": usage["total"],
-               "limit": limit}
-        if reason == "limit":
-            out["text"] = i18n.t("agente.parado_tope", usado=f"{usage['total']['usd']:.2f}",
-                                 tope=f"{limit:.2f}")
-        elif reason == "max_turns":
-            out["text"] = i18n.t("agente.parado_vueltas")
-        elif reason == "error":
-            out["text"] = i18n.t("agente.acabo_con_error", tipo=subtype)
-        return out
+        return close_done(event, self._stopping, used, usage["total"], limit)
 
     async def stop(self):
         """*Parar* (`agent_stop`): el SDK corta el mensaje y lo dice su `done`; si no contesta

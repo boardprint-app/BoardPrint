@@ -6,7 +6,7 @@ import { apiFetch, token } from "../auth";
 import { t } from "../i18n";
 import { openSettings } from "../settings";
 import { ContextMenu, MoveDialog, NameDialog, TrashDialog, type MenuItem } from "./Dialogs";
-import { LibraryDialog } from "./LibraryDialog";
+import { openLibrary } from "../libraryOpen";
 import { NewWorkspaceDialog } from "./NewWorkspaceDialog";
 import { countProjects, crumbs, findFolder, folderSummary, moveTargets, search, timeAgo, type TreeNode } from "./tree";
 import { WorkspaceMenu } from "./WorkspaceMenu";
@@ -82,7 +82,6 @@ export function Home({ missing, problem, onOpen }: Props) {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
-  const [library, setLibrary] = useState(false);      // *Librería* (PLAN_V020 §5)
   // *Nuevo workspace* (PLAN_WORKSPACES W6), con la carpeta base; y la espera al cambiar (W3)
   const [newWs, setNewWs] = useState<{ base: string | null } | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -237,7 +236,7 @@ export function Home({ missing, problem, onOpen }: Props) {
           </svg>
           <input type="search" placeholder={t("lienzo.inicio.buscar")} value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
-        <button className="btn-outline home-library" onClick={() => setLibrary(true)}>{t("libreria.boton")}</button>
+        <button className="btn-outline home-library" onClick={() => openLibrary()}>{t("libreria.boton")}</button>
         <button className="btn-outline home-settings" onClick={() => openSettings()}>{t("lienzo.inicio.ajustes")}</button>
       </header>
 
@@ -346,7 +345,6 @@ export function Home({ missing, problem, onOpen }: Props) {
       </div>
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuFor(menu.node)} onClose={() => setMenu(null)} />}
-      {library && <LibraryDialog onClose={() => setLibrary(false)} />}
       {newWs && <NewWorkspaceDialog base={newWs.base} onClose={() => setNewWs(null)} />}
 
       {d?.kind === "new-project" && (

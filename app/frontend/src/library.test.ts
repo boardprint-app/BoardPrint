@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { setLanguage } from "./i18n";
 import {
-  buildMapping, canApply, draftOf, editQuantity, filterItems, guessMapping, mappingTargets,
+  buildMapping, canApply, draftOf, editQuantity, filterItems, guessMapping, initialChoices, mappingTargets,
   missingRequired, NEW_FIELD, newRowDrafts, originText, parseQuantity, resolveChoices, showQuantity,
   shownUnit, stockChanges, validFichaKey, writtenRows,
   type FieldInfo, type ImportPlan, type LibraryItem, type NewStockRow, type StockEntry,
@@ -178,6 +178,24 @@ describe("mapeo de columnas al importar (V16)", () => {
 const field = (nombre: string, extra: Partial<FieldInfo> = {}): FieldInfo => ({
   nombre, unidad: "", descripcion: "", obligatorio: false, min: null, max: null,
   declarado: true, paquete: "pk", ...extra,
+});
+
+describe("el importador abierto desde el onboarding (PLAN_ONBOARDING N7)", () => {
+  it("enseña el mapeo propuesto: cada columna con su destino y las demás sin importar", () => {
+    const targets = mappingTargets(["ratio"], true);
+    const got = initialChoices({ Ref: "key", Cant: "cantidad", Rel: "values.ratio", Fantasma: "nota" },
+                               ["Ref", "Cant", "Rel", "Notas"], targets);
+    expect(got).toEqual({ choices: { Ref: "key", Cant: "cantidad", Rel: "values.ratio", Notas: "" }, newFields: {} });
+    // y pedir el resumen con eso manda justo el mapeo propuesto
+    expect(buildMapping(got.choices, "gearbox")).toMatchObject({ ok: true, mapping: { Ref: "key", Cant: "cantidad", Rel: "values.ratio" } });
+  });
+
+  it("un campo que el tipo aún no tiene sale como campo nuevo con su nombre, y el mapeo es el mismo", () => {
+    const got = initialChoices({ Ref: "key", Par: "values.par_nominal" }, ["Ref", "Par"], mappingTargets([], true));
+    expect(got).toEqual({ choices: { Ref: "key", Par: NEW_FIELD }, newFields: { Par: "par_nominal" } });
+    const resolved = resolveChoices(got.choices, got.newFields);
+    expect(resolved.ok && buildMapping(resolved.choices, "motor")).toMatchObject({ ok: true, mapping: { Ref: "key", Par: "values.par_nominal" } });
+  });
 });
 
 describe("campos por tipo (PLAN_LIBRERIA L4)", () => {

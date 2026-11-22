@@ -18,6 +18,7 @@ AGENT_FILES = ("sessions", "usage", "threads")
 # Las conversaciones de `agent/` (un `.jsonl` cada una): `chat`, la del agente de diseño, y
 # `review`, la del revisor (FF 6.1, PLAN_V020 V3), que nunca se mezclan.
 AGENT_CHATS = ("chat", "review")
+ONBOARDING_FILES = ("session", "usage")      # en `.onboarding/` (PLAN_ONBOARDING N9)
 
 
 class StorageError(ValueError):
@@ -242,6 +243,30 @@ class Workspace(ABC):
 
     @abstractmethod
     def save_project_agent_settings(self, project_id: str, data: dict) -> None: ...
+
+    # La conversación con el agente de onboarding (PLAN_ONBOARDING N9): del workspace, no de
+    # un proyecto; `.onboarding/` en local, fuera de `profile/` (el perfil .zip no la lleva) y
+    # oculta en el árbol. `chat.jsonl` son sus eventos; `session.json` y `usage.json`
+    # (`ONBOARDING_FILES`), un JSON cada uno.
+    @abstractmethod
+    def load_onboarding_chat(self) -> list:
+        """Los eventos en orden; [] si no hay. Una línea cortada se salta."""
+
+    @abstractmethod
+    def append_onboarding_chat(self, events: list) -> None:
+        """Añade eventos al final; nunca reescribe los de antes."""
+
+    @abstractmethod
+    def load_onboarding_file(self, name: str) -> dict:
+        """`name` es uno de `ONBOARDING_FILES` (si no, `InvalidName`); {} si no hay o no se lee."""
+
+    @abstractmethod
+    def save_onboarding_file(self, name: str, data: dict) -> None: ...
+
+    @abstractmethod
+    def clear_onboarding_chat(self) -> None:
+        """*Empezar de nuevo*: borra la charla y la sesión; el consumo se queda (el tope es del
+        workspace, N6) y nada de lo guardado se toca."""
 
     # ------------------------------------------------------------ unidades (D182)
     @abstractmethod

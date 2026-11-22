@@ -39,6 +39,15 @@ const toolLabels = (): Record<string, string> => ({
   validar_paquete: t("agente.herramienta.validar_paquete"),
   proponer_paquete: t("agente.herramienta.proponer_paquete"),
   duplicar_paquete: t("agente.herramienta.duplicar_paquete"),
+  // el agente de onboarding (PLAN_ONBOARDING §4)
+  leer_configuracion: t("agente.herramienta.leer_configuracion"),
+  proponer_perfil: t("agente.herramienta.proponer_perfil"),
+  proponer_proveedores: t("agente.herramienta.proponer_proveedores"),
+  proponer_unidades: t("agente.herramienta.proponer_unidades"),
+  proponer_importacion: t("agente.herramienta.proponer_importacion"),
+  // la web de Claude Code (el de onboarding, PLAN_ONBOARDING N8)
+  WebSearch: t("agente.herramienta.WebSearch"),
+  WebFetch: t("agente.herramienta.WebFetch"),
 });
 
 /** El nombre legible de una herramienta, o su nombre si no se conoce. */
@@ -66,6 +75,8 @@ function toolHint(name: string, input: Input | undefined): string {
     case "calcular": return blockName(input.bloque);
     case "leer_archivo": return input.file ?? "";
     case "crear_archivo": return input.nombre ?? "";
+    case "WebSearch": return input.query ?? "";
+    case "WebFetch": return input.url ?? "";
     default: return typeof input.id === "string" ? input.id : "";
   }
 }
@@ -183,8 +194,13 @@ function PackCard({ pack }: { pack: PackProposal }) {
 }
 
 /** Qué hacen las tarjetas de privacidad y tope de una conversación: volver a mandar su
- *  pregunta (al chat o al hilo) y quitarse (no son conversación: no se guardan). */
-export type CardCtx = { resend: (ev: AgentEvent, once?: boolean) => void; drop: (ev: AgentEvent) => void };
+ *  pregunta (al chat o al hilo) y quitarse (no son conversación: no se guardan). Una
+ *  conversación con su propio WebSocket (la del onboarding, PLAN_ONBOARDING N10) da su `send`,
+ *  y `render` pinta sus líneas propias o en su manera (devuelve undefined para las de siempre). */
+export type CardCtx = {
+  resend: (ev: AgentEvent, once?: boolean) => void; drop: (ev: AgentEvent) => void;
+  send?: (msg: object) => void; render?: (ev: AgentEvent) => ReactNode | undefined;
+};
 
 const MAIN_CTX: CardCtx = {
   resend: (ev, once) => send({ type: "agent_ask", text: ev.text, ...(once ? { once: true } : {}) }),
@@ -198,7 +214,7 @@ function PrivacyCard({ ev, ctx }: { ev: AgentEvent; ctx: CardCtx }) {
       <p>{ev.notice}</p>
       <div className="ag-card-btns">
         <button className="ag-btn primary" onClick={() => {
-          send({ type: "agent_privacy_ok" });
+          (ctx.send ?? send)({ type: "agent_privacy_ok" });
           if (ev.text) ctx.resend(ev);
           ctx.drop(ev);
         }}>{t("agente.privacidad.entendido")}</button>
@@ -266,6 +282,8 @@ export function sourceLine(s: Record<string, any>): string {
 }
 
 function Line({ ev, result, ctx }: { ev: AgentEvent; result?: AgentEvent; ctx: CardCtx }) {
+  const own = ctx.render?.(ev);
+  if (own !== undefined) return <>{own}</>;
   switch (ev.kind) {
     case "user":
       // el del revisor, en el idioma de la interfaz; el de un hito, con su versión (V5)

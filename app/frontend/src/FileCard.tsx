@@ -22,6 +22,7 @@ import { portColor, SOCKET_H } from "./ports";
 import { fmt } from "./BlockOutputs";
 import { isExcelPath, nameState, writeTarget, type ExcelName, type ExcelWrite } from "./excel";
 import { WriteChooser, WriteFooter } from "./ExcelWrite";
+import { CloudConflict, CloudMark } from "./M365Card";
 
 const OPEN_WITH = /Windows/.test(navigator.userAgent);   // «Abrir con» solo en Windows (D141)
 
@@ -46,7 +47,7 @@ const dirName = (p: string) => {
 type Props = {
   id: string;
   kind: "file" | "folder";
-  data: { path?: string; content?: unknown };
+  data: { path?: string; content?: unknown; m365?: unknown };   // `m365`: vino de la nube (PLAN_M365 M6)
   selected: boolean;
   height: number;
   onHeight: (id: string, height: number) => void;
@@ -165,7 +166,9 @@ export function FileCard({ id, kind, data, selected, height, onHeight, onMenu, o
           <FileIcon type={type} size="sm" />
           <span className="fc-name" title={path}>{name}</span>
           {view?.ok && <span className="fc-ext">{fmtSize(view.size)}</span>}
+          <CloudMark id={id} data={data} />
         </div>
+        <CloudConflict id={id} data={data} />
         {view?.ok && view.names && <ExcelNames id={id} names={view.names} write={view.write ?? null} />}
         {view?.ok && view.names && view.write && <WriteFooter cardId={id} write={view.write} />}
         {view?.ok && view.names_error && <div className="fk-notice">⚠ {t("bloques.excel.ilegible", { error: view.names_error })}</div>}

@@ -5,7 +5,8 @@
 ese sitio): `página 3` en un PDF; `párrafos 4-9` o `tabla 2` en un Word (un `.docx` no guarda
 páginas: las calcula Word al pintarlo); `Hoja1!A1:F40` en un Excel, con la fila y la columna en
 la propia tabla para que la celda se lea sin contar; `diapositiva 5` en un PowerPoint, con sus
-tablas y sus notas; `líneas 1-200` en un texto.
+tablas y sus notas; `líneas 1-200` en un texto; `cabecera` y `líneas 1-100` en un correo `.eml`
+(PLAN_M365 M10: remitente, fecha, asunto, texto y nombres de los adjuntos).
 
 Nunca devuelve texto vacío: un formato que no conoce (también el `.doc`, `.xls` y `.ppt`
 antiguos), un archivo que no se puede abrir o uno sin texto (un PDF escaneado) dan `ReadError`
@@ -22,6 +23,9 @@ from collections import OrderedDict
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 import datetime
+from email import policy as email_policy
+from email.parser import BytesParser
+from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
@@ -30,7 +34,7 @@ import threading
 TEXT_EXTS = {".txt", ".md", ".csv", ".tsv", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg",
              ".log", ".xml"}
 OLD_OFFICE = {".doc": ".docx", ".xls": ".xlsx", ".ppt": ".pptx"}
-KNOWN = "PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx) y texto plano"
+KNOWN = "PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), correo (.eml) y texto plano"
 
 PARAGRAPH_CHARS = 3000      # un trozo de Word junta párrafos hasta este tamaño
 TEXT_LINES = 100            # un trozo de texto plano
@@ -272,8 +276,64 @@ def _cell(v):
     return " ".join(str(v).split()) if v is not None else ""
 
 
+# --- correo (.eml, PLAN_M365 M10) ---------------------------------------------------------
+
+class _HtmlText(HTMLParser):
+    """El texto de un correo que solo trae HTML, sin etiquetas, estilos ni scripts."""
+
+    SKIP = {"style", "script", "head"}
+    BREAK = {"br", "p", "div", "tr", "li", "h1", "h2", "h3", "h4", "table"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts, self.skip = [], 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.SKIP:
+            self.skip += 1
+        elif tag in self.BREAK:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP and self.skip:
+            self.skip -= 1
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.parts.append(data)
+
+    def text(self):
+        lines = (" ".join(line.split()) for line in "".join(self.parts).splitlines())
+        return "\n".join(line for line in lines if line)
+
+
+def _eml(path):
+    """Remitente, destinatarios, fecha, asunto, texto y nombres de los adjuntos."""
+    with open(path, "rb") as f:
+        msg = BytesParser(policy=email_policy.default).parse(f)
+    head = [f"{k}: {msg[k]}" for k in ("From", "To", "Cc", "Date", "Subject") if msg[k]]
+    body = msg.get_body(preferencelist=("plain", "html"))
+    text = ""
+    if body is not None:
+        content = body.get_content()
+        if body.get_content_subtype() == "html":
+            parser = _HtmlText()
+            parser.feed(content)
+            text = parser.text()
+        else:
+            text = content.strip()
+    names = [part.get_filename() or "(sin nombre)" for part in msg.iter_attachments()]
+    if names:
+        head.append("Adjuntos: " + ", ".join(names))
+    out = [Chunk("cabecera", "\n".join(head))]
+    lines = text.splitlines()
+    out += [Chunk(f"líneas {a + 1}-{min(a + TEXT_LINES, len(lines))}",
+                  "\n".join(lines[a:a + TEXT_LINES])) for a in range(0, len(lines), TEXT_LINES)]
+    return out
+
+
 READERS = {".pdf": _pdf, ".docx": _docx, ".docm": _docx, ".xlsx": _xlsx, ".xlsm": _xlsx,
-           ".pptx": _pptx, ".pptm": _pptx, **{e: _text for e in TEXT_EXTS}}
+           ".pptx": _pptx, ".pptm": _pptx, ".eml": _eml, **{e: _text for e in TEXT_EXTS}}
 
 
 def readable(path):

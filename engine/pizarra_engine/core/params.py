@@ -26,6 +26,7 @@ class Param:
     group: str
     lock: bool = False   # True: el dimensionado automático no lo cambia
     formula: str = ""    # si no está vacía, el parámetro es derivado: Fusion recibe esta expresión
+    title: str = ""      # nombre corto para la tarjeta de un bloque («Largo del brazo»); `desc` es la frase
 
     @property
     def expression(self) -> str:
@@ -53,7 +54,8 @@ def load(path: Path) -> PartSpec:
             raise ValueError(f"{name}: unidad de Fusion '{unit}' no soportada; usa {sorted(FUSION_UNITS)} y pon la real en 'label'")
         p = Param(name=name, value=float(d["value"]), unit=unit,
                   label=d.get("label", unit), min=float(d["min"]), max=float(d["max"]),
-                  desc=d["desc"], group=d.get("group", "general"), lock=bool(d.get("lock", False)))
+                  desc=d["desc"], group=d.get("group", "general"), lock=bool(d.get("lock", False)),
+                  title=d.get("title", ""))
         if not (p.min <= p.value <= p.max):
             raise ValueError(f"{name}: valor por defecto {p.value} fuera de rango [{p.min}, {p.max}]")
         params[name] = p

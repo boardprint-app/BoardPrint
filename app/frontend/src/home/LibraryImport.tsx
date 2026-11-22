@@ -4,14 +4,18 @@
 // por qué), y **nada se escribe hasta pulsar Importar**. Si entre tanto cambió el archivo o la
 // librería (409), se pide otro resumen y se enseña. Cada campo de la ficha sale con la unidad y
 // la descripción que declara su paquete (PLAN_LIBRERIA L4), y se avisa de los obligatorios que
-// ninguna columna llena.
-import { useEffect, useMemo, useState } from "react";
+// ninguna columna llena. Desde FF 7.6 se abre también rellenado (`initial`: el archivo, la hoja,
+// el tipo y el mapeo que propuso el agente de onboarding, PLAN_ONBOARDING N7); entonces no se
+// adivina nada, e *Importar* deja la propuesta guardada.
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n";
 import {
-  buildMapping, canApply, guessMapping, mappingTargets, missingRequired, NEW_FIELD, resolveChoices,
-  showQuantity, shownUnit, STOCK_TARGETS, VALUE_PREFIX, type FieldInfo, type ImportPlan, type PlanRow,
+  buildMapping, canApply, guessMapping, initialChoices, mappingTargets, missingRequired, NEW_FIELD, resolveChoices,
+  showQuantity, shownUnit, STOCK_TARGETS, VALUE_PREFIX, type FieldInfo, type ImportInitial, type ImportPlan, type PlanRow,
 } from "../library";
-import { ApiError, applyImport, fetchFields, inspectImport, planImport, type Inspected } from "../libraryApi";
+import {
+  ApiError, applyImport, applyProposalImport, fetchFields, inspectImport, planImport, type Inspected,
+} from "../libraryApi";
 import { desktop } from "../packsApi";
 import type { PackText } from "./usePackText";
 
@@ -37,9 +41,12 @@ function fieldInfo(f: FieldInfo | undefined, packText: PackText): string {
   return [shownUnit(packText(f.paquete, f.unidad)), packText(f.paquete, f.descripcion)].filter(Boolean).join(" · ");
 }
 
-type Props = { types: string[]; packText: PackText; onDone: (message: string) => void | Promise<void> };
+type Props = {
+  types: string[]; packText: PackText; onDone: (message: string) => void | Promise<void>;
+  initial?: ImportInitial | null;
+};
 
-export function LibraryImport({ types, packText, onDone }: Props) {
+export function LibraryImport({ types, packText, onDone, initial = null }: Props) {
   const [path, setPath] = useState("");
   const [got, setGot] = useState<Inspected | null>(null);
   const [sheet, setSheet] = useState("");
@@ -52,6 +59,11 @@ export function LibraryImport({ types, packText, onDone }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [onlyBad, setOnlyBad] = useState(false);
+  // Rellenado (`initial`): el mapeo se pone cuando llegan las columnas y los campos de su tipo,
+  // y hasta elegir otro archivo no se adivina ninguna columna.
+  const [seed, setSeed] = useState<ImportInitial | null>(initial);
+  const [fieldsType, setFieldsType] = useState("");
+  const noGuess = useRef(!!initial);
 
   const withType = !!type.trim();
   const names = useMemo(() => fields.map((f) => f.nombre), [fields]);
@@ -66,7 +78,8 @@ export function LibraryImport({ types, packText, onDone }: Props) {
     if (!ty) { setFields([]); return; }
     let live = true;
     const timer = window.setTimeout(() => {
-      fetchFields(ty).then((f) => live && setFields(f.fields), () => live && setFields([]));
+      fetchFields(ty).then((f) => { if (live) { setFields(f.fields); setFieldsType(ty); } },
+                           () => { if (live) { setFields([]); setFieldsType(ty); } });
     }, 250);
     return () => { live = false; window.clearTimeout(timer); };
   }, [type]);
@@ -85,6 +98,7 @@ export function LibraryImport({ types, packText, onDone }: Props) {
   // van a él (lo que el usuario ya eligió no se toca).
   const columnsKey = (got?.columns ?? []).join("\n");
   useEffect(() => {
+    if (noGuess.current) return;
     const cols = columnsKey ? columnsKey.split("\n") : [];
     const guess = guessMapping(cols, targets);
     setChoices((prev) => {
@@ -94,10 +108,27 @@ export function LibraryImport({ types, packText, onDone }: Props) {
     });
   }, [targets, columnsKey]);
 
+  // Rellenado: se abre su archivo con su tipo, y su mapeo se pone con los campos de ese tipo ya
+  // llegados (uno que el tipo aún no tiene, como campo nuevo).
+  useEffect(() => {
+    if (!initial) return;
+    setType(initial.type);
+    void open(initial.path, initial.sheet || undefined, true);
+  }, []);                                     // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!seed || !got) return;
+    if (seed.type.trim() && fieldsType !== seed.type.trim()) return;
+    const start = initialChoices(seed.mapping, got.columns ?? [], targets);
+    setChoices(start.choices);
+    setNewFields(start.newFields);
+    setSeed(null);
+  }, [seed, got, fieldsType, targets]);
+
   // Cualquier cambio de lo elegido deja el resumen viejo sin valor.
   useEffect(() => { setPlan(null); setInfo(null); }, [sheet, type, choices, newFields]);
 
-  const open = async (p: string | null, sh?: string) => {
+  const open = async (p: string | null, sh?: string, seeded = false) => {
+    if (!seeded) noGuess.current = false;
     setBusy("inspect");
     setError(null);
     try {
@@ -142,7 +173,9 @@ export function LibraryImport({ types, packText, onDone }: Props) {
     setBusy("apply");
     setError(null);
     try {
-      const r = await applyImport(plan.token);
+      // el archivo que propuso el agente: la propuesta queda guardada al importar (N7)
+      const proposal = initial?.proposal && plan.file === initial.path ? initial.proposal : null;
+      const r = proposal ? await applyProposalImport(proposal, plan.token) : await applyImport(plan.token);
       await onDone(t("libreria.importar.hecho", { creadas: r.created, actualizadas: r.updated, invalidas: r.invalid }));
     } catch (e) {
       setBusy("");
@@ -199,7 +232,7 @@ export function LibraryImport({ types, packText, onDone }: Props) {
           <span><b>{baseName(got.file ?? "")}</b> <span className="lb-muted">{got.file}</span></span>
           <span className="lb-muted">{t(got.rows === 1 ? "libreria.importar.filas_uno" : "libreria.importar.filas", { n: got.rows ?? 0 })}</span>
           <button className="pull-btn" disabled={!!busy}
-                  onClick={() => { setGot(null); setPlan(null); setChoices({}); setNewFields({}); setError(null); }}>
+                  onClick={() => { setGot(null); setPlan(null); setChoices({}); setNewFields({}); setError(null); setSeed(null); }}>
             {t("libreria.importar.otro")}
           </button>
         </div>

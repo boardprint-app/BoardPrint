@@ -14,6 +14,9 @@ import { SettingsDialog } from "./SettingsDialog";
 import { skinOf, type SkinId } from "./skins";
 import { UpdateBanner } from "./UpdateBanner";
 import { WelcomeDialog } from "./WelcomeDialog";
+import { OnboardingDialog } from "./OnboardingDialog";
+import { LibraryDialog } from "./home/LibraryDialog";
+import { closeLibrary, useLibraryOpen } from "./libraryOpen";
 import { openWelcome, readyToShow, welcomeOnLoad } from "./welcome";
 
 type View = { view: "home"; missing: string | null; problem?: string } | { view: "project"; project: string };
@@ -125,7 +128,15 @@ export default function Root() {
         : <Home missing={view.missing} problem={view.problem} onOpen={open} />}
       <SettingsDialog skin={skin} onSkin={setSkin} />
       <WelcomeDialog />
+      <LibraryRoot />
+      <OnboardingDialog />
       <UpdateBanner />
     </>
   );
+}
+
+/** La *Librería*, desde el inicio o desde una tarjeta del onboarding (libraryOpen.ts). */
+function LibraryRoot() {
+  const lib = useLibraryOpen();
+  return lib.open ? <LibraryDialog key={lib.seq} initialImport={lib.initial} onClose={closeLibrary} /> : null;
 }

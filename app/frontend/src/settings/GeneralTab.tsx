@@ -3,11 +3,13 @@
 // (PLAN_WORKSPACES W6, `WorkspacesRow`: abrir otro y quitar de la lista), su perfil de fabricación (PLAN_V020 V8,
 // `ProfileRow`), exportar e importar el perfil .zip (PLAN_LIBRERIA §5, `ProfileZipRow`), volver
 // a ver la bienvenida y las actualizaciones (PLAN_V020 §4, `UpdateRow`). Desde FF 8.1, la
-// caducidad de las ofertas de la Librería (PLAN_APROVISIONAMIENTO A10, `ExpiryRow`).
+// caducidad de las ofertas de la Librería (PLAN_APROVISIONAMIENTO A10, `ExpiryRow`). Desde FF 7.6,
+// *Configurar con el agente* junto al perfil (PLAN_ONBOARDING N2), que lo vuelve a leer si guarda uno.
 import { useEffect, useState } from "react";
 import type { AppSettings } from "../appSettings";
 import { desktop } from "../packsApi";
 import { LANGUAGE_NAMES, t } from "../i18n";
+import { openOnboarding, useOnboarding } from "../onboardingChat";
 import { IMPERIAL, SI, UNIT_CHOICES, type Magnitude, type UnitPrefs } from "../units";
 import { openWelcome } from "../welcome";
 import { Row, rowLabel, TabHead, useSaver } from "./common";
@@ -22,6 +24,7 @@ export function GeneralTab({ app }: { app: AppSettings }) {
   const { save, errors, busy } = useSaver();
   // tras importar un perfil, la fila del perfil de fabricación se vuelve a leer
   const [profileRev, setProfileRev] = useState(0);
+  const onboardingRev = useOnboarding().profileRev;     // un perfil guardado desde el onboarding
   const units = app.unidades;
   const same = (p: UnitPrefs) => MAGNITUDES.every((m) => units[m] === p[m]);
   const { min, max, paso } = app.opciones.escala;
@@ -83,7 +86,12 @@ export function GeneralTab({ app }: { app: AppSettings }) {
         </select>
       </Row>
       <WorkspacesRow ws={ws} />
-      {ws && <ProfileRow key={profileRev} />}
+      {ws && <ProfileRow key={`${profileRev}-${onboardingRev}`} />}
+      {ws && (
+        <Row id="onboarding" title={t("ajustes.onboarding")} hint={t("ajustes.onboarding.nota")}>
+          <button className="pull-btn" onClick={openOnboarding}>{t("ajustes.onboarding.boton")}</button>
+        </Row>
+      )}
       {ws && <ProfileZipRow onImported={() => setProfileRev((n) => n + 1)} />}
       <ExpiryRow app={app} />
       <Row id="bienvenida" title={t("ajustes.bienvenida")} hint={t("ajustes.bienvenida.nota")} error={errors.bienvenida}>

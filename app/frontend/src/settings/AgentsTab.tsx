@@ -4,7 +4,8 @@
 // entra el agente (PLAN_PUBLICACION O9): la sesión de Claude Code o una API key de Anthropic,
 // que se guarda en el almacén del sistema y nunca vuelve a la interfaz. Desde FF 6.1, la
 // intrusividad del revisor (PLAN_V020 V5) y el modelo de cada agente (V7). Desde FF 8.1, el
-// agente de proveedores: su modelo y el tope de cada búsqueda (PLAN_APROVISIONAMIENTO A5).
+// agente de proveedores: su modelo y el tope de cada búsqueda (PLAN_APROVISIONAMIENTO A5). Desde
+// FF 7.6, el de onboarding: su modelo y su tope por workspace (PLAN_ONBOARDING N6).
 import { useEffect, useState } from "react";
 import { saveApiKey, type AppSettings } from "../appSettings";
 import { t } from "../i18n";
@@ -37,6 +38,10 @@ export function AgentsTab({ app }: { app: AppSettings }) {
                 hint={t("ajustes.agentes.modelo_proveedores_nota")} />
       <LimitRow id="tope_busqueda_usd" saved={app.agentes.tope_busqueda_usd ?? 0.25} step="0.05"
                 title={t("ajustes.agentes.tope_busqueda")} hint={t("ajustes.agentes.tope_busqueda_nota")} />
+      <ModelRow app={app} agent="onboarding" title={t("ajustes.agentes.modelo_onboarding")}
+                hint={t("ajustes.agentes.modelo_onboarding_nota")} />
+      <LimitRow id="tope_onboarding_usd" saved={app.agentes.tope_onboarding_usd ?? 1} step="0.5"
+                title={t("ajustes.agentes.tope_onboarding")} hint={t("ajustes.agentes.tope_onboarding_nota")} />
     </>
   );
 }
@@ -44,7 +49,7 @@ export function AgentsTab({ app }: { app: AppSettings }) {
 /** Un tope en dólares equivalentes de `agentes` (el del proyecto, D168; el de cada búsqueda en
  *  proveedores, A5): se guarda al salir del campo o con Enter. */
 function LimitRow({ id, saved, step, title, hint }: {
-  id: "tope_proyecto_usd" | "tope_busqueda_usd"; saved: number; step: string; title: string; hint: string;
+  id: "tope_proyecto_usd" | "tope_busqueda_usd" | "tope_onboarding_usd"; saved: number; step: string; title: string; hint: string;
 }) {
   const { save, errors, busy } = useSaver();
   const [limit, setLimit] = useState(String(saved));
@@ -100,13 +105,13 @@ function ReviewerRow({ app }: { app: AppSettings }) {
 }
 
 /** El modelo de un agente (V7): Opus, Sonnet, más barato, o Haiku, el que menos (el de
- *  proveedores, Haiku por defecto, A5). */
+ *  proveedores, Haiku por defecto, A5; el de onboarding, Sonnet, PLAN_ONBOARDING N6). */
 function ModelRow({ app, agent, title, hint }: {
-  app: AppSettings; agent: "diseno" | "revisor" | "proveedores"; title: string; hint?: string;
+  app: AppSettings; agent: "diseno" | "revisor" | "proveedores" | "onboarding"; title: string; hint?: string;
 }) {
   const { save, errors, busy } = useSaver();
   const id = `modelo_${agent}` as const;
-  const value = app.agentes[id] ?? (agent === "proveedores" ? "haiku" : "opus");
+  const value = app.agentes[id] ?? DEFAULT_MODEL[agent] ?? "opus";
   const label: Record<string, string> = {
     opus: t("ajustes.agentes.modelo.opus"), sonnet: t("ajustes.agentes.modelo.sonnet"),
     haiku: t("ajustes.agentes.modelo.haiku"),
@@ -120,6 +125,8 @@ function ModelRow({ app, agent, title, hint }: {
     </Row>
   );
 }
+
+const DEFAULT_MODEL: Record<string, string> = { proveedores: "haiku", onboarding: "sonnet" };
 
 /** El acceso del agente: la sesión o la API key, con el campo de la clave cuando toca. */
 function AccessRow({ app }: { app: AppSettings }) {

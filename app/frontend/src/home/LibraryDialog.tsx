@@ -3,11 +3,13 @@
 // misma fila; la ficha en solo lectura al pulsar una fila, con *Dónde comprar* (`OffersSection`), y
 // *Importar CSV/Excel* (`LibraryImport`). La pestaña *Proveedores* (`ProvidersTab`,
 // PLAN_APROVISIONAMIENTO §5). Lo puro (cantidades, qué stock ha cambiado), en `library.ts`.
+// La abre `openLibrary` (libraryOpen.ts, en `Root`); con `initialImport`, en el importador ya
+// rellenado por una propuesta del onboarding (PLAN_ONBOARDING N7).
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { fmtNumber, t } from "../i18n";
 import {
   draftOf, filterItems, newRowDrafts, originText, showQuantity, shownUnit, stockChanges,
-  type FieldInfo, type Ficha, type LibraryItem, type NewStockRow, type StockDraft,
+  type FieldInfo, type Ficha, type ImportInitial, type LibraryItem, type NewStockRow, type StockDraft,
 } from "../library";
 import { deleteFicha, fetchFicha, fetchFields, fetchLibrary, saveStock } from "../libraryApi";
 import { LibraryImport } from "./LibraryImport";
@@ -19,7 +21,7 @@ import "./library.css";
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 type Field = keyof Exclude<StockDraft, null>;
 
-export function LibraryDialog({ onClose }: { onClose: () => void }) {
+export function LibraryDialog({ onClose, initialImport = null }: { onClose: () => void; initialImport?: ImportInitial | null }) {
   const [items, setItems] = useState<LibraryItem[] | null>(null);
   const [types, setTypes] = useState<string[]>([]);
   const [tab, setTab] = useState("");
@@ -29,7 +31,10 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState(!!initialImport);
+  // lo que rellena el importador la primera vez; al salir de él ya no vuelve
+  const [seed, setSeed] = useState(initialImport);
+  useEffect(() => { if (!importing) setSeed(null); }, [importing]);
   const [askClose, setAskClose] = useState(false);
   // Fichas o Proveedores; la de proveedores, una vez abierta, se queda montada (sus cambios
   // sin guardar no se pierden al volver a las fichas).
@@ -176,7 +181,7 @@ export function LibraryDialog({ onClose }: { onClose: () => void }) {
         )}
 
         {importing ? (
-          <LibraryImport types={types} packText={packText}
+          <LibraryImport types={types} packText={packText} initial={seed}
                          onDone={async (text) => { setImporting(false); setNotice(text); await load(); }} />
         ) : null}
         {provOpened && <ProvidersTab hidden={importing || view !== "proveedores"} onDirty={setProvDirty} />}

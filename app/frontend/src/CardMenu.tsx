@@ -9,10 +9,14 @@
 // abre un hilo anclado a la tarjeta, o a todo lo seleccionado si la tarjeta es parte de una
 // selección de varios (`group`).
 // En un archivo, también *Leer con el agente* y *Editar con el agente* (D176, OfficeMenu.tsx).
+// En un archivo, también lo de Microsoft 365 (PLAN_M365 M6-M9, M365Card.tsx): *Guardar en
+// OneDrive…* y, si vino de la nube, *Abrir en la web* y *Actualizar desde la nube*.
 // Bloque (9C): Ejecutar, *Guardar también en…* (D109), *Preguntar al agente* y quitar.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { OfficeItems } from "./OfficeMenu";
+import { M365Items } from "./M365Card";
+import { openM365Panel } from "./m365";
 import { menuPlace, previewKind } from "./cards";
 import { addCards, cardInfo, copyPath, openCard, relocateCard, revealCard, saveTo, type CardInfo } from "./cardActions";
 import { FileIcon, FolderIcon } from "./FileCard";
@@ -148,6 +152,8 @@ export function CardMenu({ target, onClose, onRemove, onAsk, api = null }: Props
       {askItem}
       {kind === "file" && <OfficeItems id={id} type={sources[id]?.type ?? ""} name={info?.name ?? t("lienzo.menu.el_archivo")}
                                        exists={exists} api={api} onClose={onClose} />}
+      {kind === "file" && <M365Items id={id} name={info?.name ?? t("lienzo.menu.el_archivo")} api={api}
+                                     exists={exists} onClose={onClose} />}
       <hr />
       <button type="button" role="menuitem" className="it" onClick={act(() => onRemove(id))}>
         <Ico d={I.remove} />{t("lienzo.menu.quitar")}<kbd>{t("lienzo.menu.supr")}</kbd>
@@ -189,6 +195,14 @@ export function AddFileMenu({ at, onExisting }: { at: () => { x: number; y: numb
             <FolderIcon small />
             <span><b>{t("lienzo.anadir.carpeta")}</b><small>{t("lienzo.anadir.carpeta_detalle")}</small></span>
 
+          </button>
+          {/* El panel Microsoft 365 (PLAN_M365 M14): OneDrive, SharePoint y correo. */}
+          <button type="button" role="menuitem" className="it two" onClick={() => { setOpen(false); openM365Panel(); }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                 strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 18h10a4 4 0 00.6-7.96A6 6 0 006.1 9.2 4.5 4.5 0 007 18z" />
+            </svg>
+            <span><b>{t("m365.titulo")}</b><small>{t("m365.anadir.detalle")}</small></span>
           </button>
         </div>
       )}

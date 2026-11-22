@@ -42,7 +42,9 @@ def view(settings, workspace, key_store=None):
                     "modelo_diseno": settings.saved_model("diseno"),           # V7
                     "modelo_revisor": settings.saved_model("revisor"),
                     "modelo_proveedores": settings.saved_model("proveedores"),  # A5
-                    "tope_busqueda_usd": settings.search_limit_usd},
+                    "tope_busqueda_usd": settings.search_limit_usd,
+                    "modelo_onboarding": settings.saved_model("onboarding"),    # N6
+                    "tope_onboarding_usd": settings.onboarding_limit_usd},
         "ofertas_caducidad_dias": settings.offers_expiry_days,          # A10
         "skin": settings.skin,
         "bienvenida_vista": settings.welcome_seen,
@@ -103,6 +105,10 @@ def apply(settings, workspace, changes):
             if positive_usd(a["tope_busqueda_usd"]) is None:
                 raise ValueError(i18n.t("ajustes.tope_no_valido"))
             settings.search_limit_usd = a["tope_busqueda_usd"]
+        if "tope_onboarding_usd" in a:
+            if positive_usd(a["tope_onboarding_usd"]) is None:
+                raise ValueError(i18n.t("ajustes.tope_no_valido"))
+            settings.onboarding_limit_usd = a["tope_onboarding_usd"]
         if "intrusividad_revisor" in a:
             settings.review_intrusiveness = a["intrusividad_revisor"]
         for agent, key in MODEL_KEYS.items():
@@ -155,20 +161,29 @@ def register(app, *, settings, workspace, sessions, broadcast):
 
     @app.put("/api/settings")
     async def put_settings(changes: dict = Body(...)):
-        before = copy.deepcopy(settings.data)
         try:
-            new_units = apply(settings, workspace, changes)
-        except ValueError as exc:
-            settings.data = before            # todo o nada: nada queda a medias en memoria
-            raise HTTPException(422, str(exc))
-        try:
-            if new_units is not None:
-                workspace.save_units(new_units)
-        except StorageError as exc:
-            settings.data = before
+            return await save(settings, workspace, sessions, broadcast, changes)
+        except StorageError as exc:             # antes: también es un ValueError
             raise HTTPException(409, str(exc))
-        settings.save()
-        i18n.set_language(settings.language)    # los mensajes del backend, en el idioma nuevo (O16)
-        for s in sessions.all() if sessions is not None else []:
-            await broadcast(s, {"type": "settings"})
-        return view(settings, workspace)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+
+
+async def save(settings, workspace, sessions, broadcast, changes):
+    """Aplica y guarda `changes`, todo o nada, y avisa a las ventanas abiertas: lo de
+    `PUT /api/settings`, y lo que usa *Guardar* en una propuesta de unidades del agente de
+    onboarding (PLAN_ONBOARDING N4: el mismo camino). ValueError si algo no vale,
+    StorageError si no se pudo escribir; en los dos casos no queda nada cambiado."""
+    before = copy.deepcopy(settings.data)
+    try:
+        new_units = apply(settings, workspace, changes)
+        if new_units is not None:
+            workspace.save_units(new_units)
+    except (ValueError, StorageError):
+        settings.data = before                # todo o nada: nada queda a medias en memoria
+        raise
+    settings.save()
+    i18n.set_language(settings.language)        # los mensajes del backend, en el idioma nuevo (O16)
+    for s in sessions.all() if sessions is not None else []:
+        await broadcast(s, {"type": "settings"})
+    return view(settings, workspace)

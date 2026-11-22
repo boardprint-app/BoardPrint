@@ -410,6 +410,52 @@ ES = {
     "borrador.no_existe": "no hay ningún borrador {id}: créalo con crear_paquete",
     "borrador.cambiado": "el borrador ha cambiado desde la última validación: vuelve a validarlo",
     "dialogo.todos": "Todos",
+    "m365.sin_configurar": "esta app no tiene registro de Microsoft 365 (falta el client ID)",
+    "m365.sin_sesion": "no hay sesión de Microsoft 365: iníciala en Ajustes → Cuentas",
+    "m365.falta_permiso": "falta dar permiso a SharePoint: pulsa «Dar permiso a SharePoint» en Ajustes → Cuentas",
+    "m365.inicio_fallido": "no se pudo iniciar sesión en Microsoft: {motivo}",
+    "m365.inicio_en_curso": "ya hay un inicio de sesión abierto en el navegador",
+    "m365.sin_conexion": "sin conexión con Microsoft 365",
+    "m365.error_graph": "Microsoft 365 respondió {estado}: {motivo}",
+    "m365.solo_archivos": "solo se guarda en la nube una tarjeta de archivo",
+    "m365.sin_enlace": "Microsoft 365 no da un enlace para abrirlo",
+    "onboarding.que_desconocido": "no se puede proponer {que}: solo perfil, proveedores o unidades",
+    "onboarding.unidades_vacias": "di qué magnitudes cambian, como {{longitud: \"in\"}}",
+    "onboarding.sin_cambios": "eso es lo que ya hay guardado: no hace falta proponerlo",
+    "onboarding.sin_motivo": "falta el motivo: una frase que diga por qué",
+    "onboarding.no_existe": "no hay ninguna propuesta {id}",
+    "onboarding.ya_cerrada": "esa propuesta ya está {estado}",
+    "onboarding.caducada": "lo de ahora ha cambiado desde la propuesta: no se ha guardado nada. "
+                           "El agente propondrá otra vez sobre lo nuevo.",
+    "onboarding.fuentes_no_validas": "las fuentes van como una lista de hasta {max} {{url, cita}}",
+    "onboarding.fuente_no_valida": "una fuente necesita una URL http(s) y su cita: {url}",
+    "onboarding.cita_sin_comprobar": "la cita de {url} no está en lo que devolvieron tus "
+                                     "herramientas: ábrela con WebFetch y copia la frase tal cual, "
+                                     "o pregúntale la cifra al ingeniero",
+    "onboarding.tarjeta_dejada": "Tarjeta dejada en el chat. No está guardada hasta que el "
+                                 "ingeniero pulse Guardar: no digas que lo está.",
+    "onboarding.herramienta_desconocida": "herramienta desconocida: {nombre}",
+    "onboarding.notas": "[Desde tu último mensaje, el ingeniero ha cerrado estas propuestas "
+                        "(qué, id: estado):\n{lineas}]",
+    # la librería desde un Excel (PLAN_ONBOARDING N7)
+    "onboarding.sin_excel": "aún no hay ningún Excel: pide al ingeniero que pulse Elegir Excel… "
+                            "en el chat",
+    "onboarding.hoja_no_existe": "el Excel no tiene la hoja {hoja}; tiene: {hojas}",
+    "onboarding.importacion_sin_tipo": "manufacturer, kind y los values.<campo> son de la "
+                                       "ficha: di de qué tipo son (tipo)",
+    "onboarding.importacion_desde_importador": "una importación no se guarda aquí: se abre el "
+                                               "importador y se importa desde él",
+    "onboarding.no_es_importacion": "esa propuesta no es una importación",
+    # la web con cita (N8)
+    "onboarding.web_no_http": "solo se abren páginas http o https",
+    "onboarding.herramienta_no": "{nombre} no está permitida: solo WebSearch, WebFetch y las "
+                                 "tuyas",
+    "onboarding.tarjeta_importacion": "Tarjeta dejada en el chat. No se importa nada hasta que "
+                                      "el ingeniero abra el importador y pulse Importar: no "
+                                      "digas que está importado.",
+    "onboarding.excel": "[El ingeniero ha elegido un Excel para la librería: «{nombre}», hoja "
+                        "{hoja} de {hojas}, {filas} filas. Columnas y primeras filas (JSON):\n"
+                        "{muestra}\nPropón con proponer_importacion a qué va cada columna.]",
 }
 EN = {
     "ajustes.no_es_objeto": "settings must be an object {key: value}",
@@ -813,6 +859,50 @@ EN = {
     "borrador.no_existe": "there is no draft {id}: create it with crear_paquete",
     "borrador.cambiado": "the draft has changed since the last validation: validate it again",
     "dialogo.todos": "All files",
+    "m365.sin_configurar": "this app has no Microsoft 365 registration (the client ID is missing)",
+    "m365.sin_sesion": "not signed in to Microsoft 365: sign in from Settings → Accounts",
+    "m365.falta_permiso": "SharePoint permission is missing: click «Allow SharePoint» in Settings → Accounts",
+    "m365.inicio_fallido": "could not sign in to Microsoft: {motivo}",
+    "m365.inicio_en_curso": "a sign-in is already open in the browser",
+    "m365.sin_conexion": "no connection to Microsoft 365",
+    "m365.error_graph": "Microsoft 365 answered {estado}: {motivo}",
+    "m365.solo_archivos": "only a file card can be saved to the cloud",
+    "m365.sin_enlace": "Microsoft 365 gives no link to open it",
+    "onboarding.que_desconocido": "cannot propose {que}: only perfil, proveedores or unidades",
+    "onboarding.unidades_vacias": "say which quantities change, like {{longitud: \"in\"}}",
+    "onboarding.sin_cambios": "that is what is already saved: no need to propose it",
+    "onboarding.sin_motivo": "the reason is missing: one sentence saying why",
+    "onboarding.no_existe": "there is no proposal {id}",
+    "onboarding.ya_cerrada": "that proposal is already {estado}",
+    "onboarding.caducada": "the current settings changed after the proposal: nothing was saved. "
+                           "The agent will propose again on top of the new ones.",
+    "onboarding.fuentes_no_validas": "sources go as a list of up to {max} {{url, cita}}",
+    "onboarding.fuente_no_valida": "a source needs an http(s) URL and its quote: {url}",
+    "onboarding.cita_sin_comprobar": "the quote from {url} is not in what your tools returned: "
+                                     "open it with WebFetch and copy the sentence verbatim, or "
+                                     "ask the engineer for the figure",
+    "onboarding.tarjeta_dejada": "Card left in the chat. It is not saved until the engineer "
+                                 "presses Save: do not say it is.",
+    "onboarding.herramienta_desconocida": "unknown tool: {nombre}",
+    "onboarding.notas": "[Since your last message, the engineer has closed these proposals "
+                        "(what, id: state):\n{lineas}]",
+    "onboarding.sin_excel": "there is no Excel file yet: ask the engineer to press Choose "
+                            "Excel… in the chat",
+    "onboarding.hoja_no_existe": "the Excel file has no sheet {hoja}; it has: {hojas}",
+    "onboarding.importacion_sin_tipo": "manufacturer, kind and the values.<field> belong to the "
+                                       "datasheet: say which type they are (tipo)",
+    "onboarding.importacion_desde_importador": "an import is not saved here: the importer opens "
+                                               "and the import is done from it",
+    "onboarding.no_es_importacion": "that proposal is not an import",
+    "onboarding.web_no_http": "only http or https pages are opened",
+    "onboarding.herramienta_no": "{nombre} is not allowed: only WebSearch, WebFetch and your "
+                                 "own tools",
+    "onboarding.tarjeta_importacion": "Card left in the chat. Nothing is imported until the "
+                                      "engineer opens the importer and presses Import: do not "
+                                      "say it is imported.",
+    "onboarding.excel": "[The engineer chose an Excel file for the library: “{nombre}”, sheet "
+                        "{hoja} of {hojas}, {filas} rows. Columns and first rows (JSON):\n"
+                        "{muestra}\nPropose with proponer_importacion where each column goes.]",
 }
 CATALOGS = {"es": ES, "en": EN}
 _language = "es"

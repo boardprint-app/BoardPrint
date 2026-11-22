@@ -62,9 +62,15 @@ export const planImport = (body: { path: string; sheet: string; type: string; ma
   call<ImportPlan>("/api/library/import/plan", "POST",
                    { ...body, sheet: body.sheet || null, type: body.type.trim() || null });
 
-export const applyImport = (token: string) =>
-  call<{ created: number; updated: number; unchanged: number; invalid: number; fichas: number; stock: number }>(
-    "/api/library/import/apply", "POST", { token });
+export type ImportDone = { created: number; updated: number; unchanged: number; invalid: number; fichas: number; stock: number };
+
+export const applyImport = (token: string) => call<ImportDone>("/api/library/import/apply", "POST", { token });
+
+/** *Importar* desde el importador que abrió una propuesta del onboarding (PLAN_ONBOARDING N7):
+ *  lo mismo que `applyImport`, y la propuesta queda guardada. */
+export const applyProposalImport = (proposal: string, token: string) =>
+  call<{ importado: ImportDone }>(`/api/onboarding/proposals/${encodeURIComponent(proposal)}/import`, "POST", { token })
+    .then((r) => r.importado);
 
 // ------------------------------------------------- proveedores y ofertas (PLAN_APROVISIONAMIENTO)
 export const fetchProviders = () => call<{ proveedores: Provider[]; tipos: string[] }>("/api/supply/providers");

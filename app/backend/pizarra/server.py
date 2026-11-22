@@ -12,7 +12,8 @@ compilada (`--web-dir`, por defecto la que va dentro del ejecutable). En desarro
 Escucha solo en 127.0.0.1. Con `--token`, toda ruta /api y el WebSocket lo exigen
 (cabecera `X-Token` o parámetro `token`): ningún otro proceso de la máquina maneja la app.
 
-Protocolo del WebSocket `/ws?project=<id>` (JSON), uno por proyecto abierto (D69):
+El del agente de onboarding, `/ws/onboarding` (del workspace, sin proyecto), está en
+`onboarding_api`. Protocolo del WebSocket `/ws?project=<id>` (JSON), uno por proyecto abierto (D69):
 cliente -> servidor
     {"type": "scene", "elements": [...]}               elementos que cambiaron (versión)
     {"type": "set_params", "block": id, "params": {}}  edición de parámetros de un bloque
@@ -143,6 +144,9 @@ REST:
     GET|PUT /api/supply/providers, /api/supply/offers…, /api/supply/search…   proveedores,
                                                ofertas y buscar (PLAN_APROVISIONAMIENTO): en
                                                `supply_api`
+    POST   /api/onboarding/proposals/<id>/save|discard   guardar o descartar una propuesta
+                                               del agente de onboarding (PLAN_ONBOARDING §5):
+                                               en `onboarding_api`
     GET|POST /api/projects/<id>/versions       versiones (D76): lista | guardar {name}; con la
                                                intrusividad en `hitos`, una con nombre lanza
                                                una revisión (V5)
@@ -184,8 +188,9 @@ from pydantic import BaseModel
 from pizarra import agent_chat, agent_review, agent_threads, blocks as blocks_mod
 from pizarra import connectors as connectors_mod, desktop, excel_calc, execution, files_api, graph, scene, watchdog
 from pizarra import agent_packs, pack_env, pack_host, pack_install, pack_install_api, pack_ui
-from pizarra import (i18n, library_api, profile_api, settings_api, supply_api, update_api,
-                     welcome, workspace_api, workspaces)
+from pizarra import agent_m365_tools, m365_api, m365_auth
+from pizarra import (i18n, library_api, onboarding_api, profile_api, settings_api, supply_api,
+                     update_api, welcome, workspace_api, workspaces)
 from pizarra import packs as packs_mod
 from pizarra.board import Board
 from pizarra.config import AGENT_AUTHORS, APP_NAME
@@ -638,6 +643,12 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
     settings_api.register(app, settings=settings, workspace=workspace, sessions=sessions,
                           broadcast=broadcast)
     update_api.register(app, settings=settings)   # el actualizador (PLAN_V020 §4)
+    # Microsoft 365 (PLAN_M365): la caché de tokens, al lado de settings.toml (M3).
+    m365 = app.state.m365 = m365_auth.Auth(m365_auth.cache_path(settings.path), settings)
+    agent_m365_tools.use(m365)                   # las herramientas del agente (§7)
+    watch_m365 = m365_api.register(app, auth=m365, sessions=sessions, broadcast=broadcast,
+                                   board_for=board_for, board_changed=board_changed,
+                                   probe_now=probe_now)
     library_api.register(app, need_workspace=need_workspace,      # la librería (PLAN_V020 §5)
                          registry=lambda: blocks_mod.REGISTRY)
     profile_api.register(app, need_workspace=need_workspace,      # el perfil .zip (PLAN_LIBRERIA §5)
@@ -645,6 +656,11 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
     supply_api.register(app, need_workspace=need_workspace,       # proveedores (PLAN_APROVISIONAMIENTO)
                         settings=settings, registry=lambda: blocks_mod.REGISTRY,
                         cli_path=claude_cli)
+    onboarding_api.register(app, need_workspace=need_workspace,   # PLAN_ONBOARDING §5, §6
+                            settings=settings, sessions=sessions, broadcast=broadcast,
+                            supply=app.state.supply, claude_cli=claude_cli,
+                            ws_ok=lambda w: token_ok(w.query_params.get("token"))
+                            and origin_ok(w.headers.get("origin")))
     welcome.register(app, settings=settings, workspace=workspace, claude_cli=claude_cli,
                      restart=restart)
     workspaces.register(app, settings=settings, workspace=workspace, restart=restart,
@@ -770,6 +786,7 @@ def create_app(start: StartState, token=None, engine_dir=None, web_dir=None, cla
     async def start_watchers():
         app.state.watch = asyncio.create_task(watch_connectors())
         app.state.watch_sources = asyncio.create_task(watch_sources())
+        app.state.watch_m365 = asyncio.create_task(watch_m365())     # la nube (PLAN_M365 M7)
         if calc is not None:        # un recálculo acabado: se sondea ya, sin esperar al vigilante
             loop = asyncio.get_running_loop()
 

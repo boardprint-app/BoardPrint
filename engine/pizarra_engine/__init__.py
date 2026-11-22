@@ -1,5 +1,6 @@
-"""Motor del banco de diseño: cálculo de piezas y lo común de Fusion (`core`). Los brazos y los
-terminales son de sus paquetes (`packs/robotica/`, `packs/terminales/`, docs/PLAN_PAQUETES.md §9).
+"""Motor del banco de diseño: lo común de los paquetes y de Fusion (`core`). Las piezas, los brazos
+y los terminales son de sus paquetes (`packs/piezas/`, `packs/robotica/`, `packs/terminales/`,
+docs/PLAN_PAQUETES.md §9, docs/PLAN_PIEZAS.md Z1).
 
 Paquete de nombre único (plan D53) porque comparte el Python de Fusion con otros complementos:
 se importa como `pizarra_engine.<subpaquete>` con la carpeta `engine/` en `sys.path`.

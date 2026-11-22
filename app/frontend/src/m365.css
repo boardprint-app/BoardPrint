@@ -1,0 +1,57 @@
+/* Microsoft 365 en la pizarra (docs/PLAN_M365.md §3): el panel del lienzo, sobre la bandeja de
+   bloques (`.bk-tray`, styles.css), el selector de *Guardar en OneDrive…* sobre `.pull`, y las
+   marcas de las tarjetas de la nube (sobre `.fcard`, cards.css). */
+.m365-tray { width: 360px; }
+.m365-tabs { padding: 0; margin: 0 -10px; padding-left: 4px; }
+.m365-tabs .ag-tab { min-height: 34px; }
+.m365-browser { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.m365-list { gap: 1px; }
+.m365-crumbs { font-size: 12.5px; flex-wrap: wrap; row-gap: 2px; }
+.m365-crumbs strong, .m365-crumbs .fv-crumb { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m365-err { margin: 4px; font-size: 12px; }
+.m365-err .pull-btn { display: block; margin-top: 6px; }
+.m365-gate { display: grid; gap: 10px; justify-items: start; padding: 4px 2px; color: var(--ui-muted); line-height: 1.45; }
+.m365-gate p { margin: 0; }
+
+/* Una fila: carpeta (toda la fila entra) o archivo con *Llevar a la pizarra* a la derecha. */
+.m365-row { display: flex; align-items: center; gap: 6px; border-radius: 6px; padding-right: 4px; }
+.m365-row:hover { background: var(--ui-hover); }
+.m365-open { flex: 1; min-width: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center;
+  padding: 5px 6px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+button.m365-open { cursor: pointer; }
+.m365-open .ficon { justify-self: center; }
+.m365-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m365-row.dir .m365-name { font-weight: 600; }
+.m365-bring { flex: none; min-height: 24px; padding: 0 8px; font-size: 11.5px;
+  border-color: var(--ui-line); color: var(--ui-fg); }
+.m365-bring:hover:not(:disabled) { background: var(--ui-bg); }
+
+/* Correo: carpeta y buscar arriba; cada correo en tres líneas y sus botones. */
+.m365-mailbar { display: grid; gap: 6px; }
+.m365-folder { padding: 5px 6px; }
+.m365-mail { display: grid; gap: 1px; padding: 6px 6px 7px; border-radius: 6px; border-bottom: 1px solid var(--ui-line); }
+.m365-mail:hover { background: var(--ui-hover); }
+.m365-mail-top { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ui-muted); min-width: 0; }
+.m365-from { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-fg); }
+.m365-clip { flex: none; display: inline-flex; }
+.m365-date { flex: none; white-space: nowrap; }
+.m365-subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m365-mail.unread .m365-subject, .m365-mail.unread .m365-from { font-weight: 700; }
+.m365-preview { font-size: 11.5px; color: var(--ui-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m365-mail-btns { display: flex; gap: 6px; margin-top: 4px; }
+
+/* El selector de carpeta de *Guardar en OneDrive…* (M9). */
+.pull.m365-pick { width: min(520px, 100%); height: min(560px, 86vh); }
+.m365-pick-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 18px; }
+.m365-pick-body .m365-browser { font-size: 13px; }
+.m365-pick-foot { display: flex; align-items: center; gap: 10px; padding: 10px 18px 14px; border-top: 1px solid var(--ui-line); }
+.m365-where { flex: 1; min-width: 0; color: var(--ui-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m365-done { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; padding: 6px 0; overflow-wrap: anywhere; }
+
+/* La tarjeta de la nube: la marca del servicio, «sin conexión» y el aviso de conflicto (M7, M8). */
+.m365-mark { flex: none; display: inline-flex; color: var(--paper-muted); }
+.m365-offline { font-weight: 600; text-transform: lowercase; }
+.m365-conflict { display: grid; gap: 6px; margin: 0 10px 9px; padding: 7px 9px; border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--b-err) 55%, transparent);
+  background: color-mix(in srgb, var(--b-err) 10%, transparent); font-size: 11.5px; }
+.m365-conflict-msg { color: var(--b-err); font-weight: 600; overflow-wrap: anywhere; }

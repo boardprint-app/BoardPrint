@@ -8,8 +8,8 @@ import { useSyncExternalStore } from "react";
 /** Qué instalar al abrir: rutas (escritorio: soltadas o del diálogo), archivos (navegador) o
  *  `pick`, que pide elegirlos. */
 export type InstallRequest = { paths?: string[]; files?: File[]; pick?: boolean };
-export type SettingsTab = "general" | "apariencia" | "atajos" | "agentes" | "paquetes" | "avanzados";
-export const SETTINGS_TABS: SettingsTab[] = ["general", "apariencia", "atajos", "agentes", "paquetes", "avanzados"];
+export type SettingsTab = "general" | "apariencia" | "atajos" | "agentes" | "cuentas" | "paquetes" | "avanzados";
+export const SETTINGS_TABS: SettingsTab[] = ["general", "apariencia", "atajos", "agentes", "cuentas", "paquetes", "avanzados"];
 export type SettingsState = {
   open: boolean; tab: SettingsTab; highlight: string | null; install: InstallRequest | null; seq: number;
 };

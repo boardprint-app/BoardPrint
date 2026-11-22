@@ -36,3 +36,11 @@ export function wsUrl(project: string) {
   if (token) q.set("token", token);
   return `${proto}://${location.host}/ws?${q}`;
 }
+
+// El del agente de onboarding (PLAN_ONBOARDING N10): del workspace, sin proyecto.
+export function wsOnboardingUrl() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const q = new URLSearchParams();
+  if (token) q.set("token", token);
+  return `${proto}://${location.host}/ws/onboarding${token ? `?${q}` : ""}`;
+}

@@ -70,6 +70,8 @@ import { getLanguage, t } from "./i18n";
 import { barDensity, type BarDensity } from "./toolbar";
 import { localizeCatalog, type CatalogParts } from "./packI18n";
 import { designBusy, reviewerBusy } from "./review";
+import { M365Panel, SaveToCloudDialog } from "./M365Panel";
+import { closeM365Panel, handleM365Message, resetM365View, useM365View } from "./m365";
 
 const THUMB_DELAY = 5000; // ms sin cambios antes de rehacer la miniatura
 
@@ -162,6 +164,9 @@ export function ProjectBoard({ projectId, onHome, skin, onSkin }: Props) {
   const { problems, packIssues, lastError, project, savedAt, postitFilter, run } = useStore();
   // Bandeja de bloques (D96 4B): se muestra u oculta con *Bloque* y se queda abierta.
   const [trayOpen, setTrayOpen] = useState(false);
+  // El panel Microsoft 365 (PLAN_M365 M14) va en el mismo sitio: abrir uno cierra el otro.
+  const m365Open = useM365View().panel;
+  useEffect(() => { if (m365Open) setTrayOpen(false); }, [m365Open]);
   // Menú contextual de una tarjeta de archivo, de carpeta o de un bloque (D139).
   const [menu, setMenu] = useState<MenuTarget | null>(null);
   const { folderView, preview } = useStore();
@@ -221,6 +226,7 @@ export function ProjectBoard({ projectId, onHome, skin, onSkin }: Props) {
   useEffect(() => {
     if (!api) return;
     resetStore();
+    resetM365View();
     // El texto de los post-its se mide al restaurarlo: si la fuente aún no está cargada se
     // mide con otra y luego se desborda. Se precarga antes de recibir la escena.
     const fontsReady = Promise.race([
@@ -307,6 +313,8 @@ export function ProjectBoard({ projectId, onHome, skin, onSkin }: Props) {
         // los hilos (`threads`, `thread_*`): threadActions.ts
       } else if (msg.type === "settings") {
         void loadAppSettings();              // otra ventana cambió un ajuste (D179)
+      } else if (msg.type === "m365") {
+        handleM365Message(msg);              // marcas de las tarjetas de la nube o la cuenta (PLAN_M365 M7)
       } else if (msg.type === "animation_notice") {
         showAnimationNotice();               // la primera animación del proyecto (D187)
       } else if (msg.type === "zone_request") {
@@ -840,7 +848,7 @@ export function ProjectBoard({ projectId, onHome, skin, onSkin }: Props) {
             <InkMenu filter={skinInkFilter(skinOf(skin))} />
             <AddFileMenu at={() => viewCenter(120, 20)} onExisting={(ids) => api && revealCards(api, ids)} />
             <NewFileMenu api={api} />
-            <button className={trayOpen ? "tb-on" : ""} aria-pressed={trayOpen} onClick={() => setTrayOpen((o) => !o)}
+            <button className={trayOpen ? "tb-on" : ""} aria-pressed={trayOpen} onClick={() => { if (!trayOpen) closeM365Panel(); setTrayOpen((o) => !o); }}
                     title={t("lienzo.barra.bandeja_titulo")} aria-label={t("lienzo.barra.bloque")}>
               <span className="tb-glyph" aria-hidden="true">▦</span><span className="tb-label">{t("lienzo.barra.bloque")}</span>
             </button>
@@ -899,6 +907,8 @@ export function ProjectBoard({ projectId, onHome, skin, onSkin }: Props) {
                            onClose={() => setStore({ folderView: null })} />;
       })()}
       {api && <BlockPalette api={api} projectId={projectId} trayOpen={trayOpen} onCloseTray={() => setTrayOpen(false)} />}
+      {api && <M365Panel at={() => viewCenter(120, 20)} onExisting={(ids) => revealCards(api, ids)} />}
+      <SaveToCloudDialog />
       {api && <ThreadLayer api={api} />}
       <ThreadClose />
       {api && <ProposalOverlay api={api} />}

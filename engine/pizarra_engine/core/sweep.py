@@ -1,9 +1,10 @@
 """Barrido de un parámetro en Fusion: para cada valor, Fusion regenera la pieza,
 se miden sus propiedades y se ejecutan todas las comprobaciones.
 
-Uso dentro de Fusion (script o MCP):
-    from pizarra_engine.core import sweep
-    sweep.run("mensula", "t", [3, 4, 5, 6, 8, 10, 12, 15])
+La pieza la pone quien llama, como en `runner.run`. Dentro de Fusion, la ménsula (paquete
+`piezas`, docs/PLAN_PIEZAS.md Z3):
+    from pizarra_packs.piezas.fusion import api
+    api.sweep("mensula", "t", [3, 4, 5, 6, 8, 10, 12, 15])
 
 Al terminar, el parámetro vuelve a su valor original aunque algo falle.
 Resultado: out/<pieza>/sweep_<param>.json y sweep_<param>.html, y la opción
@@ -12,25 +13,21 @@ más ligera que cumple todas las comprobaciones.
 import importlib
 import json
 from datetime import datetime
-from pathlib import Path
 
 from pizarra_engine import REPO as ROOT
-
-PARTS = Path(__file__).resolve().parent.parent / "parts"
 
 
 def _fresh(name):
     return importlib.reload(importlib.import_module(name))
 
 
-def run(part: str, param: str, values, apply_best: bool = False) -> dict:
+def run(part: str, param: str, values, apply_best: bool = False, *, spec_path, build, calc) -> dict:
+    """`spec_path`: el `params.toml` de la pieza; `build` y `calc`, sus módulos."""
     params = _fresh("pizarra_engine.core.params")
     fusion_io = _fresh("pizarra_engine.core.fusion_io")
     sweep_report = _fresh("pizarra_engine.core.sweep_report")
-    build = _fresh(f"pizarra_engine.parts.{part}.build")
-    calc = _fresh(f"pizarra_engine.parts.{part}.calc")
 
-    spec = params.load(PARTS / part / "params.toml")
+    spec = params.load(spec_path)
     if param not in spec.params:
         raise KeyError(f"{param} no es un parámetro de {part}")
     p = spec.params[param]

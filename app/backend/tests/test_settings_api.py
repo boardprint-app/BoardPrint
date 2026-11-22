@@ -142,6 +142,20 @@ class LaApi(_Tmp):
         data = tomllib.loads((self.tmp / "Personal" / "workspace.toml").read_text(encoding="utf-8"))
         self.assertEqual(data["id"], self.ws.info().id)
 
+    def test_el_modelo_y_el_tope_del_onboarding_se_leen_se_validan_y_vuelven(self):
+        """PLAN_ONBOARDING N6: Sonnet y 1 USD por defecto; uno que no vale se rechaza."""
+        s = Settings.load(self.path)
+        a = settings_api.view(s, self.ws)["agentes"]
+        self.assertEqual((a["modelo_onboarding"], a["tope_onboarding_usd"]), ("sonnet", 1.0))
+        self.apply(s, {"agentes": {"modelo_onboarding": "haiku", "tope_onboarding_usd": 0.5}})
+        a = settings_api.view(Settings.load(self.path), self.ws)["agentes"]
+        self.assertEqual((a["modelo_onboarding"], a["tope_onboarding_usd"]), ("haiku", 0.5))
+        for bad in ({"tope_onboarding_usd": 0}, {"tope_onboarding_usd": "uno"},
+                    {"modelo_onboarding": "gpt"}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                settings_api.apply(s, self.ws, {"agentes": bad})
+        self.assertEqual(self.write("[agentes]\ntope_onboarding_usd = -3\n").onboarding_limit_usd, 1.0)
+
     def test_la_vista_lleva_lo_que_se_puede_elegir(self):
         v = settings_api.view(Settings.load(self.path), self.ws)
         self.assertEqual(v["ventana"], {"modo": "maximizada", "escala": 100})

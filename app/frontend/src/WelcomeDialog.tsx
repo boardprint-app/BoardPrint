@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { saveAppSettings, useAppSettings, type AppSettings } from "./appSettings";
 import { apiFetch } from "./auth";
 import { LANGUAGE_NAMES, t } from "./i18n";
+import { openOnboarding } from "./onboardingChat";
 import { IMPERIAL, SI, type UnitPrefs } from "./units";
 import {
   connectorList, finishWelcome, goToStep, planLabel, LAST_STEP, nextStep, prevStep, sameFolder, useWelcome,
@@ -103,7 +104,17 @@ function WelcomeWindow({ step }: { step: number }) {
             ? <button className="pull-btn pull-apply" disabled={locked} onClick={() => goToStep(nextStep(step))}>
                 {t("bienvenida.siguiente")}
               </button>
-            : <button className="pull-btn pull-apply" disabled={locked} onClick={finish}>{t("bienvenida.terminar")}</button>}
+            : <>
+                {/* el agente de onboarding (PLAN_ONBOARDING N2): termina y abre su ventana */}
+                {app?.workspace && (
+                  <button className="pull-btn" disabled={locked} onClick={() => {
+                    if (lockedRef.current) return;
+                    void finishWelcome(saveAppSettings);
+                    openOnboarding();
+                  }}>{t("bienvenida.onboarding")}</button>
+                )}
+                <button className="pull-btn pull-apply" disabled={locked} onClick={finish}>{t("bienvenida.terminar")}</button>
+              </>}
         </div>
       </div>
     </div>

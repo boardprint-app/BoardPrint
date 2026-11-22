@@ -32,8 +32,9 @@ from boardprint_sdk.library import STOCK_COLUMNS, STOCK_FILE, _read_stock
 from pizarra import i18n
 from pizarra.config import APP_ID, LEGACY_INDEX_DIRS
 from pizarra.pasted import ANIMATION_EXT, IMAGE_EXT
-from pizarra.storage.base import (AGENT_CHATS, AGENT_FILES, Conflict, InvalidName, Node, NotFound, ProjectInfo,
-                                  StorageError, Workspace, WorkspaceInfo)
+from pizarra.storage.base import (AGENT_CHATS, AGENT_FILES, ONBOARDING_FILES, Conflict,
+                                  InvalidName, Node, NotFound, ProjectInfo, StorageError,
+                                  Workspace, WorkspaceInfo)
 from pizarra.storage.names import (ROOT_RESERVED, check_ficha_key, check_ficha_type, check_name,
                                    split_rel)
 
@@ -44,6 +45,7 @@ PROFILE_DIR = "profile"                 # reservada en la raíz (`names.ROOT_RES
 MANUFACTURING_FILE = "fabricacion.md"   # el perfil de fabricación (D31, PLAN_V020 V8)
 PROVIDERS_FILE = "proveedores.toml"     # los proveedores, en orden (PLAN_APROVISIONAMIENTO A2)
 OFFERS_FILE = "ofertas.json"           # la caché de ofertas, fuera del perfil .zip (A8)
+ONBOARDING_DIR = ".onboarding"          # la charla del agente de onboarding (PLAN_ONBOARDING N9)
 LIBRARY_DIR = "library"                 # la librería (V14), dentro de `profile/`: el perfil la lleva (D26)
 PROFILE_COPIES = ".copias"              # `profile/.copias/<fecha>.zip`, antes de importar un perfil (L9)
 INDEX_DIR = f".{APP_ID}"
@@ -735,6 +737,34 @@ class LocalWorkspace(Workspace):
         data = self._read_project_toml(d)
         data["agentes"] = dict(settings)
         _write_toml(d / PROJECT_FILE, data)
+
+    # ------------------------------- la conversación del onboarding (PLAN_ONBOARDING N9)
+    def _onboarding_path(self, name):
+        if name not in ONBOARDING_FILES:
+            raise InvalidName(f"fichero del onboarding desconocido: {name!r}")
+        return self.root / ONBOARDING_DIR / f"{name}.json"
+
+    def load_onboarding_chat(self):
+        return self._load_jsonl(self.root / ONBOARDING_DIR / "chat.jsonl")
+
+    def append_onboarding_chat(self, events):
+        self._append_jsonl(self.root / ONBOARDING_DIR / "chat.jsonl", events)
+
+    def load_onboarding_file(self, name):
+        p = self._onboarding_path(name)
+        try:
+            data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        except (ValueError, OSError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def save_onboarding_file(self, name, data):
+        atomic_write(self._onboarding_path(name),
+                     json.dumps(data, ensure_ascii=False, indent=1).encode("utf-8"))
+
+    def clear_onboarding_chat(self):
+        (self.root / ONBOARDING_DIR / "chat.jsonl").unlink(missing_ok=True)
+        self._onboarding_path("session").unlink(missing_ok=True)
 
     # ------------------------------------------------------------ unidades (D182)
     def _workspace_toml(self):

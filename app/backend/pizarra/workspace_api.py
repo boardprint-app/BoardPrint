@@ -78,6 +78,21 @@ def profile_view(ws):
             "plantilla": template}
 
 
+def check_profile(text):
+    """El perfil de fabricación que se puede guardar; ValueError con el motivo si no. Lo usa
+    también `proponer_perfil` del agente de onboarding (PLAN_ONBOARDING N4)."""
+    if not isinstance(text, str):
+        raise ValueError(i18n.t("perfil.no_texto"))
+    if len(text) > PROFILE_MAX:
+        raise ValueError(i18n.t("perfil.largo", max=PROFILE_MAX))
+    return text
+
+
+def save_profile(ws, text):
+    """Lo de `PUT /api/workspace/fabricacion` y *Guardar* en una propuesta del onboarding."""
+    ws.save_manufacturing_profile(check_profile(text))
+
+
 def register(app, *, start, settings, workspace, sessions, need_workspace, board_for, broadcast,
              close_sessions, project_dict, init_msg, version_saved=None):
     """Añade las rutas a `app`. `workspace` y `sessions` son None si no hay workspace abierto
@@ -148,12 +163,10 @@ def register(app, *, start, settings, workspace, sessions, need_workspace, board
     @app.put("/api/workspace/fabricacion")
     def put_profile(p: dict = Body(...)):
         ws = need_workspace()
-        text = p.get("texto") if isinstance(p, dict) else None
-        if not isinstance(text, str):
-            raise HTTPException(422, i18n.t("perfil.no_texto"))
-        if len(text) > PROFILE_MAX:
-            raise HTTPException(422, i18n.t("perfil.largo", max=PROFILE_MAX))
-        ws.save_manufacturing_profile(text)
+        try:
+            save_profile(ws, p.get("texto") if isinstance(p, dict) else None)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
         return profile_view(ws)
 
     @app.post("/api/folders")
