@@ -2758,7 +2758,7 @@ dependencies = [
 
 [[package]]
 name = "pizarra-shell"
-version = "0.1.0"
+version = "0.8.0"
 dependencies = [
  "serde_json",
  "tauri",

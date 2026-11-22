@@ -1,7 +1,7 @@
 # Contributing to BoardPrint
 
-Thanks for your interest. Issues and pull requests are welcome. Before a large change, open an
-issue to discuss it: it saves work on both sides.
+> **BoardPrint is no longer maintained** and the repository is archived: issues and pull
+> requests are not accepted. These notes stay for anyone who forks it.
 
 ## Sign your commits (DCO)
 

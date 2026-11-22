@@ -7,9 +7,11 @@ un paquete que conecte con tu CAD, los resultados van allí como modelos paramé
 
 *[English](README.md)*
 
-> **Estado: versión preliminar (v0.1.0).** Funciona de punta a punta en Windows. La app llega
-> sin paquetes: los que necesites los haces con el SDK, o se los pides al agente. Habrá
-> asperezas y cambios incompatibles antes de la 1.0.
+> **Estado: versión final (v0.8.0), sin mantenimiento.** BoardPrint se desarrolló hasta el 22
+> de noviembre de 2026 y el repositorio está archivado: no se contestan issues ni pull requests.
+> Funciona de punta a punta en Windows. La app llega sin paquetes: los que necesites los haces
+> con el SDK, o se los pides al agente. El código es Apache-2.0: haz un fork y continúalo
+> ([más abajo](#seguir-con-el-proyecto)).
 
 ## Qué hace
 
@@ -41,7 +43,9 @@ Descarga el instalador desde [Releases](https://github.com/boardprint-app/BoardP
 - **Windows 10/11:** `BoardPrint_x.y.z_x64-setup.exe` (por usuario, sin permisos de
   administrador). El instalador aún no está firmado, así que SmartScreen te avisará: *Más
   información → Ejecutar de todas formas*.
-- **macOS:** `.dmg` (menos probado).
+- **macOS (Apple Silicon):** `.dmg` (menos probado). No está notarizado, así que macOS lo
+  bloquea la primera vez: permítelo en *Ajustes del Sistema → Privacidad y seguridad → Abrir
+  igualmente*.
 
 La app llega sin paquetes, así que la pizarra empieza sin bloques: mira
 [Haz tu propio paquete](#haz-tu-propio-paquete).
@@ -100,12 +104,26 @@ agente que te haga uno.
 
 Los nombres internos (`pizarra`, `pizarra_engine`), los comentarios y los docstrings están en
 español: el proyecto empezó como herramienta personal (CAD-LLM). La interfaz pública, el
-README en inglés y la documentación para colaboradores están en inglés.
+README en inglés y la documentación para colaboradores están en inglés. Los comentarios citan
+además documentos de diseño internos (`PLAN_*.md`, números de decisión como D61 o P30) que no
+están en este repositorio.
 
-## Colaborar
+## Seguir con el proyecto
 
-Se aceptan issues y pull requests. Mira [`CONTRIBUTING.md`](CONTRIBUTING.md) (en inglés). Los
-commits tienen que llevar la firma de conformidad ([DCO](https://developercertificate.org)).
+BoardPrint ya no se mantiene, así que el repositorio está archivado (solo lectura). Para
+seguir desarrollándolo, haz un fork: la licencia Apache-2.0 te deja usarlo, modificarlo y
+redistribuirlo, también con fines comerciales, conservando sus avisos. Un paquete no necesita
+ningún fork. Ideas que quedaron abiertas:
+
+- **SharePoint: guardar y búsqueda del agente.** Traer archivos de SharePoint ya está, pero
+  nunca se probó con una cuenta de empresa real. Faltan guardar en SharePoint y buscar en él
+  desde el agente.
+- **Un paquete para CATIA.** Un paquete puede declarar un conector (`pack.connector`) y
+  manejar CATIA por su API COM con `pywin32` (solo Windows).
+- **Firma de código** del instalador de Windows, y notarización en macOS.
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) (en inglés) tiene las reglas del proyecto y cómo ejecutar
+los tests.
 
 ## Licencia
 

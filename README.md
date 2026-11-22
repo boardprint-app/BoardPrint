@@ -7,9 +7,11 @@ pack that connects to your CAD, results go there as parametric models.
 
 *[Español](README.es.md)*
 
-> **Status: early preview (v0.1.0).** It works end to end on Windows. The app ships without
-> packs: you write the ones you need with the SDK, or ask the agent to. Expect rough edges and
-> breaking changes before 1.0.
+> **Status: final release (v0.8.0), no longer maintained.** BoardPrint was developed until
+> 22 November 2026 and the repository is archived: issues and pull requests are not answered.
+> It works end to end on Windows. The app ships without packs: you write the ones you need with
+> the SDK, or ask the agent to. The code is Apache-2.0: fork it and carry it on
+> ([below](#carrying-it-on)).
 
 ## What it does
 
@@ -38,7 +40,8 @@ Download the installer from [Releases](https://github.com/boardprint-app/BoardPr
 
 - **Windows 10/11:** `BoardPrint_x.y.z_x64-setup.exe` (per-user, no admin rights needed). The
   installer is not code-signed yet, so SmartScreen will warn you: *More info → Run anyway*.
-- **macOS:** `.dmg` (less tested).
+- **macOS (Apple Silicon):** `.dmg` (less tested). It is not notarized, so macOS blocks it the
+  first time: allow it in *System Settings → Privacy & Security → Open Anyway*.
 
 The app comes without packs, so the board starts with no blocks: see
 [Write your own pack](#write-your-own-pack).
@@ -96,12 +99,23 @@ not touch the core, so it can stay private and use any license you like. Start w
 
 Internal names (`pizarra`, `pizarra_engine`), code comments and docstrings are in Spanish: the
 project started as a personal tool (CAD-LLM). The public interface, this README and the contributor
-docs are in English.
+docs are in English. Comments also cite internal design documents (`PLAN_*.md`, decision numbers
+such as D61 or P30) that are not in this repository.
 
-## Contributing
+## Carrying it on
 
-Issues and pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md). Commits must
-be signed off ([DCO](https://developercertificate.org)).
+BoardPrint is no longer maintained, so the repository is archived (read-only). To keep
+developing it, fork it: the Apache-2.0 license lets you use, modify and redistribute it, also
+commercially, keeping its notices. A pack needs no fork at all. Ideas that were left open:
+
+- **SharePoint: save and agent search.** Bringing files from SharePoint is there, but it was
+  never tried with a real work account. Saving to SharePoint and searching it from the agent
+  are missing.
+- **A CATIA pack.** A pack can declare a connector (`pack.connector`) and drive CATIA through
+  its COM API with `pywin32` (Windows only).
+- **Code signing** of the Windows installer, and notarization on macOS.
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) has the project's rules and how to run the tests.
 
 ## License
 
