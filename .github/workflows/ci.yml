@@ -3,7 +3,7 @@
 # Solo corre lo que no necesita Fusion: el calculo y el generador de brazos son Python puro y
 # tienen sus tests (regla 3 del README). Lo que importa `adsk` se valida a mano en Fusion.
 # El motor no tiene dependencias: todo es biblioteca estandar (tomllib necesita 3.11+). El
-# backend solo instala app/backend/requirements-base.txt.
+# backend instala app/backend/requirements.txt, el mismo que lleva la app.
 
 name: CI
 
@@ -52,14 +52,16 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build:packs
 
-      # Reglas de la pizarra (docs/PLAN_PIZARRA.md §10): sin FastAPI ni el agente, solo las
-      # dependencias ligeras de la lógica (TOML y papelera del almacenamiento).
+      # Reglas de la pizarra (docs/PLAN_PIZARRA.md §10) con las dependencias de la app: desde
+      # FF 7.5 y 7.6 la lógica del onboarding importa la API (`workspace_api`, `supply_api`), y
+      # con solo requirements-base.txt esos tests no se podían ni importar (PLAN_PUBLICACION).
+      # Con FastAPI corren también los de las rutas y el servidor, que antes se saltaban.
       - name: Backend de la pizarra
         working-directory: app/backend
         run: |
           # uv: la prueba del entorno de paquetes de verdad, con numpy (PLAN_PAQUETES P96,
           # tests/test_entorno_real.py); sin él se salta.
-          python -m pip install -r requirements-base.txt uv
+          python -m pip install -r requirements.txt uv
           python -m unittest discover -s tests -t . -v
           # Los tests de cada paquete (plan D94), desde su carpeta: pueden abrir una pizarra
           # con el backend (P65). El generador de brazos va con los de robótica

@@ -103,8 +103,14 @@ class LaSesion(unittest.TestCase):
             self.assertEqual(claude_session.parse(0, out)["estado"], "no_comprobada", out)
 
     def test_sin_el_cli_sale_no_comprobada(self):
-        r = claude_session.status(str(Path(tempfile.gettempdir()) / "no-existe-claude"),
-                                  run=lambda *a, **k: (_ for _ in ()).throw(OSError("no está")))
+        # Un CLI que se encuentra pero no se puede lanzar. `find_cli` se fija: con una ruta que
+        # no existe buscaría `claude` en el PATH, y en el CI no lo hay (saldría `sin_cli`).
+        orig = claude_session.find_cli
+        claude_session.find_cli = lambda cli=None: str(Path(tempfile.gettempdir()) / "no-existe-claude")
+        try:
+            r = claude_session.status(None, run=lambda *a, **k: (_ for _ in ()).throw(OSError("no está")))
+        finally:
+            claude_session.find_cli = orig
         self.assertEqual(r["estado"], "no_comprobada")
 
     def test_sin_claude_code_instalado_sale_sin_cli_nunca_conectada(self):
